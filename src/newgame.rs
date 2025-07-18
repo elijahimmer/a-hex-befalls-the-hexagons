@@ -71,7 +71,6 @@ impl HexagonBounds {
     }
 }
 
-
 #[derive(Component, Reflect)]
 #[reflect(Component)]
 pub struct RoomTile;
@@ -91,8 +90,6 @@ struct Player {
 
 #[derive(Component, Reflect)]
 struct IsSelected;
-
-
 
 fn spawn_room(mut commands: Commands, asset_server: Res<AssetServer>, mut rng: ResMut<TileRand>) {
     let texture_handle: Handle<Image> = asset_server.load(TILE_ASSET_LOAD_PATH);
