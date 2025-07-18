@@ -9,7 +9,7 @@ use rand::{Rng, SeedableRng};
 
 pub struct NewGamePlugin;
 
-const ROOM_SIZE: TilemapSize = TilemapSize { x: 11, y: 11 };  // Made changes here
+const ROOM_SIZE: TilemapSize = TilemapSize { x: 11, y: 11 }; // Made changes here
 const ROOM_TILE_LAYER: f32 = 0.0;
 const RADIUS: u32 = 5; //Made changes here
 
@@ -58,12 +58,11 @@ fn spawn_room(mut commands: Commands, asset_server: Res<AssetServer>, mut rng: R
                         texture_index: TileTextureIndex(rng.0.random_range(FLOOR_TILE_VARIENTS)),
                         ..Default::default()
                     },
-                   Pickable::default(),
+                    Pickable::default(),
                 ))
-                 .observe(print_position)
+                .observe(print_position::<Pointer<Click>>())
                 .id();
 
-       
             tile_storage.checked_set(&tile_pos, id);
         }
     });
@@ -84,14 +83,22 @@ fn spawn_room(mut commands: Commands, asset_server: Res<AssetServer>, mut rng: R
     ));
 }
 
-fn print_position(
-    trigger: Trigger<Pointer<Click>>,
-    tile_query: Query<&TilePos>,
-) {
-    let entity = trigger.target();
-    if let Ok(tile_pos) = tile_query.get(entity) {
-        println!("Tile Entity: {:?}, Position: {:?}, Event: {:?}", entity, tile_pos, trigger.event());
-    } else {
-        println!("Tile Entity: {:?}, Position: Not found, Event: {:?}", entity, trigger.event());
+fn print_position<E: Debug + Clone + Reflect>() -> impl Fn(Trigger<E>, Query<&TilePos>) {
+    move |ev, tile_query| {
+        let entity = ev.target();
+        if let Ok(tile_pos) = tile_query.get(entity) {
+            println!(
+                "Tile Entity: {:?}, Position: {:?}, Event: {:?}",
+                entity,
+                tile_pos,
+                ev.event()
+            );
+        } else {
+            println!(
+                "Tile Entity: {:?}, Position: Not found, Event: {:?}",
+                entity,
+                ev.event()
+            );
+        }
     }
 }

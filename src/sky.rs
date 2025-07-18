@@ -72,6 +72,7 @@ fn spawn_sky(mut commands: Commands, asset_server: Res<AssetServer>, mut rng: Re
                             texture_index: TileTextureIndex(rng.0.random_range(SKY_TILE_VARIENTS)),
                             ..Default::default()
                         },
+                        Pickable::IGNORE,
                     ))
                     .id();
                 tile_storage.set(&tile_pos, id);
