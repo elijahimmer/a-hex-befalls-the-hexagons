@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use crate::prelude::*;
 use bevy::prelude::*;
 use bevy_ecs_tilemap::helpers::hex_grid::axial::AxialPos;
@@ -7,9 +9,9 @@ use rand::{Rng, SeedableRng};
 
 pub struct NewGamePlugin;
 
-const ROOM_SIZE: TilemapSize = TilemapSize { x: 21, y: 21 };
+const ROOM_SIZE: TilemapSize = TilemapSize { x: 11, y: 11 };  // Made changes here
 const ROOM_TILE_LAYER: f32 = 0.0;
-const RADIUS: u32 = 10;
+const RADIUS: u32 = 5; //Made changes here
 
 impl Plugin for NewGamePlugin {
     fn build(&self, app: &mut App) {
@@ -35,7 +37,7 @@ fn spawn_room(mut commands: Commands, asset_server: Res<AssetServer>, mut rng: R
     let tilemap_entity = commands.spawn_empty().id();
     let mut tile_storage = TileStorage::empty(ROOM_SIZE);
 
-    let origin = TilePos { x: 10, y: 10 };
+    let origin = TilePos { x: 5, y: 5 }; // Made changes here
 
     let tile_positions = generate_hexagon(
         AxialPos::from_tile_pos_given_coord_system(&origin, HEX_COORD_SYSTEM),
@@ -56,8 +58,12 @@ fn spawn_room(mut commands: Commands, asset_server: Res<AssetServer>, mut rng: R
                         texture_index: TileTextureIndex(rng.0.random_range(FLOOR_TILE_VARIENTS)),
                         ..Default::default()
                     },
+                   Pickable::default(),
                 ))
+                 .observe(print_position)
                 .id();
+
+       
             tile_storage.checked_set(&tile_pos, id);
         }
     });
@@ -76,4 +82,16 @@ fn spawn_room(mut commands: Commands, asset_server: Res<AssetServer>, mut rng: R
             ..Default::default()
         },
     ));
+}
+
+fn print_position(
+    trigger: Trigger<Pointer<Click>>,
+    tile_query: Query<&TilePos>,
+) {
+    let entity = trigger.target();
+    if let Ok(tile_pos) = tile_query.get(entity) {
+        println!("Tile Entity: {:?}, Position: {:?}, Event: {:?}", entity, tile_pos, trigger.event());
+    } else {
+        println!("Tile Entity: {:?}, Position: Not found, Event: {:?}", entity, trigger.event());
+    }
 }
