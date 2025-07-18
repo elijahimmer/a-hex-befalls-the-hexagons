@@ -88,9 +88,10 @@ fn print_position<E: Debug + Clone + Reflect>() -> impl Fn(Trigger<E>, Query<&Ti
         let entity = ev.target();
         if let Ok(tile_pos) = tile_query.get(entity) {
             println!(
-                "Tile Entity: {:?}, Position: {:?}, Event: {:?}",
+                "Tile Entity: {:?}, Position: {}{}, event: {:?}",
                 entity,
-                tile_pos,
+                tile_pos.x,
+                tile_pos.y,
                 ev.event()
             );
         } else {
