@@ -83,10 +83,12 @@ fn spawn_room(mut commands: Commands, asset_server: Res<AssetServer>, mut rng: R
     ));
 }
 
+
 fn print_position<E: Debug + Clone + Reflect>() -> impl Fn(Trigger<E>, Query<&TilePos>) {
     move |ev, tile_query| {
+        println!("Clicked");
         let entity = ev.target();
-        if let Ok(tile_pos) = tile_query.get(entity) {
+        let tile_pos = tile_query.get(entity).unwrap();
             println!(
                 "Tile Entity: {:?}, Position: {}{}, event: {:?}",
                 entity,
@@ -94,12 +96,5 @@ fn print_position<E: Debug + Clone + Reflect>() -> impl Fn(Trigger<E>, Query<&Ti
                 tile_pos.y,
                 ev.event()
             );
-        } else {
-            println!(
-                "Tile Entity: {:?}, Position: Not found, Event: {:?}",
-                entity,
-                ev.event()
-            );
-        }
     }
 }
