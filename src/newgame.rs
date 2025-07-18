@@ -13,10 +13,15 @@ const ROOM_SIZE: TilemapSize = TilemapSize { x: 11, y: 11 }; // Made changes her
 const ROOM_TILE_LAYER: f32 = 0.0;
 const RADIUS: u32 = 5; //Made changes here
 
+const SQUARE_LAYER: f32 = 1.0;
+const SQUARE_SIZE: f32 = 20.0;
+
 impl Plugin for NewGamePlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(TileRand(RandomSource::from_os_rng()))
-            .add_systems(OnEnter(GameState::Game), spawn_room);
+            .add_systems(OnEnter(GameState::Game), (spawn_room, spawn_square).chain())
+            .insert_resource(MyWorldCoords::default())
+            .add_systems(Update, (move_to_target, get_tile_pos));
     }
 }
 
@@ -27,6 +32,23 @@ pub struct RoomTile;
 #[derive(Component, Reflect)]
 #[reflect(Component)]
 pub struct RoomTileMap;
+
+//////////////////////////////
+#[derive(Component, Reflect)]
+#[reflect(Component)]
+pub struct CenterSquare;
+
+#[derive(Component)]
+struct Player {
+    player_speed: f32,
+}
+#[derive(Resource, Default)]
+struct MyWorldCoords(Vec2);
+
+#[derive(Component)]
+struct IsSelected;
+
+///////////////////////
 
 #[derive(Resource)]
 struct TileRand(pub RandomSource);
@@ -58,9 +80,10 @@ fn spawn_room(mut commands: Commands, asset_server: Res<AssetServer>, mut rng: R
                         texture_index: TileTextureIndex(rng.0.random_range(FLOOR_TILE_VARIENTS)),
                         ..Default::default()
                     },
-                    Pickable::default(),
+                    //Pickable::default(),
+                    Pickable::IGNORE,
                 ))
-                .observe(print_position::<Pointer<Click>>())
+                //.observe(print_position::<Pointer<Click>>())
                 .id();
 
             tile_storage.checked_set(&tile_pos, id);
@@ -80,21 +103,84 @@ fn spawn_room(mut commands: Commands, asset_server: Res<AssetServer>, mut rng: R
             transform: Transform::from_xyz(0., 0., ROOM_TILE_LAYER),
             ..Default::default()
         },
+        Pickable::IGNORE,
     ));
 }
 
+fn spawn_square(mut commands: Commands) {
+    let center_tile_pos = TilePos { x: 5, y: 5 };
 
-fn print_position<E: Debug + Clone + Reflect>() -> impl Fn(Trigger<E>, Query<&TilePos>) {
-    move |ev, tile_query| {
-        println!("Clicked");
-        let entity = ev.target();
-        let tile_pos = tile_query.get(entity).unwrap();
-            println!(
-                "Tile Entity: {:?}, Position: {}{}, event: {:?}",
-                entity,
-                tile_pos.x,
-                tile_pos.y,
-                ev.event()
-            );
+    let world_pos = center_tile_pos.center_in_world(
+        &ROOM_SIZE,
+        &TilemapGridSize {
+            x: TILE_SIZE.x,
+            y: TILE_SIZE.y,
+        },
+        &TILE_SIZE,
+        &TilemapType::Hexagon(HexCoordSystem::Row),
+        &TilemapAnchor::Center,
+    );
+
+    commands
+        .spawn((
+            CenterSquare,
+            Sprite {
+                color: Color::BLACK,
+                custom_size: Some(Vec2::splat(SQUARE_SIZE)),
+                ..Default::default()
+            },
+            Transform::from_xyz(world_pos.x, world_pos.y, SQUARE_LAYER),
+            Pickable::default(),
+            Player {
+                player_speed: 300.0,
+            },
+        ))
+        .observe(recolor_on::<Pointer<Over>>(Color::srgb(0.0, 0.8, 0.2)))
+        .observe(recolor_on::<Pointer<Out>>(Color::srgb(1.0, 1.0, 0.0)))
+        .observe(select_player::<Pointer<Click>>());
+}
+
+fn recolor_on<E: Debug + Clone + Reflect>(color: Color) -> impl Fn(Trigger<E>, Query<&mut Sprite>) {
+    move |ev, mut sprites| {
+        let Ok(mut sprite) = sprites.get_mut(ev.target()) else {
+            return;
+        };
+        sprite.color = color;
     }
 }
+
+fn select_player<E: Debug + Clone + Reflect>()
+-> impl Fn(Trigger<E>, Commands, Query<Option<&IsSelected>, With<Player>>) {
+    move |ev, mut commands, query_player| {
+        if let Ok(is_selected) = query_player.get(ev.target()) {
+            match is_selected {
+                Some(_) => {
+                    commands.entity(ev.target()).remove::<IsSelected>();
+                    println!("unselected");
+                }
+                None => {
+                    commands.entity(ev.target()).insert(IsSelected);
+                    println!("selected")
+                }
+            }
+        }
+    }
+}
+
+fn move_to_target(
+    mycoords: Res<MyWorldCoords>,
+    mut query_player: Query<(&mut Transform, &Player), With<IsSelected>>,
+    time: Res<Time>,
+) {
+    for (mut transform, player) in query_player.iter_mut() {
+        let direction = mycoords.0 - transform.translation.xy();
+        let distance = direction.length();
+
+        let move_player = direction.normalize_or_zero()
+            * player.player_speed.clamp(0.0, distance)
+            * time.delta_secs();
+        transform.translation += move_player.extend(0.0);
+    }
+}
+
+fn get_tile_pos() {}
