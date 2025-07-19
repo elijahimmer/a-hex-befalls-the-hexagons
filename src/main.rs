@@ -12,6 +12,7 @@ mod util;
 pub mod prelude {
     use bevy::prelude::States;
 
+    #[cfg(feature = "debug")]
     pub use bevy::dev_tools::states::log_transitions;
     pub type RandomSource = wyrand::WyRand;
 
@@ -25,6 +26,11 @@ pub mod prelude {
 
     pub use crate::consts::*;
 
+    pub use crate::camera::{
+        CAMERA_DEFAULT_MOVE_AREA, CAMERA_DEFAULT_MOVE_SPEED, CAMERA_DEFAULT_SCALE,
+        CAMERA_DEFAULT_ZOOM_LIMIT, CAMERA_DEFAULT_ZOOM_SPEED, CameraMovementSettings, MainCamera,
+        MainCameraMarker,
+    };
     pub use crate::controls::{Control, ControlState, Controls, Keybind};
     pub use crate::database::{Database, DatabaseError, FromDatabase, ToDatabase};
     pub use crate::style::{Icons, Style};
@@ -86,8 +92,9 @@ fn main() {
     // foreign plugins
     app.add_plugins(TilemapPlugin);
     // State
-    app.add_systems(Update, log_transitions::<GameState>)
-        .init_state::<GameState>();
+    #[cfg(feature = "debug")]
+    app.add_systems(Update, log_transitions::<GameState>);
+    app.init_state::<GameState>();
     // Local Plugins
     app.add_plugins(DatabasePlugin);
 

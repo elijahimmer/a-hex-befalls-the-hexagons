@@ -22,34 +22,35 @@ pub struct MenuControlsPlugin;
 
 impl Plugin for MenuControlsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_sub_state::<ControlsState>()
-            .add_systems(Update, log_transitions::<ControlsState>)
-            .add_systems(
-                OnEnter(MenuState::Controls),
-                (controls_enter, init_resource::<ControlsWIP>),
+        app.add_sub_state::<ControlsState>();
+        #[cfg(feature = "debug")]
+        app.add_systems(Update, log_transitions::<ControlsState>);
+        app.add_systems(
+            OnEnter(MenuState::Controls),
+            (controls_enter, init_resource::<ControlsWIP>),
+        )
+        .add_systems(OnExit(MenuState::Controls), remove_resource::<ControlsWIP>)
+        .add_systems(
+            Update,
+            (
+                controls_changed.run_if(resource_exists_and_changed::<ControlsWIP>),
+                escape_out,
             )
-            .add_systems(OnExit(MenuState::Controls), remove_resource::<ControlsWIP>)
-            .add_systems(
-                Update,
-                (
-                    controls_changed.run_if(resource_exists_and_changed::<ControlsWIP>),
-                    escape_out,
-                )
-                    .run_if(in_state(MenuState::Controls)),
-            )
-            .add_systems(OnEnter(ControlsState::Prompt), control_prompt_enter)
-            .add_systems(
-                OnExit(ControlsState::Prompt),
-                remove_resource::<PromptTarget>,
-            )
-            .add_systems(
-                Update,
-                assign_key_input.run_if(in_state(ControlsState::Prompt)),
-            )
-            .add_systems(
-                OnEnter(ControlsState::SaveWarning),
-                control_save_warning_enter,
-            );
+                .run_if(in_state(MenuState::Controls)),
+        )
+        .add_systems(OnEnter(ControlsState::Prompt), control_prompt_enter)
+        .add_systems(
+            OnExit(ControlsState::Prompt),
+            remove_resource::<PromptTarget>,
+        )
+        .add_systems(
+            Update,
+            assign_key_input.run_if(in_state(ControlsState::Prompt)),
+        )
+        .add_systems(
+            OnEnter(ControlsState::SaveWarning),
+            control_save_warning_enter,
+        );
     }
 }
 

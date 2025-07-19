@@ -16,9 +16,10 @@ pub struct MenuPlugin;
 impl Plugin for MenuPlugin {
     fn build(&self, app: &mut App) {
         embed_asset!(app, "assets/sprites/title.png");
-        app.add_sub_state::<MenuState>()
-            .add_systems(Update, log_transitions::<MenuState>)
-            .add_plugins(MenuControlsPlugin)
+        app.add_sub_state::<MenuState>();
+        #[cfg(feature = "debug")]
+        app.add_systems(Update, log_transitions::<MenuState>);
+        app.add_plugins(MenuControlsPlugin)
             .add_plugins(MenuNewGamePlugin)
             .add_systems(Update, button_highlight.run_if(in_state(GameState::Menu)))
             .add_systems(Update, escape_out.run_if(in_state(GameState::Menu)))
