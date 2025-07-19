@@ -1,13 +1,14 @@
 //! TODO: Make the UI hexagon based.
+//! TODO: Implement title screen and pausing separately.
 mod controls;
+mod new_game;
 
 use crate::embed_asset;
 use crate::prelude::*;
-use controls::*;
-
-use bevy::{input::mouse::MouseScrollUnit, prelude::*};
-
 use accesskit::{Node as Accessible, Role};
+use bevy::{input::mouse::MouseScrollUnit, prelude::*};
+use controls::*;
+use new_game::*;
 
 const TITLE_IMAGE_PATH: &str = "embedded://assets/sprites/title.png";
 
@@ -17,18 +18,15 @@ impl Plugin for MenuPlugin {
     fn build(&self, app: &mut App) {
         embed_asset!(app, "assets/sprites/title.png");
         app.add_sub_state::<MenuState>()
-            .add_systems(Update, (button_highlight).run_if(in_state(GameState::Menu)))
-            .add_systems(
-                Update,
-                escape_out
-                    .run_if(in_state(GameState::Menu).and(not(in_state(MenuState::Controls)))),
-            )
-            .add_systems(OnEnter(GameState::Menu), menu_screen_enter)
+            .add_systems(Update, log_transitions::<MenuState>)
+            .add_plugins(MenuControlsPlugin)
+            .add_plugins(MenuNewGamePlugin)
+            .add_systems(Update, button_highlight.run_if(in_state(GameState::Menu)))
+            .add_systems(Update, escape_out.run_if(in_state(GameState::Menu)))
             .add_systems(OnEnter(MenuState::Main), main_enter)
             .add_systems(OnEnter(MenuState::Settings), settings_enter)
             .add_systems(OnEnter(MenuState::Display), display_enter)
-            .add_systems(OnEnter(MenuState::Sound), sound_enter)
-            .add_plugins(MenuControlsPlugin);
+            .add_systems(OnEnter(MenuState::Sound), sound_enter);
     }
 }
 
@@ -37,12 +35,12 @@ impl Plugin for MenuPlugin {
 #[states(scoped_entities)]
 pub enum MenuState {
     #[default]
-    Disabled,
     Main,
     Settings,
     Display,
     Sound,
     Controls,
+    NewGame,
 }
 
 #[derive(Resource)]
@@ -53,22 +51,18 @@ struct PromptTarget(Control, usize);
 /// The node will need to be observed by `menu_button_action` for this to take effect.
 #[derive(Component)]
 enum MenuButtonAction {
-    Play,
     MainMenu,
     Settings,
     Controls,
     Display,
     Sound,
+    NewGame,
     Quit,
 }
 
 /// Tag component used to mark which setting is currently selected
 #[derive(Component)]
 struct SelectedOption;
-
-fn menu_screen_enter(mut menu_state: ResMut<NextState<MenuState>>) {
-    menu_state.set(MenuState::Main);
-}
 
 fn escape_out(
     menu_state: Res<State<MenuState>>,
@@ -78,11 +72,14 @@ fn escape_out(
     if key.just_pressed(Control::Pause) {
         use MenuState as M;
         match *menu_state.get() {
-            // TODO: Implement title screen and pausing separately.
-            M::Disabled | M::Main => {}
+            M::Main
+                // they implement it themselves
+                | M::NewGame
+                |M::Controls=> {}
+
+
             M::Settings => next_state.set(MenuState::Main),
             M::Sound | M::Display => next_state.set(MenuState::Settings),
-            M::Controls => unreachable!(),
         }
     }
 }
@@ -110,7 +107,6 @@ fn menu_button_click(
     mut click: Trigger<Pointer<Click>>,
     mut app_exit_events: EventWriter<AppExit>,
     mut menu_state: ResMut<NextState<MenuState>>,
-    mut game_state: ResMut<NextState<GameState>>,
     target_query: Query<&MenuButtonAction>,
 ) {
     if click.button == PointerButton::Primary {
@@ -121,10 +117,7 @@ fn menu_button_click(
             MenuButtonAction::Quit => {
                 app_exit_events.write(AppExit::Success);
             }
-            MenuButtonAction::Play => {
-                menu_state.set(MenuState::Disabled);
-                game_state.set(GameState::Game);
-            }
+            MenuButtonAction::NewGame => menu_state.set(MenuState::NewGame),
             MenuButtonAction::Settings => menu_state.set(MenuState::Settings),
             MenuButtonAction::Controls => menu_state.set(MenuState::Controls),
             MenuButtonAction::Display => menu_state.set(MenuState::Display),
@@ -187,7 +180,7 @@ fn main_enter(mut commands: Commands, style: Res<Style>, asset_server: Res<Asset
                             Button,
                             button_node.clone(),
                             BackgroundColor(style.button_color),
-                            MenuButtonAction::Play,
+                            MenuButtonAction::NewGame,
                             children![
                                 //(ImageNode::new(right_icon), button_icon_node.clone()),
                                 (

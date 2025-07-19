@@ -11,6 +11,8 @@ mod util;
 
 pub mod prelude {
     use bevy::prelude::States;
+
+    pub use bevy::dev_tools::states::log_transitions;
     pub type RandomSource = wyrand::WyRand;
 
     #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
@@ -84,7 +86,8 @@ fn main() {
     // foreign plugins
     app.add_plugins(TilemapPlugin);
     // State
-    app.init_state::<GameState>();
+    app.add_systems(Update, log_transitions::<GameState>)
+        .init_state::<GameState>();
     // Local Plugins
     app.add_plugins(DatabasePlugin);
 

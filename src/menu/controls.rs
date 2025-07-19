@@ -21,6 +21,7 @@ pub struct MenuControlsPlugin;
 impl Plugin for MenuControlsPlugin {
     fn build(&self, app: &mut App) {
         app.add_sub_state::<ControlsState>()
+            .add_systems(Update, log_transitions::<ControlsState>)
             .add_systems(
                 OnEnter(MenuState::Controls),
                 (controls_enter, init_resource::<ControlsWIP>),
