@@ -6,7 +6,6 @@ mod menu;
 mod newgame;
 mod sky;
 mod style;
-mod util;
 mod tiles;
 mod util;
 

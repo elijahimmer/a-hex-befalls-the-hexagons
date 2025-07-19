@@ -57,6 +57,7 @@ pub enum Collapsed {
     LBlue,
     DBlue,
 }
+
 fn spawn_room(mut commands: Commands, asset_server: Res<AssetServer>, mut rng: ResMut<TileRand>) {
     let texture_handle: Handle<Image> = asset_server.load(TILE_ASSET_LOAD_PATH);
 
@@ -75,7 +76,6 @@ fn spawn_room(mut commands: Commands, asset_server: Res<AssetServer>, mut rng: R
 
     commands.entity(tilemap_entity).with_children(|parent| {
         for tile_pos in tile_positions {
-
             let id = parent
                 .spawn((
                     RoomTile,
@@ -119,10 +119,7 @@ fn spawn_room(mut commands: Commands, asset_server: Res<AssetServer>, mut rng: R
     ));
 }
 
-fn change_tile(
-    mut commands: Commands,
-    tilestorage_q: Query<&mut TileStorage, With<RoomTileMap>>,
-) {
+fn change_tile(mut commands: Commands, tilestorage_q: Query<&mut TileStorage, With<RoomTileMap>>) {
     let origin = TilePos { x: 10, y: 10 };
 
     for tile_storage in &tilestorage_q {
