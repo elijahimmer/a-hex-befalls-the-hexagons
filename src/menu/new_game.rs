@@ -58,7 +58,7 @@ fn new_game_menu_click(
         use PointerButton as P;
         match (click.button, action) {
             (P::Primary, A::Back) => {
-                commands.set_state(MenuState::Settings);
+                commands.set_state(MenuState::Main);
             }
             (_, A::Back) => {}
 
