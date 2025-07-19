@@ -1,6 +1,7 @@
 //! TODO: Make the UI hexagon based.
 mod controls;
 
+use crate::embed_asset;
 use crate::prelude::*;
 use controls::*;
 
@@ -8,10 +9,13 @@ use bevy::{input::mouse::MouseScrollUnit, prelude::*};
 
 use accesskit::{Node as Accessible, Role};
 
+const TITLE_IMAGE_PATH: &str = "embedded://assets/sprites/title.png";
+
 pub struct MenuPlugin;
 
 impl Plugin for MenuPlugin {
     fn build(&self, app: &mut App) {
+        embed_asset!(app, "assets/sprites/title.png");
         app.init_state::<MenuState>()
             .add_systems(Update, (button_highlight).run_if(in_state(GameState::Menu)))
             .add_systems(
@@ -146,7 +150,7 @@ fn menu_button_click(
     click.propagate(false);
 }
 
-fn main_enter(mut commands: Commands, style: Res<Style>) {
+fn main_enter(mut commands: Commands, style: Res<Style>, asset_server: Res<AssetServer>) {
     // Common style for all buttons on the screen
     let button_node = Node {
         width: Val::Px(300.0),
@@ -179,9 +183,10 @@ fn main_enter(mut commands: Commands, style: Res<Style>) {
                 .with_children(|builder| {
                     // Display the game name
                     builder.spawn((
-                        Text::new("A Hex Befalls\nThe Hexagons"),
-                        style.font(67.0),
-                        TextColor(style.title_color),
+                        ImageNode {
+                            image: asset_server.load(TITLE_IMAGE_PATH),
+                            ..default()
+                        },
                         Node {
                             margin: UiRect::all(Val::Px(50.0)),
                             ..default()
