@@ -1,5 +1,7 @@
-use super::*;
+use super::{MenuButtonAction, MenuState, menu_button_click, update_scroll_position_event};
 use crate::prelude::*;
+
+use accesskit::{Node as Accessible, Role};
 
 use bevy::{
     a11y::AccessibilityNode,
@@ -60,6 +62,9 @@ pub enum ControlsState {
     Prompt,
     SaveWarning,
 }
+
+#[derive(Resource)]
+struct PromptTarget(Control, usize);
 
 #[derive(Component, Clone, Debug)]
 pub enum ControlsButtonAction {

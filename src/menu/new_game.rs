@@ -1,4 +1,4 @@
-use super::*;
+use super::MenuState;
 use crate::prelude::*;
 
 use bevy::{prelude::*, ui::FocusPolicy};

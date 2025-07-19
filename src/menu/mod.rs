@@ -5,7 +5,6 @@ mod new_game;
 
 use crate::embed_asset;
 use crate::prelude::*;
-use accesskit::{Node as Accessible, Role};
 use bevy::{input::mouse::MouseScrollUnit, prelude::*};
 use controls::*;
 use new_game::*;
@@ -42,9 +41,6 @@ pub enum MenuState {
     Controls,
     NewGame,
 }
-
-#[derive(Resource)]
-struct PromptTarget(Control, usize);
 
 /// Specifies the action that should be taken the button it is on is clicked.
 ///
@@ -379,9 +375,9 @@ fn sound_enter(mut commands: Commands, style: Res<Style> /*volume: Res<Volume>*/
         });
 }
 
-const CONTROLS_LINE_HEIGHT: f32 = 65.0;
+const LINE_HEIGHT: f32 = 65.0;
 
-fn update_scroll_position_event(
+pub fn update_scroll_position_event(
     mut trigger: Trigger<Pointer<Scroll>>,
     mut scrolled_node_query: Query<&mut ScrollPosition>,
 ) {
@@ -391,7 +387,7 @@ fn update_scroll_position_event(
 
     let event = trigger.event();
     let dy = match event.unit {
-        MouseScrollUnit::Line => event.y * CONTROLS_LINE_HEIGHT,
+        MouseScrollUnit::Line => event.y * LINE_HEIGHT,
         MouseScrollUnit::Pixel => event.y,
     };
 
