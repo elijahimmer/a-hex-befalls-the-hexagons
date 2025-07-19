@@ -8,6 +8,7 @@ mod sky;
 mod style;
 mod util;
 mod tiles;
+mod util;
 
 pub mod prelude {
     use bevy::prelude::States;

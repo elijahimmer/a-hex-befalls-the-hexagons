@@ -4,7 +4,7 @@ use bevy_ecs_tilemap::prelude::*;
 #[derive(Component)]
 pub struct TileLabel;
 
-pub fn spawn_tile_labels<T: Component,U: Component>(
+pub fn spawn_tile_labels<T: Component, U: Component>(
     mut commands: Commands,
     tilemap_q: Query<
         (
@@ -30,20 +30,17 @@ pub fn spawn_tile_labels<T: Component,U: Component>(
                 .extend(1.0);
             let transform = *map_transform * Transform::from_translation(tile_center);
 
-            commands
-                .spawn((
-                    Text2d::new(format!("{},{}", tile_pos.x, tile_pos.y)),
-                    TextFont {
-                        font_size: 14.0,
-                        ..default()
-                    },
-                    TextColor(Color::BLACK),
-                    TextLayout::new_with_justify(JustifyText::Center),
-                    transform,
-                ));
-            commands
-                .entity(*tile_entity)
-                .insert(TileLabel);
+            commands.spawn((
+                Text2d::new(format!("{},{}", tile_pos.x, tile_pos.y)),
+                TextFont {
+                    font_size: 14.0,
+                    ..default()
+                },
+                TextColor(Color::BLACK),
+                TextLayout::new_with_justify(JustifyText::Center),
+                transform,
+            ));
+            commands.entity(*tile_entity).insert(TileLabel);
         }
     }
 }
