@@ -3,7 +3,6 @@ use crate::prelude::*;
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 use rand::{Rng, SeedableRng};
-//use crate::tiles::spawn_tile_labels;
 
 const SKY_MAP_SIZE: TilemapSize = TilemapSize { x: 100, y: 100 };
 const SKY_TILE_SIZE_LOOP_THRESHOLD: Vec2 = Vec2 {
@@ -33,10 +32,14 @@ impl Plugin for SkyPlugin {
 #[reflect(Component)]
 pub struct SkyTile;
 
+#[derive(Resource, Reflect)]
+#[reflect(Resource)]
+pub struct SkyTileMap(Entity);
+
 /// A marker to mark the Sky TileMap
 #[derive(Component, Reflect)]
 #[reflect(Component)]
-pub struct SkyTileMap;
+pub struct SkyTileMapMarker;
 
 #[derive(Resource)]
 struct SkyRand(pub RandomSource);
@@ -53,6 +56,7 @@ fn spawn_sky(mut commands: Commands, asset_server: Res<AssetServer>, mut rng: Re
     let texture_handle: Handle<Image> = asset_server.load(TILE_ASSET_LOAD_PATH);
 
     let tilemap_entity = commands.spawn_empty().id();
+    commands.insert_resource(SkyTileMap(tilemap_entity));
     let mut tile_storage = TileStorage::empty(SKY_MAP_SIZE);
 
     commands.entity(tilemap_entity).with_children(|parent| {
@@ -76,7 +80,7 @@ fn spawn_sky(mut commands: Commands, asset_server: Res<AssetServer>, mut rng: Re
     });
 
     commands.entity(tilemap_entity).insert((
-        SkyTileMap,
+        SkyTileMapMarker,
         TilemapBundle {
             grid_size: TILE_SIZE.into(),
             map_type: TilemapType::Hexagon(HexCoordSystem::Row),
@@ -103,10 +107,13 @@ fn sky_movement(
     time: Res<Time>,
     sky_movement: ResMut<SkySettings>,
     mut rng: ResMut<SkyRand>,
-    tilemap: Single<(&TileStorage, &TilemapSize, &mut Transform), With<SkyTileMap>>,
+    tilemap_id: Res<SkyTileMap>,
+    mut tilemap: Query<(&TileStorage, &TilemapSize, &mut Transform), With<SkyTileMapMarker>>,
     mut tile_query: Query<&mut TileTextureIndex, With<SkyTile>>,
 ) {
-    let (tile_storage, map_size, mut transform) = tilemap.into_inner();
+    let (tile_storage, map_size, mut transform) = tilemap
+        .get_mut(tilemap_id.0)
+        .expect("The sky should exist.");
 
     let map_size: IVec2 = IVec2::new(map_size.x as i32, map_size.y as i32);
 
