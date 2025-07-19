@@ -20,19 +20,12 @@ pub struct MenuControlsPlugin;
 
 impl Plugin for MenuControlsPlugin {
     fn build(&self, app: &mut App) {
-        app.init_state::<ControlsState>()
+        app.add_sub_state::<ControlsState>()
             .add_systems(
                 OnEnter(MenuState::Controls),
                 (controls_enter, init_resource::<ControlsWIP>),
             )
-            .add_systems(
-                OnExit(MenuState::Controls),
-                (
-                    set_state(ControlsState::Main),
-                    despawn_all_with::<OnControls>,
-                    remove_resource::<ControlsWIP>,
-                ),
-            )
+            .add_systems(OnExit(MenuState::Controls), remove_resource::<ControlsWIP>)
             .add_systems(
                 Update,
                 (
@@ -44,10 +37,7 @@ impl Plugin for MenuControlsPlugin {
             .add_systems(OnEnter(ControlsState::Prompt), control_prompt_enter)
             .add_systems(
                 OnExit(ControlsState::Prompt),
-                (
-                    despawn_all_with::<OnPrompt>,
-                    remove_resource::<PromptTarget>,
-                ),
+                remove_resource::<PromptTarget>,
             )
             .add_systems(
                 Update,
@@ -56,30 +46,19 @@ impl Plugin for MenuControlsPlugin {
             .add_systems(
                 OnEnter(ControlsState::SaveWarning),
                 control_save_warning_enter,
-            )
-            .add_systems(
-                OnExit(ControlsState::SaveWarning),
-                despawn_all_with::<OnSaveWarning>,
             );
     }
 }
 
-#[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
+#[derive(SubStates, Clone, Copy, Default, Eq, PartialEq, Debug, Hash)]
+#[source(MenuState = MenuState::Controls)]
+#[states(scoped_entities)]
 pub enum ControlsState {
     #[default]
     Main,
     Prompt,
     SaveWarning,
 }
-
-#[derive(Component)]
-pub struct OnControls;
-
-#[derive(Component)]
-pub struct OnPrompt;
-
-#[derive(Component)]
-pub struct OnSaveWarning;
 
 #[derive(Component, Clone, Debug)]
 pub enum ControlsButtonAction {
@@ -147,7 +126,7 @@ fn controls_enter(mut commands: Commands, style: Res<Style>, controls: Res<Contr
                 justify_content: JustifyContent::Center,
                 ..default()
             },
-            OnControls,
+            StateScoped(MenuState::Controls),
         ))
         .with_children(|builder| {
             builder
@@ -437,7 +416,7 @@ fn control_prompt_enter(mut commands: Commands, style: Res<Style>) {
             ..default()
         },
         FocusPolicy::Block,
-        OnPrompt,
+        StateScoped(ControlsState::Prompt),
         BackgroundColor(style.background_color.with_alpha(1.0)),
         ZIndex(2),
         children![(
@@ -573,7 +552,7 @@ fn control_save_warning_enter(mut commands: Commands, style: Res<Style>) {
                 ..default()
             },
             FocusPolicy::Block,
-            OnSaveWarning,
+            StateScoped(ControlsState::SaveWarning),
             BackgroundColor(style.background_color.with_alpha(1.0)),
             ZIndex(2),
         ))

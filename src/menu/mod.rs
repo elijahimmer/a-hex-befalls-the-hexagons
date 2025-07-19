@@ -16,7 +16,7 @@ pub struct MenuPlugin;
 impl Plugin for MenuPlugin {
     fn build(&self, app: &mut App) {
         embed_asset!(app, "assets/sprites/title.png");
-        app.init_state::<MenuState>()
+        app.add_sub_state::<MenuState>()
             .add_systems(Update, (button_highlight).run_if(in_state(GameState::Menu)))
             .add_systems(
                 Update,
@@ -25,19 +25,17 @@ impl Plugin for MenuPlugin {
             )
             .add_systems(OnEnter(GameState::Menu), menu_screen_enter)
             .add_systems(OnEnter(MenuState::Main), main_enter)
-            .add_systems(OnExit(MenuState::Main), despawn_all_with::<OnMenuScreen>)
             .add_systems(OnEnter(MenuState::Settings), settings_enter)
-            .add_systems(OnExit(MenuState::Settings), despawn_all_with::<OnSettings>)
             .add_systems(OnEnter(MenuState::Display), display_enter)
-            .add_systems(OnExit(MenuState::Display), despawn_all_with::<OnDisplay>)
             .add_systems(OnEnter(MenuState::Sound), sound_enter)
-            .add_systems(OnExit(MenuState::Sound), despawn_all_with::<OnSoundScreen>)
             .add_plugins(MenuControlsPlugin);
     }
 }
 
-#[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
-enum MenuState {
+#[derive(SubStates, Clone, Copy, Default, Eq, PartialEq, Debug, Hash)]
+#[source(GameState = GameState::Menu)]
+#[states(scoped_entities)]
+pub enum MenuState {
     #[default]
     Disabled,
     Main,
@@ -49,18 +47,6 @@ enum MenuState {
 
 #[derive(Resource)]
 struct PromptTarget(Control, usize);
-
-#[derive(Component)]
-struct OnMenuScreen;
-
-#[derive(Component)]
-struct OnSettings;
-
-#[derive(Component)]
-struct OnDisplay;
-
-#[derive(Component)]
-struct OnSoundScreen;
 
 /// Specifies the action that should be taken the button it is on is clicked.
 ///
@@ -171,7 +157,7 @@ fn main_enter(mut commands: Commands, style: Res<Style>, asset_server: Res<Asset
                 justify_content: JustifyContent::Center,
                 ..default()
             },
-            OnMenuScreen,
+            StateScoped(MenuState::Main),
         ))
         .with_children(|builder| {
             builder
@@ -272,7 +258,7 @@ fn settings_enter(mut commands: Commands, style: Res<Style>) {
                 justify_content: JustifyContent::Center,
                 ..default()
             },
-            OnSettings,
+            StateScoped(MenuState::Settings),
         ))
         .with_children(|builder| {
             builder
@@ -329,7 +315,7 @@ fn display_enter(mut commands: Commands, style: Res<Style>) {
                 justify_content: JustifyContent::Center,
                 ..default()
             },
-            OnDisplay,
+            StateScoped(MenuState::Display),
         ))
         .with_children(|builder| {
             builder
@@ -377,7 +363,7 @@ fn sound_enter(mut commands: Commands, style: Res<Style> /*volume: Res<Volume>*/
                 justify_content: JustifyContent::Center,
                 ..default()
             },
-            OnSoundScreen,
+            StateScoped(MenuState::Sound),
         ))
         .with_children(|builder| {
             builder
