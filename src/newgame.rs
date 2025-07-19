@@ -1,3 +1,4 @@
+use crate::menu::new_game::NewGameState;
 use crate::prelude::*;
 use bevy::prelude::*;
 
@@ -13,16 +14,18 @@ const ROOM_SIZE: TilemapSize = TilemapSize { x: 21, y: 21 };
 const ROOM_TILE_LAYER: f32 = 0.0;
 const RADIUS: u32 = 10;
 
+const GENERATING_STATE: NewGameState = NewGameState::GeneratingWorld;
+
 impl Plugin for NewGamePlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(TileRand(RandomSource::from_os_rng()))
             .add_systems(
-                OnEnter(GameState::Game),
+                OnEnter(GENERATING_STATE),
                 (spawn_room, change_tile)
                     //spawn_tile_labels::<RoomTileMap, RoomTile>
                     .chain(),
             )
-            .add_systems(Update, update_neighbors.run_if(in_state(GameState::Game)));
+            .add_systems(Update, update_neighbors.run_if(in_state(GENERATING_STATE)));
     }
 }
 

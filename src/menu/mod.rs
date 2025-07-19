@@ -1,7 +1,7 @@
 //! TODO: Make the UI hexagon based.
 //! TODO: Implement title screen and pausing separately.
-mod controls;
-mod new_game;
+pub mod controls;
+pub mod new_game;
 
 use crate::embed_asset;
 use crate::prelude::*;
@@ -35,12 +35,13 @@ impl Plugin for MenuPlugin {
 #[source(GameState = GameState::Menu)]
 #[states(scoped_entities)]
 pub enum MenuState {
-    #[default]
     Main,
     Settings,
     Display,
     Sound,
     Controls,
+    // TODO: Change back to `Main` when merging
+    #[default]
     NewGame,
 }
 

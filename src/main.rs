@@ -18,9 +18,10 @@ pub mod prelude {
 
     #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
     pub enum GameState {
-        #[default]
         InitialLoading,
         Menu,
+        // TODO: Change back to `InitialLoading` when merging
+        #[default]
         Game,
     }
 
