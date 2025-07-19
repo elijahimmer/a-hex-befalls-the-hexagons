@@ -1,7 +1,6 @@
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 
-
 #[derive(Component)]
 pub struct TileLabel;
 

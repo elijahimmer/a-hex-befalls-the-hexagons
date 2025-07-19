@@ -7,7 +7,7 @@ mod newgame;
 mod sky;
 mod style;
 mod util;
-//mod tiles;
+mod tiles;
 
 pub mod prelude {
     use bevy::prelude::States;

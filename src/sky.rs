@@ -1,5 +1,6 @@
 //! The infinite sky implementation
 use crate::prelude::*;
+//use crate::tiles::spawn_tile_labels;
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 use rand::{Rng, SeedableRng};
@@ -22,7 +23,8 @@ impl Plugin for SkyPlugin {
             .register_type::<SkyTileMap>()
             .register_type::<SkySettings>()
             .insert_resource(SkyRand(RandomSource::from_os_rng()))
-            .add_systems(Startup, spawn_sky)
+            .add_systems(
+                Startup,spawn_sky)
             .add_systems(Update, sky_movement);
     }
 }
@@ -170,9 +172,7 @@ fn sky_movement(
                 {
                     Ok(curr_tile_texture) => curr_tile_texture,
                     Err(err) => {
-                        warn!("Failed to find base sky tile at {old_pos} with {err}");
-                        continue;
-                    }
+                        warn!("Failed to find base sky tile at {old_pos} with {err}"); continue; }
                 };
 
                 match tile_query.get_mut(new_tile_entity) {
