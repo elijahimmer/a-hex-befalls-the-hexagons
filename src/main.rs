@@ -3,7 +3,7 @@ mod consts;
 mod controls;
 mod database;
 mod menu;
-mod newgame;
+mod generate_map;
 mod sky;
 mod style;
 mod tiles;
@@ -42,7 +42,7 @@ use camera::CameraPlugin;
 use controls::ControlsPlugin;
 use database::DatabasePlugin;
 use menu::MenuPlugin;
-use newgame::NewGamePlugin;
+use generate_map::GenerateMapPlugin;
 use prelude::*;
 use sky::SkyPlugin;
 use style::StylePlugin;
@@ -108,7 +108,7 @@ fn main() {
         .add_plugins(CameraPlugin)
         //.insert_resource::<GlobalRandom>(GlobalRandom(rand))
         //.add_systems(Startup, spawn_floors)
-        .add_plugins(NewGamePlugin);
+        .add_plugins(GenerateMapPlugin);
     app.add_systems(
         Update,
         check_textures.run_if(in_state(GameState::InitialLoading)),
