@@ -6,8 +6,8 @@ mod menu;
 mod newgame;
 mod sky;
 mod style;
+mod tile;
 mod util;
-//mod tiles;
 
 pub mod prelude {
     use bevy::prelude::States;
@@ -18,9 +18,9 @@ pub mod prelude {
 
     #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
     pub enum GameState {
+        #[default]
         InitialLoading,
         Menu,
-        #[default] // Change back to `initialloading` before merging
         Game,
     }
 
@@ -34,6 +34,7 @@ pub mod prelude {
     pub use crate::controls::{Control, ControlState, Controls, Keybind};
     pub use crate::database::{Database, DatabaseError, FromDatabase, ToDatabase};
     pub use crate::style::{Icons, Style};
+    pub use crate::tile::*;
     pub use crate::util::*;
 }
 
@@ -45,6 +46,7 @@ use newgame::NewGamePlugin;
 use prelude::*;
 use sky::SkyPlugin;
 use style::StylePlugin;
+use tile::TilePlugin;
 
 #[cfg(feature = "debug")]
 use bevy::{
@@ -99,7 +101,8 @@ fn main() {
     // Local Plugins
     app.add_plugins(DatabasePlugin);
 
-    app.add_plugins(StylePlugin)
+    app.add_plugins(TilePlugin)
+        .add_plugins(StylePlugin)
         .add_plugins(ControlsPlugin)
         .add_plugins(MenuPlugin)
         .add_plugins(SkyPlugin)

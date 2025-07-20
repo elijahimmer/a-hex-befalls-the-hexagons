@@ -22,6 +22,7 @@ wyrand = { version = "0.3", features = ["serde1"] }
 blake3 = { version = "1.8", features = [ "pure" ] }
 chrono = { version = "0.4", features = ["serde"], optional = true}
 bevy_ui_text_input = "0.5"
+radsort = "0.1"
 
 [dependencies.bevy]
 version = "0.16"

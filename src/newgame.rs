@@ -5,7 +5,6 @@ use bevy::prelude::*;
 use bevy_ecs_tilemap::helpers::hex_grid::axial::AxialPos;
 use bevy_ecs_tilemap::prelude::*;
 use rand::{Rng, SeedableRng};
-//use crate::tiles::spawn_tile_labels;
 
 pub struct NewGamePlugin;
 
@@ -15,26 +14,22 @@ const RADIUS: u32 = 5; //Made changes here
 
 const SQUARE_LAYER: f32 = 1.0;
 const SQUARE_SIZE: f32 = 20.0;
+const HOVER_INDICATOR_LAYER: f32 = ROOM_TILE_LAYER + 0.1;
 
 impl Plugin for NewGamePlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(TileRand(RandomSource::from_os_rng()))
-            .insert_resource(HoveredTile::default())
+            .add_systems(Startup, spawn_hover_indicator)
             .add_systems(OnEnter(GameState::Game), (spawn_room, spawn_square).chain())
-            .add_systems(
-                Update,
-                (hover_tile, selected_choose_target, move_to_target)
-                    .chain()
-                    .run_if(in_state(GameState::Game)),
-            );
+            .add_systems(Update, move_to_target.run_if(in_state(GameState::Game)));
     }
 }
 #[derive(Resource)]
 struct TileRand(pub RandomSource);
 
-/// Stored in axial coordinate
-#[derive(Resource, Default)]
-struct HoveredTile(Option<TilePos>);
+/// The entity that displays the hover indicator
+#[derive(Resource)]
+struct HoverIndicator(pub Entity);
 
 /// Stored in axial coordinate
 #[derive(Component)]
@@ -46,7 +41,7 @@ pub struct RoomTile;
 
 #[derive(Component, Reflect)]
 #[reflect(Component)]
-pub struct RoomTileMap;
+pub struct RoomTilemap;
 
 #[derive(Component, Reflect)]
 #[reflect(Component)]
@@ -60,10 +55,32 @@ struct Player {
 #[derive(Component, Reflect)]
 struct IsSelected;
 
+fn spawn_hover_indicator(mut commands: Commands, tile_image: Res<HexTileImage>) {
+    let id = commands
+        .spawn((
+            Sprite {
+                image: tile_image.image.clone(),
+                texture_atlas: Some(TextureAtlas {
+                    index: OUTLINE_TILE as usize,
+                    layout: tile_image.layout.clone(),
+                }),
+                ..default()
+            },
+            Transform::from_xyz(0.0, 0.0, HOVER_INDICATOR_LAYER),
+            Visibility::Hidden,
+            Pickable::IGNORE,
+        ))
+        .id();
+
+    commands.insert_resource(HoverIndicator(id));
+}
+
 fn spawn_room(mut commands: Commands, asset_server: Res<AssetServer>, mut rng: ResMut<TileRand>) {
     let texture_handle: Handle<Image> = asset_server.load(TILE_ASSET_LOAD_PATH);
 
-    let tilemap_entity = commands.spawn_empty().id();
+    let tilemap_entity = commands
+        .spawn((Visibility::Inherited, Transform::IDENTITY))
+        .id();
     let mut tile_storage = TileStorage::empty(ROOM_SIZE);
 
     let origin = TilePos { x: 5, y: 5 }; // Made changes here
@@ -73,8 +90,7 @@ fn spawn_room(mut commands: Commands, asset_server: Res<AssetServer>, mut rng: R
         RADIUS,
     )
     .into_iter()
-    .map(|axial_pos| axial_pos.as_tile_pos_given_coord_system(HEX_COORD_SYSTEM))
-    .collect::<Vec<TilePos>>();
+    .map(|axial_pos| axial_pos.as_tile_pos_given_coord_system(HEX_COORD_SYSTEM));
 
     commands.entity(tilemap_entity).with_children(|parent| {
         for tile_pos in tile_positions {
@@ -87,8 +103,11 @@ fn spawn_room(mut commands: Commands, asset_server: Res<AssetServer>, mut rng: R
                         texture_index: TileTextureIndex(rng.0.random_range(FLOOR_TILE_VARIENTS)),
                         ..Default::default()
                     },
-                    Pickable::IGNORE,
+                    Pickable::default(),
+                    Visibility::Inherited,
                 ))
+                .observe(tile_hover_indicator)
+                .observe(tile_hover_indicator_remove)
                 .id();
 
             tile_storage.checked_set(&tile_pos, id);
@@ -96,7 +115,7 @@ fn spawn_room(mut commands: Commands, asset_server: Res<AssetServer>, mut rng: R
     });
 
     commands.entity(tilemap_entity).insert((
-        RoomTileMap,
+        RoomTilemap,
         TilemapBundle {
             grid_size: TILE_SIZE.into(),
             map_type: TilemapType::Hexagon(HexCoordSystem::Row),
@@ -106,43 +125,44 @@ fn spawn_room(mut commands: Commands, asset_server: Res<AssetServer>, mut rng: R
             tile_size: TILE_SIZE,
             anchor: TilemapAnchor::Center,
             transform: Transform::from_xyz(0., 0., ROOM_TILE_LAYER),
+            visibility: Visibility::Visible,
             ..Default::default()
         },
-        Pickable::IGNORE,
+        Pickable::default(),
     ));
 }
 
 fn spawn_square(mut commands: Commands) {
-    let center_tile_pos = TilePos { x: 5, y: 5 };
+    for x in 4..=6 {
+        let center_tile_pos = TilePos { x, y: 5 };
 
-    let world_pos = center_tile_pos.center_in_world(
-        &ROOM_SIZE,
-        &TilemapGridSize {
-            x: TILE_SIZE.x,
-            y: TILE_SIZE.y,
-        },
-        &TILE_SIZE,
-        &TilemapType::Hexagon(HexCoordSystem::Row),
-        &TilemapAnchor::Center,
-    );
+        let world_pos = center_tile_pos.center_in_world(
+            &ROOM_SIZE,
+            &TilemapGridSize {
+                x: TILE_SIZE.x,
+                y: TILE_SIZE.y,
+            },
+            &TILE_SIZE,
+            &TilemapType::Hexagon(HexCoordSystem::Row),
+            &TilemapAnchor::Center,
+        );
 
-    commands
-        .spawn((
-            CenterSquare,
-            Sprite {
-                color: Color::BLACK,
-                custom_size: Some(Vec2::splat(SQUARE_SIZE)),
-                ..Default::default()
-            },
-            Transform::from_xyz(world_pos.x, world_pos.y, SQUARE_LAYER),
-            Pickable::default(),
-            Player {
-                player_speed: 300.0,
-            },
-        ))
-        .observe(recolor_on::<Pointer<Over>>(Color::WHITE))
-        .observe(recolor_on::<Pointer<Out>>(Color::BLACK))
-        .observe(select_player::<Pointer<Click>>());
+        commands
+            .spawn((
+                CenterSquare,
+                Sprite {
+                    color: Color::BLACK,
+                    custom_size: Some(Vec2::splat(SQUARE_SIZE)),
+                    ..Default::default()
+                },
+                Transform::from_xyz(world_pos.x, world_pos.y, SQUARE_LAYER),
+                Pickable::default(),
+                Player {
+                    player_speed: 300.0,
+                },
+            ))
+            .observe(select_player::<Pointer<Click>>);
+    }
 }
 
 fn recolor_on<E: Debug + Clone + Reflect>(color: Color) -> impl Fn(Trigger<E>, Query<&mut Sprite>) {
@@ -154,17 +174,18 @@ fn recolor_on<E: Debug + Clone + Reflect>(color: Color) -> impl Fn(Trigger<E>, Q
     }
 }
 
-fn select_player<E: Debug + Clone>()
--> impl Fn(Trigger<E>, Commands, Query<Option<&IsSelected>, With<Player>>) {
-    move |ev, mut commands, query_player| {
-        if let Ok(is_selected) = query_player.get(ev.target()) {
-            match is_selected {
-                Some(_) => {
-                    commands.entity(ev.target()).remove::<IsSelected>();
-                }
-                None => {
-                    commands.entity(ev.target()).insert(IsSelected);
-                }
+fn select_player<E: Debug + Clone>(
+    ev: Trigger<E>,
+    mut commands: Commands,
+    query_player: Query<Option<&IsSelected>, With<Player>>,
+) {
+    if let Ok(is_selected) = query_player.get(ev.target()) {
+        match is_selected {
+            Some(_) => {
+                commands.entity(ev.target()).remove::<IsSelected>();
+            }
+            None => {
+                commands.entity(ev.target()).insert(IsSelected);
             }
         }
     }
@@ -202,59 +223,52 @@ fn move_to_target(
     }
 }
 
-// TODO: Implement non-mouse input hovering
-fn hover_tile(
-    window: Single<&Window>,
-    camera_q: Single<(&Camera, &GlobalTransform), With<MainCameraMarker>>,
-    mut hovered: ResMut<HoveredTile>,
-    tilestorage: Single<&TileStorage, With<RoomTileMap>>,
+fn tile_hover_indicator(
+    mut trigger: Trigger<Pointer<Over>>,
+    hover_indicator: Res<HoverIndicator>,
+    mut hover_indicator_q: Query<(&mut Transform, &mut Visibility)>,
+    tile_q: Query<(&ChildOf, &TilePos)>,
+    tilemap_q: Query<(
+        &TilemapSize,
+        &TilemapGridSize,
+        &TilemapTileSize,
+        &TilemapType,
+        &TilemapAnchor,
+    )>,
 ) {
-    let (camera, camera_transform) = camera_q.into_inner();
+    trigger.propagate(false);
 
-    *hovered = HoveredTile(None);
-
-    let Some(cursor_pos) = window.cursor_position() else {
+    let Ok((parent, tile_pos)) = tile_q.get(trigger.target()) else {
+        // this should be observing a tile, and that tile should have a position.
         return;
     };
 
-    let Ok(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_pos) else {
+    let Ok((map_size, grid_size, tile_size, map_type, anchor)) = tilemap_q.get(parent.parent())
+    else {
         return;
     };
 
-    let Some(tile_pos) = TilePos::from_world_pos(
-        &world_pos,
-        &ROOM_SIZE,
-        &TilemapGridSize {
-            x: TILE_SIZE.x,
-            y: TILE_SIZE.y,
-        },
-        &TILE_SIZE,
-        &TilemapType::Hexagon(HexCoordSystem::Row),
-        &TilemapAnchor::Center,
-    ) else {
+    let Ok((mut transform, mut visibility)) = hover_indicator_q.get_mut(hover_indicator.0) else {
         return;
     };
 
-    let Some(_) = tilestorage.get(&tile_pos) else {
-        return;
-    };
+    transform.translation = tile_pos
+        .center_in_world(map_size, grid_size, tile_size, map_type, anchor)
+        .extend(transform.translation.z);
 
-    *hovered = HoveredTile(Some(tile_pos.into()));
+    *visibility = Visibility::Visible;
 }
 
-fn selected_choose_target(
-    mut commands: Commands,
-    controls: Res<ControlState>,
-    hovered_tile: Res<HoveredTile>,
-    selected_q: Query<Entity, (With<IsSelected>, Without<MoveToTile>)>,
+fn tile_hover_indicator_remove(
+    mut trigger: Trigger<Pointer<Out>>,
+    hover_indicator: Res<HoverIndicator>,
+    mut hover_indicator_q: Query<&mut Visibility>,
 ) {
-    if controls.just_pressed(Control::Select) && hovered_tile.0.is_some() {
-        for entity in selected_q.iter() {
-            commands
-                .get_entity(entity)
-                .unwrap()
-                .insert(MoveToTile(hovered_tile.0.unwrap()))
-                .remove::<IsSelected>();
-        }
-    }
+    trigger.propagate(false);
+
+    let Ok(mut visibility) = hover_indicator_q.get_mut(hover_indicator.0) else {
+        return;
+    };
+
+    *visibility = Visibility::Hidden;
 }

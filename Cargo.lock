@@ -15,6 +15,7 @@ dependencies = [
  "const_format",
  "directories",
  "getrandom 0.3.3",
+ "radsort",
  "rand 0.9.1",
  "ron 0.10.1",
  "serde",

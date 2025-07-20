@@ -82,6 +82,7 @@ fn spawn_sky(mut commands: Commands, asset_server: Res<AssetServer>, mut rng: Re
 
     commands.entity(tilemap_entity).insert((
         SkyTileMapMarker,
+        Pickable::IGNORE,
         TilemapBundle {
             grid_size: TILE_SIZE.into(),
             map_type: TilemapType::Hexagon(HexCoordSystem::Row),

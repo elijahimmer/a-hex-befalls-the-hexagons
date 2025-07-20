@@ -23,7 +23,7 @@ impl Plugin for StylePlugin {
     fn build(&self, app: &mut App) {
         embed_asset!(app, "assets/fonts/Ithaca/Ithaca-LVB75.ttf");
 
-        app.add_systems(Startup, add_style).add_systems(
+        app.add_systems(PreStartup, add_style).add_systems(
             Update,
             sync_to_database.run_if(resource_exists_and_changed::<Style>),
         );

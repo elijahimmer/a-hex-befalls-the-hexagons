@@ -14,7 +14,7 @@ impl Plugin for ControlsPlugin {
     fn build(&self, app: &mut App) {
         embed_asset!(app, "assets/sprites/buttons.png");
 
-        app.add_systems(Startup, setup_controls)
+        app.add_systems(PreStartup, setup_controls)
             .init_resource::<ControlState>()
             .init_resource::<ButtonInput<Input>>()
             .add_systems(
