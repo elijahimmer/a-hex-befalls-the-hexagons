@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 use rand::{Rng, SeedableRng};
 
-const SKY_MAP_SIZE: TilemapSize = TilemapSize { x: 100, y: 100 };
+const SKY_MAP_SIZE: TilemapSize = TilemapSize { x: 175, y: 100 };
 const SKY_TILE_SIZE_LOOP_THRESHOLD: Vec2 = Vec2 {
     x: TILE_SIZE.x,
     y: TILE_SIZE.y * 1.5,
