@@ -33,29 +33,11 @@ impl Plugin for NewGamePlugin {
             );
     }
 }
+#[derive(Resource)]
+struct TileRand(pub RandomSource);
 
-#[derive(Component, Reflect)]
-#[reflect(Component)]
-pub struct RoomTile;
-
-#[derive(Component, Reflect)]
-#[reflect(Component)]
-pub struct RoomTileMap;
-
-//////////////////////////////
-#[derive(Component, Reflect)]
-#[reflect(Component)]
-pub struct CenterSquare;
-
-#[derive(Component)]
-struct Player {
-    player_speed: f32,
-}
 #[derive(Resource, Default)]
 struct MyWorldCoords(Vec2);
-
-#[derive(Component)]
-struct IsSelected;
 
 #[derive(Resource)]
 struct HexagonBounds {
@@ -89,10 +71,28 @@ impl HexagonBounds {
     }
 }
 
-///////////////////////
 
-#[derive(Resource)]
-struct TileRand(pub RandomSource);
+#[derive(Component, Reflect)]
+#[reflect(Component)]
+pub struct RoomTile;
+
+#[derive(Component, Reflect)]
+#[reflect(Component)]
+pub struct RoomTileMap;
+
+#[derive(Component, Reflect)]
+#[reflect(Component)]
+pub struct CenterSquare;
+
+#[derive(Component, Reflect)]
+struct Player {
+    player_speed: f32,
+}
+
+#[derive(Component, Reflect)]
+struct IsSelected;
+
+
 
 fn spawn_room(mut commands: Commands, asset_server: Res<AssetServer>, mut rng: ResMut<TileRand>) {
     let texture_handle: Handle<Image> = asset_server.load(TILE_ASSET_LOAD_PATH);
@@ -121,10 +121,8 @@ fn spawn_room(mut commands: Commands, asset_server: Res<AssetServer>, mut rng: R
                         texture_index: TileTextureIndex(rng.0.random_range(FLOOR_TILE_VARIENTS)),
                         ..Default::default()
                     },
-                    //Pickable::default(),
                     Pickable::IGNORE,
                 ))
-                //.observe(print_position::<Pointer<Click>>())
                 .id();
 
             tile_storage.checked_set(&tile_pos, id);
@@ -176,8 +174,8 @@ fn spawn_square(mut commands: Commands) {
                 player_speed: 300.0,
             },
         ))
-        .observe(recolor_on::<Pointer<Over>>(Color::srgb(0.0, 0.8, 0.2)))
-        .observe(recolor_on::<Pointer<Out>>(Color::srgb(1.0, 1.0, 0.0)))
+        .observe(recolor_on::<Pointer<Over>>(Color::WHITE))
+        .observe(recolor_on::<Pointer<Out>>(Color::BLACK))
         .observe(select_player::<Pointer<Click>>());
 }
 
