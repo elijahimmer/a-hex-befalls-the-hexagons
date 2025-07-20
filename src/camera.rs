@@ -19,7 +19,7 @@ impl Plugin for CameraPlugin {
                 PostUpdate,
                 (pause_game, (camera_movement, camera_zoom))
                     .chain()
-                    .run_if(in_state(GameState::Game))
+                    //.run_if(in_state(GameState::Game))
                     .after(bevy::render::camera::camera_system),
             );
     }

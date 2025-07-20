@@ -25,8 +25,9 @@ impl Plugin for MenuNewGamePlugin {
 #[source(MenuState = MenuState::NewGame)]
 #[states(scoped_entities)]
 pub enum NewGameState {
-    #[default]
     Main,
+    // TODO: Change back to `Main` when merging
+    #[default]
     GeneratingWorld,
 }
 
