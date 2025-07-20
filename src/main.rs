@@ -1,5 +1,4 @@
 mod camera;
-mod consts;
 mod controls;
 mod database;
 mod menu;
@@ -23,8 +22,6 @@ pub mod prelude {
         Menu,
         Game,
     }
-
-    pub use crate::consts::*;
 
     pub use crate::camera::{
         CAMERA_DEFAULT_MOVE_AREA, CAMERA_DEFAULT_MOVE_SPEED, CAMERA_DEFAULT_SCALE,

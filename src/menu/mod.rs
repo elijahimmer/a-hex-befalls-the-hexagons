@@ -347,67 +347,6 @@ fn sound_enter(mut commands: Commands, style: Res<Style> /*volume: Res<Volume>*/
     let button_text_style = (
         style.font(33.0),
         TextLayout::new_with_justify(JustifyText::Center),
-        TextColor(TEXT_COLOR),
-    );
-
-    //let button_node_clone = button_node.clone();
-    commands
-        .spawn((
-            Node {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                ..default()
-            },
-            OnSoundScreen,
-        ))
-        .with_children(|builder| {
-            builder
-                .spawn(
-                    Node {
-                        flex_direction: FlexDirection::Column,
-                        align_items: AlignItems::Center,
-                        ..default()
-                    },
-                )
-                .with_children(|builder| {
-                    builder
-                        .spawn((
-                            Button,
-                            button_node.clone(),
-                            BackgroundColor(NORMAL_BUTTON),
-                            MenuButtonAction::Settings,
-                            children![(Text::new("Back"), button_text_style.clone())],
-                        ))
-                        .observe(menu_button_click);
-                });
-        });
-}
-
-#[derive(Component, Clone, Debug)]
-enum ControlsButtonAction {
-    Prompt(Control, usize),
-    PromptCancel,
-    ResetBoth(Control),
-    ResetAll,
-    Save,
-    Discard,
-    Back,
-}
-
-fn controls_enter(mut commands: Commands, style: Res<Style>, controls: Res<Controls>) {
-    let button_node = Node {
-        width: Val::Px(200.0),
-        height: Val::Px(65.0),
-        margin: UiRect::all(Val::Px(5.0)),
-        justify_content: JustifyContent::Center,
-        align_items: AlignItems::Center,
-        ..default()
-    };
-
-    let button_text_style = (
-        style.font(33.0),
         TextColor(style.text_color),
     );
 
