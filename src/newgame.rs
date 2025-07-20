@@ -19,57 +19,26 @@ const SQUARE_SIZE: f32 = 20.0;
 impl Plugin for NewGamePlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(TileRand(RandomSource::from_os_rng()))
-            .add_systems(
-                OnEnter(GameState::Game),
-                (spawn_room, spawn_square, setup_hexagon_bounds).chain(),
-            )
-            .insert_resource(MyWorldCoords::default())
+            .insert_resource(HoveredTile::default())
+            .add_systems(OnEnter(GameState::Game), (spawn_room, spawn_square).chain())
             .add_systems(
                 Update,
-                (
-                    move_to_target,
-                    check_click_bounds.run_if(resource_exists::<HexagonBounds>),
-                ),
+                (hover_tile, selected_choose_target, move_to_target)
+                    .chain()
+                    .run_if(in_state(GameState::Game)),
             );
     }
 }
 #[derive(Resource)]
 struct TileRand(pub RandomSource);
 
+/// Stored in axial coordinate
 #[derive(Resource, Default)]
-struct MyWorldCoords(Vec2);
+struct HoveredTile(Option<TilePos>);
 
-#[derive(Resource)]
-struct HexagonBounds {
-    center: Vec2,
-    radius: f32,
-}
-
-impl HexagonBounds {
-    fn new(center: Vec2, radius: f32) -> Self {
-        Self { center, radius }
-    }
-
-    fn contains_point(&self, point: Vec2) -> bool {
-        let relative = point - self.center;
-        let x = relative.x.abs();
-        let y = relative.y.abs();
-
-        let sqrt3 = 3.0_f32.sqrt();
-
-        if x > self.radius {
-            return false;
-        }
-        if y > self.radius * sqrt3 / 2.0 {
-            return false;
-        }
-        if x * sqrt3 + y > self.radius * sqrt3 {
-            return false;
-        }
-
-        true
-    }
-}
+/// Stored in axial coordinate
+#[derive(Component)]
+struct MoveToTile(TilePos);
 
 #[derive(Component, Reflect)]
 #[reflect(Component)]
@@ -192,11 +161,9 @@ fn select_player<E: Debug + Clone + Reflect>()
             match is_selected {
                 Some(_) => {
                     commands.entity(ev.target()).remove::<IsSelected>();
-                    println!("unselected");
                 }
                 None => {
                     commands.entity(ev.target()).insert(IsSelected);
-                    println!("selected")
                 }
             }
         }
@@ -204,86 +171,85 @@ fn select_player<E: Debug + Clone + Reflect>()
 }
 
 fn move_to_target(
-    mycoords: Res<MyWorldCoords>,
-    mut query_player: Query<(&mut Transform, &Player), With<IsSelected>>,
+    mut commands: Commands,
+    mut query_player: Query<(Entity, &mut Transform, &Player, &MoveToTile)>,
     time: Res<Time>,
 ) {
-    for (mut transform, player) in query_player.iter_mut() {
-        let direction = mycoords.0 - transform.translation.xy();
+    for (entity, mut transform, player, MoveToTile(target_tile)) in query_player.iter_mut() {
+        let target_tile = TilePos::center_in_world(
+            target_tile,
+            &ROOM_SIZE,
+            &TilemapGridSize {
+                x: TILE_SIZE.x,
+                y: TILE_SIZE.y,
+            },
+            &TILE_SIZE,
+            &TilemapType::Hexagon(HexCoordSystem::Row),
+            &TilemapAnchor::Center,
+        );
+
+        let direction = target_tile - transform.translation.xy();
         let distance = direction.length();
 
         let move_player = direction.normalize_or_zero()
-            * player.player_speed.clamp(0.0, distance)
-            * time.delta_secs();
+            * (player.player_speed * time.delta_secs()).clamp(0.0, distance);
+
         transform.translation += move_player.extend(0.0);
+
+        if transform.translation.xy() == target_tile {
+            commands.get_entity(entity).unwrap().remove::<MoveToTile>();
+        }
     }
 }
 
-fn setup_hexagon_bounds(mut commands: Commands) {
-    let tile_size = TILE_SIZE.x;
-    let world_radius = (RADIUS as f32 + 0.5) * tile_size;
-    commands.insert_resource(HexagonBounds::new(Vec2::ZERO, world_radius));
+// TODO: Implement non-mouse input hovering
+fn hover_tile(
+    window: Single<&Window>,
+    camera_q: Single<(&Camera, &GlobalTransform), With<MainCameraMarker>>,
+    mut hovered: ResMut<HoveredTile>,
+) {
+    let (camera, camera_transform) = camera_q.into_inner();
+
+    *hovered = HoveredTile(None);
+
+    let Some(cursor_pos) = window.cursor_position() else {
+        return;
+    };
+
+    let Ok(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_pos) else {
+        return;
+    };
+
+    let Some(tile_pos) = TilePos::from_world_pos(
+        &world_pos,
+        &ROOM_SIZE,
+        &TilemapGridSize {
+            x: TILE_SIZE.x,
+            y: TILE_SIZE.y,
+        },
+        &TILE_SIZE,
+        &TilemapType::Hexagon(HexCoordSystem::Row),
+        &TilemapAnchor::Center,
+    ) else {
+        return;
+    };
+
+    *hovered = HoveredTile(Some(tile_pos.into()));
 }
 
-fn check_click_bounds(
-    mouse_input: Res<ButtonInput<MouseButton>>,
-    windows: Query<&Window>,
-    camera_q: Query<(&Camera, &GlobalTransform)>,
-    bounds: Res<HexagonBounds>,
-    mut coord: ResMut<MyWorldCoords>,
+fn selected_choose_target(
+    mut commands: Commands,
+    controls: Res<ControlState>,
+    hovered_tile: Res<HoveredTile>,
+    selected_q: Query<Entity, (With<IsSelected>, Without<MoveToTile>)>,
 ) {
-    if mouse_input.just_pressed(MouseButton::Left) {
-        let Ok(window) = windows.single() else {
-            return;
-        };
-        let Ok((camera, camera_transform)) = camera_q.single() else {
-            return;
-        };
-
-        if let Some(cursor_pos) = window.cursor_position() {
-            if let Ok(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_pos) {
-                if !bounds.contains_point(world_pos) {
-                    return;
-                }
-
-                if let Some(tile_pos) = TilePos::from_world_pos(
-                    &world_pos,
-                    &ROOM_SIZE,
-                    &TilemapGridSize {
-                        x: TILE_SIZE.x,
-                        y: TILE_SIZE.y,
-                    },
-                    &TILE_SIZE,
-                    &TilemapType::Hexagon(HexCoordSystem::Row),
-                    &TilemapAnchor::Center,
-                ) {
-                    let origin = TilePos { x: 5, y: 5 };
-                    let axial_origin =
-                        AxialPos::from_tile_pos_given_coord_system(&origin, HexCoordSystem::Row);
-                    let axial_tile =
-                        AxialPos::from_tile_pos_given_coord_system(&tile_pos, HexCoordSystem::Row);
-
-                    let distance = ((axial_tile.q - axial_origin.q).abs()
-                        + (axial_tile.q + axial_tile.r - axial_origin.q - axial_origin.r).abs()
-                        + (axial_tile.r - axial_origin.r).abs())
-                        / 2;
-
-                    if distance <= RADIUS as i32 {
-                        let snapped_world_pos = tile_pos.center_in_world(
-                            &ROOM_SIZE,
-                            &TilemapGridSize {
-                                x: TILE_SIZE.x,
-                                y: TILE_SIZE.y,
-                            },
-                            &TILE_SIZE,
-                            &TilemapType::Hexagon(HexCoordSystem::Row),
-                            &TilemapAnchor::Center,
-                        );
-
-                        coord.0 = snapped_world_pos;
-                    }
-                }
-            }
+    if controls.just_pressed(Control::Select) && hovered_tile.0.is_some() {
+        for entity in selected_q.iter() {
+            commands
+                .get_entity(entity)
+                .unwrap()
+                .insert(MoveToTile(hovered_tile.0.unwrap()))
+                .remove::<IsSelected>();
         }
     }
 }
