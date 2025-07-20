@@ -28,7 +28,6 @@ impl Plugin for NewGamePlugin {
                 Update,
                 (
                     move_to_target,
-                    //get_tile_pos,
                     check_click_bounds.run_if(resource_exists::<HexagonBounds>),
                 ),
             );
@@ -249,10 +248,6 @@ fn check_click_bounds(
         if let Some(cursor_pos) = window.cursor_position() {
             if let Ok(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_pos) {
                 if !bounds.contains_point(world_pos) {
-                    println!(
-                        "Clicked outside hexagon bounds at position: {:?}",
-                        world_pos
-                    );
                     return;
                 }
 
@@ -291,21 +286,7 @@ fn check_click_bounds(
                         );
 
                         coord.0 = snapped_world_pos;
-                        println!(
-                            "Snapped to tile {:?} at world position {:?}",
-                            tile_pos, snapped_world_pos
-                        );
-                    } else {
-                        println!(
-                            "Clicked on tile {:?} which is outside hexagon radius {}",
-                            tile_pos, RADIUS
-                        );
                     }
-                } else {
-                    println!(
-                        "Clicked outside hexagon tilemap at position: {:?}",
-                        world_pos
-                    );
                 }
             }
         }
