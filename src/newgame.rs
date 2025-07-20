@@ -154,7 +154,7 @@ fn recolor_on<E: Debug + Clone + Reflect>(color: Color) -> impl Fn(Trigger<E>, Q
     }
 }
 
-fn select_player<E: Debug + Clone + Reflect>()
+fn select_player<E: Debug + Clone>()
 -> impl Fn(Trigger<E>, Commands, Query<Option<&IsSelected>, With<Player>>) {
     move |ev, mut commands, query_player| {
         if let Ok(is_selected) = query_player.get(ev.target()) {
@@ -207,6 +207,7 @@ fn hover_tile(
     window: Single<&Window>,
     camera_q: Single<(&Camera, &GlobalTransform), With<MainCameraMarker>>,
     mut hovered: ResMut<HoveredTile>,
+    tilestorage: Single<&TileStorage, With<RoomTileMap>>,
 ) {
     let (camera, camera_transform) = camera_q.into_inner();
 
@@ -231,6 +232,10 @@ fn hover_tile(
         &TilemapType::Hexagon(HexCoordSystem::Row),
         &TilemapAnchor::Center,
     ) else {
+        return;
+    };
+
+    let Some(_) = tilestorage.get(&tile_pos) else {
         return;
     };
 
