@@ -19,9 +19,19 @@ const SQUARE_SIZE: f32 = 20.0;
 impl Plugin for NewGamePlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(TileRand(RandomSource::from_os_rng()))
-            .add_systems(OnEnter(GameState::Game), (spawn_room, spawn_square).chain())
+            .add_systems(
+                OnEnter(GameState::Game),
+                (spawn_room, spawn_square, setup_hexagon_bounds).chain(),
+            )
             .insert_resource(MyWorldCoords::default())
-            .add_systems(Update, (move_to_target, get_tile_pos));
+            .add_systems(
+                Update,
+                (
+                    move_to_target,
+                    //get_tile_pos,
+                    check_click_bounds.run_if(resource_exists::<HexagonBounds>),
+                ),
+            );
     }
 }
 
@@ -47,6 +57,38 @@ struct MyWorldCoords(Vec2);
 
 #[derive(Component)]
 struct IsSelected;
+
+#[derive(Resource)]
+struct HexagonBounds {
+    center: Vec2,
+    radius: f32,
+}
+
+impl HexagonBounds {
+    fn new(center: Vec2, radius: f32) -> Self {
+        Self { center, radius }
+    }
+
+    fn contains_point(&self, point: Vec2) -> bool {
+        let relative = point - self.center;
+        let x = relative.x.abs();
+        let y = relative.y.abs();
+
+        let sqrt3 = 3.0_f32.sqrt();
+
+        if x > self.radius {
+            return false;
+        }
+        if y > self.radius * sqrt3 / 2.0 {
+            return false;
+        }
+        if x * sqrt3 + y > self.radius * sqrt3 {
+            return false;
+        }
+
+        true
+    }
+}
 
 ///////////////////////
 
@@ -183,4 +225,89 @@ fn move_to_target(
     }
 }
 
-fn get_tile_pos() {}
+fn setup_hexagon_bounds(mut commands: Commands) {
+    let tile_size = TILE_SIZE.x;
+    let world_radius = (RADIUS as f32 + 0.5) * tile_size;
+    commands.insert_resource(HexagonBounds::new(Vec2::ZERO, world_radius));
+}
+
+fn check_click_bounds(
+    mouse_input: Res<ButtonInput<MouseButton>>,
+    windows: Query<&Window>,
+    camera_q: Query<(&Camera, &GlobalTransform)>,
+    bounds: Res<HexagonBounds>,
+    mut coord: ResMut<MyWorldCoords>,
+) {
+    if mouse_input.just_pressed(MouseButton::Left) {
+        let Ok(window) = windows.single() else {
+            return;
+        };
+        let Ok((camera, camera_transform)) = camera_q.single() else {
+            return;
+        };
+
+        if let Some(cursor_pos) = window.cursor_position() {
+            if let Ok(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_pos) {
+                if !bounds.contains_point(world_pos) {
+                    println!(
+                        "Clicked outside hexagon bounds at position: {:?}",
+                        world_pos
+                    );
+                    return;
+                }
+
+                if let Some(tile_pos) = TilePos::from_world_pos(
+                    &world_pos,
+                    &ROOM_SIZE,
+                    &TilemapGridSize {
+                        x: TILE_SIZE.x,
+                        y: TILE_SIZE.y,
+                    },
+                    &TILE_SIZE,
+                    &TilemapType::Hexagon(HexCoordSystem::Row),
+                    &TilemapAnchor::Center,
+                ) {
+                    let origin = TilePos { x: 5, y: 5 };
+                    let axial_origin =
+                        AxialPos::from_tile_pos_given_coord_system(&origin, HexCoordSystem::Row);
+                    let axial_tile =
+                        AxialPos::from_tile_pos_given_coord_system(&tile_pos, HexCoordSystem::Row);
+
+                    let distance = ((axial_tile.q - axial_origin.q).abs()
+                        + (axial_tile.q + axial_tile.r - axial_origin.q - axial_origin.r).abs()
+                        + (axial_tile.r - axial_origin.r).abs())
+                        / 2;
+
+                    if distance <= RADIUS as i32 {
+                        let snapped_world_pos = tile_pos.center_in_world(
+                            &ROOM_SIZE,
+                            &TilemapGridSize {
+                                x: TILE_SIZE.x,
+                                y: TILE_SIZE.y,
+                            },
+                            &TILE_SIZE,
+                            &TilemapType::Hexagon(HexCoordSystem::Row),
+                            &TilemapAnchor::Center,
+                        );
+
+                        coord.0 = snapped_world_pos;
+                        println!(
+                            "Snapped to tile {:?} at world position {:?}",
+                            tile_pos, snapped_world_pos
+                        );
+                    } else {
+                        println!(
+                            "Clicked on tile {:?} which is outside hexagon radius {}",
+                            tile_pos, RADIUS
+                        );
+                    }
+                } else {
+                    println!(
+                        "Clicked outside hexagon tilemap at position: {:?}",
+                        world_pos
+                    );
+                }
+            }
+        }
+    }
+}
