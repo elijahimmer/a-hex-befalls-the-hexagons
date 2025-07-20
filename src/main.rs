@@ -53,7 +53,8 @@ use bevy::{
 };
 
 use bevy::prelude::*;
-use bevy_ecs_tilemap::{/*FrustumCulling, helpers::hex_grid::axial::AxialPos, */ prelude::*};
+use bevy_ecs_tilemap::prelude::*;
+use bevy_ui_text_input::TextInputPlugin;
 
 fn main() {
     let mut app = App::new();
@@ -89,8 +90,8 @@ fn main() {
         },
     });
 
-    // foreign plugins
-    app.add_plugins(TilemapPlugin);
+    // third party plugins
+    app.add_plugins(TilemapPlugin).add_plugins(TextInputPlugin);
     // State
     #[cfg(feature = "debug")]
     app.add_systems(Update, log_transitions::<GameState>);

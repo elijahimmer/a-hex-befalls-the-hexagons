@@ -1,10 +1,11 @@
 use super::MenuState;
 use crate::prelude::*;
 
-use bevy::{prelude::*, ui::FocusPolicy};
+use bevy::input_focus::InputFocus;
+use bevy::prelude::*;
+use bevy_ui_text_input::{TextInputMode, TextInputNode};
 
 pub struct MenuNewGamePlugin;
-
 impl Plugin for MenuNewGamePlugin {
     fn build(&self, app: &mut App) {
         app.add_sub_state::<NewGameState>();
@@ -35,6 +36,9 @@ pub enum NewGameButtonAction {
     GenerateWorld,
     CancelGeneration,
 }
+
+#[derive(Component)]
+pub struct WorldNameTextBox;
 
 fn set_camera_scale(
     camera_id: Res<MainCamera>,
@@ -67,11 +71,20 @@ fn reset_camera_scale(
 
 fn escape_out(
     new_game_state: Res<State<NewGameState>>,
+    mut input_focus: ResMut<InputFocus>,
+    text_box_q: Query<(), With<TextInputNode>>,
     mut next_new_game_state: ResMut<NextState<NewGameState>>,
     mut next_menu_state: ResMut<NextState<MenuState>>,
     key: Res<ControlState>,
 ) {
     if key.just_pressed(Control::Pause) {
+        if let Some(entity) = input_focus.0 {
+            if let Ok(()) = text_box_q.get(entity) {
+                input_focus.clear();
+                return;
+            }
+        }
+
         use NewGameState as S;
         match *new_game_state.get() {
             S::Main => {
@@ -114,6 +127,11 @@ fn new_game_menu_click(
     click.propagate(false);
 }
 
+fn clear_focus_on_click(mut click: Trigger<Pointer<Click>>, mut input_focus: ResMut<InputFocus>) {
+    input_focus.clear();
+    click.propagate(false);
+}
+
 fn new_game_enter(mut commands: Commands, style: Res<Style>) {
     let button_node = Node {
         width: Val::Px(200.0),
@@ -143,20 +161,62 @@ fn new_game_enter(mut commands: Commands, style: Res<Style>) {
             },
             StateScoped(NewGameState::Main),
         ))
+        .observe(clear_focus_on_click)
         .with_children(|builder| {
             builder
-                .spawn((
-                    Button,
-                    button_node.clone(),
-                    BackgroundColor(style.button_color),
-                    NewGameButtonAction::GenerateWorld,
-                    children![(
-                        Text::new("Generate World"),
-                        button_text_style.clone(),
-                        Pickable::IGNORE
-                    )],
-                ))
-                .observe(new_game_menu_click);
+                .spawn(Node {
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    flex_direction: FlexDirection::Column,
+                    ..default()
+                })
+                .with_children(|builder| {
+                    builder
+                        .spawn((
+                            Node {
+                                width: Val::Px(300.0),
+                                height: Val::Px(60.0),
+                                padding: UiRect::all(Val::Px(10.0)),
+                                align_items: AlignItems::Center,
+                                justify_content: JustifyContent::Center,
+                                ..default()
+                            },
+                            BackgroundColor(style.background_color.with_alpha(1.0)),
+                        ))
+                        .with_children(|builder| {
+                            builder.spawn((
+                                Node {
+                                    width: Val::Percent(100.0),
+                                    height: Val::Percent(100.0),
+                                    ..default()
+                                },
+                                WorldNameTextBox,
+                                TextInputNode {
+                                    clear_on_submit: false,
+                                    mode: TextInputMode::SingleLine,
+                                    focus_on_pointer_down: true,
+                                    unfocus_on_submit: true,
+                                    max_chars: Some(64),
+                                    ..default()
+                                },
+                                button_text_style.clone(),
+                            ));
+                        })
+                        .observe(stop_event_propagate::<Pointer<Click>>);
+                    builder
+                        .spawn((
+                            Button,
+                            button_node.clone(),
+                            BackgroundColor(style.button_color),
+                            NewGameButtonAction::GenerateWorld,
+                            children![(
+                                Text::new("Generate World"),
+                                button_text_style.clone(),
+                                Pickable::IGNORE
+                            )],
+                        ))
+                        .observe(new_game_menu_click);
+                });
 
             builder
                 .spawn((
@@ -170,7 +230,6 @@ fn new_game_enter(mut commands: Commands, style: Res<Style>) {
                         align_self: AlignSelf::End,
                         ..default()
                     },
-                    FocusPolicy::Block,
                     BackgroundColor(style.background_color),
                 ))
                 .with_children(|builder| {
@@ -233,7 +292,6 @@ fn generating_world_enter(mut commands: Commands, style: Res<Style>) {
                         align_self: AlignSelf::End,
                         ..default()
                     },
-                    FocusPolicy::Block,
                     BackgroundColor(style.background_color),
                 ))
                 .with_children(|builder| {

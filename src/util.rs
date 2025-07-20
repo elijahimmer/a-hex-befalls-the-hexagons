@@ -51,3 +51,12 @@ pub fn set_state<T: States + FreelyMutableState + Clone>(
 ) -> impl Fn(ResMut<NextState<T>>) {
     move |mut next| next.set(state.clone())
 }
+
+pub fn stop_event_propagate<T: Event>(mut event: Trigger<T>) {
+    event.propagate(false);
+}
+
+pub fn log_event<T: Event>(_event: Trigger<T>) {
+    let name = core::any::type_name::<T>();
+    info!("Event {name} sent!");
+}

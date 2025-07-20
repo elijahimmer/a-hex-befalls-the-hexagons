@@ -12,7 +12,6 @@ use bevy::{
     },
     picking::hover::HoverMap,
     prelude::*,
-    ui::FocusPolicy,
 };
 
 use crate::controls::Control;
@@ -171,7 +170,6 @@ fn controls_enter(mut commands: Commands, style: Res<Style>, controls: Res<Contr
                         align_self: AlignSelf::End,
                         ..default()
                     },
-                    FocusPolicy::Block,
                     BackgroundColor(style.background_color),
                 ))
                 .with_children(|builder| {
@@ -422,7 +420,6 @@ fn control_prompt_enter(mut commands: Commands, style: Res<Style>) {
             align_self: AlignSelf::Center,
             ..default()
         },
-        FocusPolicy::Block,
         StateScoped(ControlsState::Prompt),
         BackgroundColor(style.background_color.with_alpha(1.0)),
         ZIndex(2),
@@ -558,7 +555,6 @@ fn control_save_warning_enter(mut commands: Commands, style: Res<Style>) {
                 align_self: AlignSelf::Center,
                 ..default()
             },
-            FocusPolicy::Block,
             StateScoped(ControlsState::SaveWarning),
             BackgroundColor(style.background_color.with_alpha(1.0)),
             ZIndex(2),

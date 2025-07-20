@@ -2,10 +2,13 @@
 name = "a-hex-befalls"
 version = "0.1.0"
 edition = "2024"
+readme = "README.md"
+repository = "https://github.com/elijahimmer/a-hex-befalls"
+license = "Apache-2.0"
 
 [dependencies]
 # TODO: Update accesskit when bevy does.
-accesskit = { version = "0.18.0", features = ["enumn", "serde"] }
+accesskit = { version = "0.18", features = ["enumn", "serde"] }
 bevy_ecs_tilemap = { version = "0.16", features = ["atlas"] }
 const_format = "0.2"
 directories = "6"
@@ -17,7 +20,8 @@ sqlite = { version = "0.37", optional = true }
 thiserror = "2"
 wyrand = { version = "0.3", features = ["serde1"] }
 blake3 = { version = "1.8", features = [ "pure" ] }
-chrono = { version = "0.4.41", features = ["serde"], optional = true}
+chrono = { version = "0.4", features = ["serde"], optional = true}
+bevy_ui_text_input = "0.5"
 
 [dependencies.bevy]
 version = "0.16"
@@ -82,6 +86,7 @@ inherits = "dev"
 
 [features]
 default = ["sqlite"]
+# sqlite uses chrono to get timestamps for backups
 sqlite = ["dep:sqlite", "dep:chrono"]
 debug = [
   "bevy/bevy_dev_tools",
