@@ -3,6 +3,7 @@ use crate::prelude::*;
 
 use accesskit::{Node as Accessible, Role};
 
+use bevy::input_focus::InputFocus;
 use bevy::{
     a11y::AccessibilityNode,
     ecs::hierarchy::ChildSpawnerCommands,
@@ -79,6 +80,7 @@ pub enum ControlsButtonAction {
 
 fn escape_out(
     controls_state: Res<State<ControlsState>>,
+    mut input_focus: ResMut<InputFocus>,
     mut next_controls_state: ResMut<NextState<ControlsState>>,
     mut next_menu_state: ResMut<NextState<MenuState>>,
     controls_master: Res<Controls>,
@@ -86,6 +88,11 @@ fn escape_out(
     key: Res<ControlState>,
 ) {
     if key.just_pressed(Control::Pause) {
+        if let Some(_) = input_focus.0 {
+            input_focus.clear();
+            return;
+        }
+
         use ControlsState as C;
         match *controls_state.get() {
             C::Prompt => {

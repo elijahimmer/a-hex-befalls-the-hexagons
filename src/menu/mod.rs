@@ -5,6 +5,7 @@ mod new_game;
 
 use crate::embed_asset;
 use crate::prelude::*;
+use bevy::input_focus::InputFocus;
 use bevy::{input::mouse::MouseScrollUnit, prelude::*};
 use controls::*;
 use new_game::*;
@@ -63,10 +64,16 @@ struct SelectedOption;
 
 fn escape_out(
     menu_state: Res<State<MenuState>>,
+    mut input_focus: ResMut<InputFocus>,
     mut next_state: ResMut<NextState<MenuState>>,
     key: Res<ControlState>,
 ) {
     if key.just_pressed(Control::Pause) {
+        if let Some(_) = input_focus.0 {
+            input_focus.clear();
+            return;
+        }
+
         use MenuState as M;
         match *menu_state.get() {
             M::Main

@@ -54,6 +54,7 @@ fn set_camera_scale(
 
     projection2d.scale = CAMERA_DEFAULT_SCALE * 4.0;
 }
+
 fn reset_camera_scale(
     camera_id: Res<MainCamera>,
     mut projection: Query<&mut Projection, With<MainCameraMarker>>,
@@ -72,17 +73,14 @@ fn reset_camera_scale(
 fn escape_out(
     new_game_state: Res<State<NewGameState>>,
     mut input_focus: ResMut<InputFocus>,
-    text_box_q: Query<(), With<TextInputNode>>,
     mut next_new_game_state: ResMut<NextState<NewGameState>>,
     mut next_menu_state: ResMut<NextState<MenuState>>,
     key: Res<ControlState>,
 ) {
     if key.just_pressed(Control::Pause) {
-        if let Some(entity) = input_focus.0 {
-            if let Ok(()) = text_box_q.get(entity) {
-                input_focus.clear();
-                return;
-            }
+        if let Some(_) = input_focus.0 {
+            input_focus.clear();
+            return;
         }
 
         use NewGameState as S;
@@ -124,11 +122,6 @@ fn new_game_menu_click(
         }
     }
 
-    click.propagate(false);
-}
-
-fn clear_focus_on_click(mut click: Trigger<Pointer<Click>>, mut input_focus: ResMut<InputFocus>) {
-    input_focus.clear();
     click.propagate(false);
 }
 

@@ -1,3 +1,4 @@
+use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
 use bevy::state::state::FreelyMutableState;
 
@@ -59,4 +60,12 @@ pub fn stop_event_propagate<T: Event>(mut event: Trigger<T>) {
 pub fn log_event<T: Event>(_event: Trigger<T>) {
     let name = core::any::type_name::<T>();
     info!("Event {name} sent!");
+}
+
+pub fn clear_focus_on_click(
+    mut click: Trigger<Pointer<Click>>,
+    mut input_focus: ResMut<InputFocus>,
+) {
+    input_focus.clear();
+    click.propagate(false);
 }
