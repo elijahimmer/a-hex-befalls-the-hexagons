@@ -1,12 +1,12 @@
 use crate::menu::new_game::NewGameState;
 use crate::prelude::*;
 use bevy::prelude::*;
-
-//use crate::tiles::spawn_tile_labels;
 use bevy_ecs_tilemap::helpers::hex_grid::axial::AxialPos;
 use bevy_ecs_tilemap::helpers::hex_grid::neighbors::HexNeighbors;
 use bevy_ecs_tilemap::prelude::*;
 use rand::{Rng, SeedableRng};
+use std::cmp::Ordering;
+//use crate::tiles::spawn_tile_labels;
 
 pub struct NewGamePlugin;
 
@@ -21,7 +21,7 @@ impl Plugin for NewGamePlugin {
         app.insert_resource(TileRand(RandomSource::from_os_rng()))
             .add_systems(
                 OnEnter(GENERATING_STATE),
-                (spawn_room, change_tile)
+                (spawn_room, create_origin)
                     //spawn_tile_labels::<RoomTileMap, RoomTile>
                     .chain(),
             )
@@ -48,10 +48,44 @@ pub struct ValidTiles {
     green: bool,
     lblue: bool,
     dblue: bool,
-    entropy: u32,
 }
 
-#[derive(Component)]
+impl ValidTiles {
+    pub fn entropy(&self) -> u8 {
+        self.gray as u8
+            + self.red as u8
+            + self.yellow as u8
+            + self.green as u8
+            + self.lblue as u8
+            + self.dblue as u8
+    }
+
+    pub fn collapse(&self, mut rng: &mut RandomSource) -> Collapsed {
+        let mut options = Vec::with_capacity(6);
+        if self.gray {
+            options.push(Collapsed::Gray);
+        }
+        if self.red {
+            options.push(Collapsed::Red);
+        }
+        if self.yellow {
+            options.push(Collapsed::Yellow);
+        }
+        if self.green {
+            options.push(Collapsed::Green);
+        }
+        if self.lblue {
+            options.push(Collapsed::LBlue);
+        }
+        if self.dblue {
+            options.push(Collapsed::DBlue);
+        }
+
+        options[rng.random_range(0..options.len())]
+    }
+}
+
+#[derive(Component, Clone, Copy)]
 pub enum Collapsed {
     Gray,
     Red,
@@ -59,6 +93,19 @@ pub enum Collapsed {
     Green,
     LBlue,
     DBlue,
+}
+
+impl Collapsed {
+    pub fn to_texture(&self) -> TileTextureIndex {
+        TileTextureIndex(match self {
+            Collapsed::Gray => 0,
+            Collapsed::Red => 1,
+            Collapsed::Yellow => 2,
+            Collapsed::Green => 3,
+            Collapsed::LBlue => 4,
+            Collapsed::DBlue => 5,
+        })
+    }
 }
 
 fn spawn_room(mut commands: Commands, asset_server: Res<AssetServer>, mut rng: ResMut<TileRand>) {
@@ -82,7 +129,6 @@ fn spawn_room(mut commands: Commands, asset_server: Res<AssetServer>, mut rng: R
             let id = parent
                 .spawn((
                     RoomTile,
-                    tile_pos,
                     ValidTiles {
                         gray: true,
                         red: true,
@@ -90,16 +136,13 @@ fn spawn_room(mut commands: Commands, asset_server: Res<AssetServer>, mut rng: R
                         green: true,
                         lblue: true,
                         dblue: true,
-                        entropy: 6,
                     },
-                    /*
-                                    TileBundle {
-                                        position: tile_pos,
-                                        tilemap_id: TilemapId(tilemap_entity),
-                                        texture_index: TileTextureIndex(0),
-                                        ..Default::default()
-                                    },
-                    */
+                    TileBundle {
+                        position: tile_pos,
+                        tilemap_id: TilemapId(tilemap_entity),
+                        texture_index: TileTextureIndex(0),
+                        ..Default::default()
+                    },
                 ))
                 .id();
             tile_storage.checked_set(&tile_pos, id);
@@ -122,7 +165,10 @@ fn spawn_room(mut commands: Commands, asset_server: Res<AssetServer>, mut rng: R
     ));
 }
 
-fn change_tile(mut commands: Commands, tilestorage_q: Query<&mut TileStorage, With<RoomTileMap>>) {
+fn create_origin(
+    mut commands: Commands,
+    tilestorage_q: Query<&mut TileStorage, With<RoomTileMap>>,
+) {
     let origin = TilePos { x: 10, y: 10 };
 
     for tile_storage in &tilestorage_q {
@@ -156,8 +202,83 @@ fn update_neighbors(
             if let Some(entity) = tile_storage.checked_get(&loc) {
                 let mut valid_tile = valid_tile_q.get_mut(entity).unwrap();
 
-                valid_tile.gray = false;
+                match collapsed {
+                    Collapsed::Gray => {
+                        valid_tile.lblue = false;
+                        valid_tile.green = false;
+                        valid_tile.red = false;
+                    }
+
+                    Collapsed::Red => {
+                        valid_tile.green = false;
+                        valid_tile.red = false;
+                        valid_tile.yellow = false;
+                        valid_tile.gray = false;
+                    }
+
+                    Collapsed::Yellow => {
+                        valid_tile.green = false;
+                        valid_tile.red = false;
+                        valid_tile.yellow = false;
+                    }
+                    Collapsed::Green => {
+                        valid_tile.dblue = false;
+                        valid_tile.red = false;
+                        valid_tile.lblue = false;
+                    }
+
+                    Collapsed::LBlue => {
+                        valid_tile.dblue = false;
+                        valid_tile.lblue = false;
+                        valid_tile.gray = false;
+                    }
+
+                    Collapsed::DBlue => {
+                        valid_tile.lblue = false;
+                        valid_tile.dblue = false;
+                    }
+                    _ => println!("ERROR"),
+                }
             }
         }
     }
+}
+
+fn collapse_tile(
+    mut commands: Commands,
+    tile_storage_q: Query<&TileStorage, With<RoomTileMap>>,
+    valid_tile_q: Query<&ValidTiles>,
+    mut tile_text_q: Query<&mut TileTextureIndex>,
+    mut tile_rand: ResMut<TileRand>,
+) {
+    let mut entity_vec: Vec<Entity> = Vec::new();
+    for tile_storage in tile_storage_q {
+        let mut lowest = 7;
+
+        for tile in tile_storage.iter().filter_map(|t| *t) {
+            let valid_tile = valid_tile_q.get(tile).unwrap();
+
+            let entropy = valid_tile.entropy();
+
+            match lowest.cmp(&entropy) {
+                Ordering::Less => {}
+                Ordering::Equal => {
+                    entity_vec.push(tile);
+                }
+                Ordering::Greater => {
+                    entity_vec.clear();
+                    entity_vec.push(tile);
+                }
+            }
+        }
+    }
+
+    let selected_entity = entity_vec[tile_rand.0.random_range(0..entity_vec.len())];
+    let mut tile_texture = tile_text_q.get_mut(selected_entity).unwrap();
+    let collapsed = valid_tile_q.get(selected_entity).unwrap().collapse(&mut tile_rand.0);
+    *tile_texture = collapsed.to_texture();
+    commands
+        .entity(selected_entity)
+        .insert(collapsed)
+        .remove::<ValidTiles>();
 }
