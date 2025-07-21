@@ -61,6 +61,20 @@ pub fn stop_event_propagate<T: Event>(mut event: Trigger<T>) {
     event.propagate(false);
 }
 
+pub fn change_state_on_click<State: FreelyMutableState + Clone>(
+    click: PointerButton,
+    state: State,
+) -> impl Fn(Trigger<Pointer<Click>>, ResMut<NextState<State>>) {
+    move |mut event, mut next_state| {
+        if event.button != click {
+            return;
+        }
+
+        next_state.set(state.clone());
+        event.propagate(false);
+    }
+}
+
 pub fn log_event<T: Event>(_event: Trigger<T>) {
     let name = core::any::type_name::<T>();
     info!("Event {name} sent!");

@@ -1,8 +1,9 @@
 use super::MenuState;
+use crate::generate_map::GenerationSettings;
 use crate::prelude::*;
-
 use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
+use bevy_ui_text_input::TextInputContents;
 use bevy_ui_text_input::{TextInputFilter, TextInputMode, TextInputNode};
 
 pub struct MenuNewGamePlugin;
@@ -28,13 +29,6 @@ pub enum NewGameState {
     #[default]
     Main,
     GeneratingWorld,
-}
-
-#[derive(Component, Clone, Debug)]
-pub enum NewGameButtonAction {
-    ToMenu,
-    GenerateWorld,
-    CancelGeneration,
 }
 
 #[derive(Component)]
@@ -98,32 +92,45 @@ fn escape_out(
     }
 }
 
-fn new_game_menu_click(
+fn cancel_generation(
     mut click: Trigger<Pointer<Click>>,
-    mut next_menu_state: ResMut<NextState<MenuState>>,
+    mut commands: Commands,
+    room_map_q: Query<Entity, With<RoomTilemap>>,
     mut next_new_game_state: ResMut<NextState<NewGameState>>,
-    target_query: Query<&NewGameButtonAction>,
 ) {
-    if let Ok(action) = target_query.get(click.target()) {
-        use NewGameButtonAction as A;
-        use PointerButton as P;
-        match (click.button, action) {
-            (P::Primary, A::ToMenu) => {
-                next_menu_state.set(MenuState::Main);
-            }
-            (_, A::ToMenu) => {}
+    let PointerButton::Primary = click.button else {
+        return;
+    };
 
-            (P::Primary, A::GenerateWorld) => {
-                next_new_game_state.set(NewGameState::GeneratingWorld);
-            }
-            (_, A::GenerateWorld) => {}
+    next_new_game_state.set(NewGameState::Main);
 
-            (P::Primary, A::CancelGeneration) => {
-                next_new_game_state.set(NewGameState::Main);
-            }
-            (_, A::CancelGeneration) => {}
-        }
+    for entity in room_map_q.iter() {
+        commands.entity(entity).despawn();
     }
+
+    click.propagate(false);
+}
+
+fn generate_world_click(
+    mut click: Trigger<Pointer<Click>>,
+    mut commands: Commands,
+    mut next_new_game_state: ResMut<NextState<NewGameState>>,
+    contents_query: Query<&TextInputContents, With<WorldSeedTextBox>>,
+) {
+    let PointerButton::Primary = click.button else {
+        return;
+    };
+
+    let seed = contents_query
+        .single()
+        .inspect_err(|e| info!("Failed to get seed from textbox with {e}"))
+        .ok()
+        .and_then(|seed| u64::from_str_radix(seed.get(), 16).ok())
+        .unwrap_or_else(|| getrandom::u64().unwrap_or(0x5eed_f0e_feee));
+
+    commands.insert_resource(GenerationSettings { seed: seed });
+
+    next_new_game_state.set(NewGameState::GeneratingWorld);
 
     click.propagate(false);
 }
@@ -245,14 +252,13 @@ fn new_game_enter(mut commands: Commands, style: Res<Style>) {
                             Button,
                             button_node.clone(),
                             BackgroundColor(style.button_color),
-                            NewGameButtonAction::GenerateWorld,
                             children![(
                                 Text::new("Generate World"),
                                 button_text_style.clone(),
                                 Pickable::IGNORE
                             )],
                         ))
-                        .observe(new_game_menu_click);
+                        .observe(generate_world_click);
                 });
 
             builder
@@ -275,14 +281,16 @@ fn new_game_enter(mut commands: Commands, style: Res<Style>) {
                             Button,
                             button_node.clone(),
                             BackgroundColor(style.button_color),
-                            NewGameButtonAction::ToMenu,
                             children![(
                                 Text::new("Back"),
                                 button_text_style.clone(),
                                 Pickable::IGNORE
                             )],
                         ))
-                        .observe(new_game_menu_click);
+                        .observe(change_state_on_click(
+                            PointerButton::Primary,
+                            MenuState::Main,
+                        ));
                 });
         });
 }
@@ -337,14 +345,13 @@ fn generating_world_enter(mut commands: Commands, style: Res<Style>) {
                             Button,
                             button_node.clone(),
                             BackgroundColor(style.button_color),
-                            NewGameButtonAction::CancelGeneration,
                             children![(
                                 Text::new("Cancel"),
                                 button_text_style.clone(),
                                 Pickable::IGNORE
                             )],
                         ))
-                        .observe(new_game_menu_click);
+                        .observe(cancel_generation);
                 });
         });
 }

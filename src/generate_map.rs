@@ -23,41 +23,52 @@ pub const ROOM_ORIGIN: TilePos = TilePos {
 };
 pub const ROOM_TILE_LAYER: f32 = 0.0;
 
-const GENERATION_SCHEDULE_FREQUENCY: f64 = 1000.0;
+const GENERATION_SCHEDULE_FREQUENCY: f64 = 100.0;
 const GENERATING_STATE: NewGameState = NewGameState::GeneratingWorld;
 
 impl Plugin for GenerateMapPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(TileRand(RandomSource::from_os_rng()))
-            .add_systems(
-                OnEnter(GENERATING_STATE),
+        app.add_systems(
+            OnEnter(GENERATING_STATE),
+            set_fixed_update_time(GENERATION_SCHEDULE_FREQUENCY),
+        )
+        .add_systems(
+            OnEnter(GENERATING_STATE),
+            (
+                setup,
+                spawn_room,
                 (
-                    set_fixed_update_time(GENERATION_SCHEDULE_FREQUENCY),
-                    (
-                        spawn_room,
-                        (
-                            create_origin,
-                            spawn_tile_labels::<With<RoomTilemap>, With<RoomTile>>,
-                        ),
-                    )
-                        .chain(),
+                    create_origin,
+                    spawn_tile_labels::<With<RoomTilemap>, With<RoomTile>>,
                 ),
             )
-            .add_systems(
-                OnExit(GENERATING_STATE),
-                (
-                    restore_fixed_update_time,
-                    despawn_tile_labels::<With<RoomTilemap>>,
-                ),
-            )
-            .add_systems(
-                FixedUpdate,
-                (update_neighbors, collapse_tile)
-                    .chain()
-                    .run_if(in_state(GENERATING_STATE)),
-            );
+                .chain(),
+        )
+        .add_systems(
+            OnExit(GENERATING_STATE),
+            (
+                restore_fixed_update_time,
+                despawn_tile_labels::<With<RoomTilemap>>,
+            ),
+        )
+        .add_systems(
+            FixedUpdate,
+            (update_neighbors, collapse_tile)
+                .chain()
+                .run_if(in_state(GENERATING_STATE)),
+        );
     }
 }
+
+/// Settings set by the UI before world generation to
+/// give generation parameters.
+#[derive(Resource)]
+pub struct GenerationSettings {
+    pub seed: u64,
+}
+
+#[derive(Resource)]
+struct GenerationRand(pub RandomSource);
 
 #[derive(Component, Reflect)]
 #[reflect(Component)]
@@ -66,9 +77,6 @@ pub struct RoomTile;
 #[derive(Component, Reflect)]
 #[reflect(Component)]
 pub struct RoomTilemap;
-
-#[derive(Resource)]
-struct TileRand(pub RandomSource);
 
 #[derive(Component, Clone)]
 pub struct ValidTiles {
@@ -145,6 +153,11 @@ impl Collapsed {
             Collapsed::DBlue => 5,
         })
     }
+}
+
+fn setup(mut commands: Commands, settings: Res<GenerationSettings>) {
+    let rng = RandomSource::from_seed(settings.seed.to_ne_bytes());
+    commands.insert_resource(GenerationRand(rng));
 }
 
 fn spawn_room(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -261,7 +274,7 @@ fn collapse_tile(
     tile_storage: Single<&TileStorage, With<RoomTilemap>>,
     valid_tile_q: Query<&ValidTiles>,
     mut tile_text_q: Query<&mut TileTextureIndex>,
-    mut tile_rand: ResMut<TileRand>,
+    mut tile_rand: ResMut<GenerationRand>,
     mut next_state: ResMut<NextState<GameState>>,
 ) {
     let mut entity_vec: Vec<Entity> = Vec::new();
