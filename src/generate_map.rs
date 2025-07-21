@@ -160,9 +160,7 @@ fn setup(mut commands: Commands, settings: Res<GenerationSettings>) {
     commands.insert_resource(GenerationRand(rng));
 }
 
-fn spawn_room(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let texture_handle: Handle<Image> = asset_server.load(TILE_ASSET_LOAD_PATH);
-
+fn spawn_room(mut commands: Commands, tile_texture: Res<HexTileImage>) {
     let tilemap_entity = commands.spawn_empty().id();
 
     let mut tile_storage = TileStorage::empty(ROOM_SIZE);
@@ -203,7 +201,7 @@ fn spawn_room(mut commands: Commands, asset_server: Res<AssetServer>) {
             map_type: TilemapType::Hexagon(HexCoordSystem::Row),
             size: ROOM_SIZE,
             storage: tile_storage,
-            texture: TilemapTexture::Single(texture_handle),
+            texture: TilemapTexture::Single(tile_texture.image.clone()),
             tile_size: TILE_SIZE,
             anchor: TilemapAnchor::Center,
             transform: Transform::from_xyz(0., 0., ROOM_TILE_LAYER),
