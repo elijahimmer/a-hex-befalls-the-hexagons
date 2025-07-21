@@ -28,13 +28,16 @@ impl Plugin for GenerateMapPlugin {
                     set_fixed_update_time,
                     spawn_room,
                     create_origin,
-                    spawn_tile_labels::<RoomTilemap, RoomTile>,
+                    spawn_tile_labels::<With<RoomTilemap>, With<RoomTile>>,
                 )
                     .chain(),
             )
             .add_systems(
                 OnExit(GENERATING_STATE),
-                (restore_fixed_update_time, despawn_all_with::<TileLabel>),
+                (
+                    restore_fixed_update_time,
+                    despawn_filtered::<With<RoomTilemap>>,
+                ),
             )
             .add_systems(
                 FixedUpdate,
@@ -131,6 +134,7 @@ impl Collapsed {
 #[derive(Resource)]
 struct OldFixedDuration(pub Duration);
 
+/// Change the fixed update timer so that this section will go much faster.
 fn set_fixed_update_time(mut commands: Commands, mut time: ResMut<Time<Fixed>>) {
     let old_speed = time.timestep();
     commands.insert_resource(OldFixedDuration(old_speed));
@@ -139,6 +143,7 @@ fn set_fixed_update_time(mut commands: Commands, mut time: ResMut<Time<Fixed>>) 
     time.set_timestep_hz(100000.0);
 }
 
+/// Change back the time to not affect any other fixed update things.
 fn restore_fixed_update_time(
     mut commands: Commands,
     mut time: ResMut<Time<Fixed>>,
@@ -202,7 +207,6 @@ fn spawn_room(mut commands: Commands, asset_server: Res<AssetServer>) {
             transform: Transform::from_xyz(0., 0., ROOM_TILE_LAYER),
             ..Default::default()
         },
-        Pickable::IGNORE,
     ));
 }
 

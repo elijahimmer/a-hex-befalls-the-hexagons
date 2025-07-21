@@ -1,3 +1,10 @@
+//! Tile maps do not use sprites or other things,
+//! so they need their own picking backend. This is that.
+//!
+//! This will iterate over all of the tile maps with [`Pickable`]
+//! components that are visible by cameras
+//!
+
 use bevy::app::prelude::*;
 use bevy::ecs::prelude::*;
 use bevy::math::{FloatExt, prelude::*};
@@ -46,6 +53,7 @@ impl Default for TilePickingSettings {
     }
 }
 
+/// The actual system to do the picking.
 fn tile_picking(
     pointers: Query<(&PointerId, &PointerLocation)>,
     cameras: Query<(
@@ -161,6 +169,7 @@ fn tile_picking(
                     // lerp factor to get the cursor position in tile space!
                     let cursor_pos_tile = cursor_start_tile.lerp(cursor_end_tile, lerp_factor).xy();
 
+                    // Filter to only positions that actually on that tilemap...
                     let Some(tile_pos) = TilePos::from_world_pos(
                         &cursor_pos_tile,
                         map_size,
@@ -172,10 +181,13 @@ fn tile_picking(
                         return None;
                     };
 
+                    // And only to actual tiles that exist.
                     let Some(tile_hovered) = storage.get(&tile_pos) else {
                         return None;
                     };
 
+                    // At this point the tile is picked, so it is just setting up the
+                    // picking hit event
                     blocked = pickable.should_block_lower;
 
                     let hit_pos_world = map_transform.transform_point(cursor_pos_tile.extend(0.0));

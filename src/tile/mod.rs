@@ -1,5 +1,6 @@
 mod picking_backend;
 
+use bevy::ecs::query::QueryFilter;
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::HexCoordSystem;
 use bevy_ecs_tilemap::prelude::TilemapTileSize;
@@ -47,7 +48,7 @@ pub struct HexTileImage {
 }
 
 #[derive(Component)]
-pub struct TileLabel;
+struct TileLabel;
 
 fn setup_hex_tile_image(mut commands: Commands, asset_server: Res<AssetServer>) {
     let image = asset_server.load(TILE_ASSET_LOAD_PATH);
@@ -63,10 +64,15 @@ fn setup_hex_tile_image(mut commands: Commands, asset_server: Res<AssetServer>) 
     commands.insert_resource(HexTileImage { image, layout });
 }
 
-pub fn spawn_tile_labels<MapMarker: Component, TileMarker: Component>(
+/// Given a map marker and tile marker, this will spawn position
+/// labels above all of the tiles with that marker in that map.
+///
+/// These can be despawned with [`despawn_tile_labels`]
+pub fn spawn_tile_labels<MapFilter, TileFilter>(
     mut commands: Commands,
     tilemap_q: Query<
         (
+            Entity,
             &Transform,
             &TilemapType,
             &TilemapSize,
@@ -75,31 +81,66 @@ pub fn spawn_tile_labels<MapMarker: Component, TileMarker: Component>(
             &TileStorage,
             &TilemapAnchor,
         ),
-        With<MapMarker>,
+        MapFilter,
     >,
-    tile_q: Query<&mut TilePos, With<TileMarker>>,
-) {
-    for (map_transform, map_type, map_size, grid_size, tile_size, tilemap_storage, anchor) in
-        tilemap_q.iter()
+    tile_q: Query<&mut TilePos, TileFilter>,
+) where
+    MapFilter: QueryFilter,
+    TileFilter: QueryFilter,
+{
+    for (
+        map_entity,
+        map_transform,
+        map_type,
+        map_size,
+        grid_size,
+        tile_size,
+        tilemap_storage,
+        anchor,
+    ) in tilemap_q.iter()
     {
-        for tile_entity in tilemap_storage.iter().flatten() {
-            let tile_pos = tile_q.get(*tile_entity).unwrap();
-            let tile_center = tile_pos
-                .center_in_world(map_size, grid_size, tile_size, map_type, anchor)
-                .extend(1.0);
-            let transform = *map_transform * Transform::from_translation(tile_center);
+        commands.entity(map_entity).with_children(|builder| {
+            for tile_entity in tilemap_storage.iter().flatten() {
+                let tile_pos = tile_q.get(*tile_entity).unwrap();
+                let tile_center = tile_pos
+                    .center_in_world(map_size, grid_size, tile_size, map_type, anchor)
+                    .extend(1.0);
+                let transform = *map_transform * Transform::from_translation(tile_center);
 
-            commands.spawn((
-                Text2d::new(format!("{},{}", tile_pos.x, tile_pos.y)),
-                TextFont {
-                    font_size: 14.0,
-                    ..default()
-                },
-                TextColor(Color::BLACK),
-                TextLayout::new_with_justify(JustifyText::Center),
-                transform,
-                TileLabel,
-            ));
+                builder.spawn((
+                    Text2d::new(format!("{},{}", tile_pos.x, tile_pos.y)),
+                    TextFont {
+                        font_size: 14.0,
+                        ..default()
+                    },
+                    TextColor(Color::BLACK),
+                    TextLayout::new_with_justify(JustifyText::Center),
+                    transform,
+                    TileLabel,
+                ));
+            }
+        });
+    }
+}
+
+/// Despawn the tile labels created by [`spawn_tile_labels`]
+/// with the same map filter.
+pub fn despawn_tile_labels<MapFilter>(
+    mut commands: Commands,
+    tilemap_q: Query<&Children, MapFilter>,
+    label_q: Query<Has<TileLabel>>,
+) where
+    MapFilter: QueryFilter,
+{
+    for children in tilemap_q.iter() {
+        for child in children {
+            let Ok(has_label) = label_q.get(*child) else {
+                continue;
+            };
+
+            if has_label {
+                commands.entity(*child).despawn();
+            }
         }
     }
 }

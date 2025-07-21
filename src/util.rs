@@ -1,3 +1,4 @@
+use bevy::ecs::query::QueryFilter;
 use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
 use bevy::state::state::FreelyMutableState;
@@ -33,7 +34,7 @@ macro_rules! embed_asset {
 /// Helper method to despawn all of the entities with a given component.
 /// This is used with the `On*` Components to easily destroy all of the components
 /// on specific screens
-pub fn despawn_all_with<T: Component>(to_despawn: Query<Entity, With<T>>, mut commands: Commands) {
+pub fn despawn_filtered<T: QueryFilter>(mut commands: Commands, to_despawn: Query<Entity, T>) {
     for entity in &to_despawn {
         commands.entity(entity).despawn();
     }

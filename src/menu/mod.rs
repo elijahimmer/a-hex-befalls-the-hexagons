@@ -1,5 +1,6 @@
 //! TODO: Make the UI hexagon based.
 //! TODO: Implement title screen and pausing separately.
+
 pub mod controls;
 pub mod new_game;
 
@@ -18,12 +19,16 @@ impl Plugin for MenuPlugin {
     fn build(&self, app: &mut App) {
         embed_asset!(app, "assets/sprites/title.png");
         app.add_sub_state::<MenuState>();
+
         #[cfg(feature = "debug")]
         app.add_systems(Update, log_transitions::<MenuState>);
+
         app.add_plugins(MenuControlsPlugin)
             .add_plugins(MenuNewGamePlugin)
-            .add_systems(Update, button_highlight.run_if(in_state(GameState::Menu)))
-            .add_systems(Update, escape_out.run_if(in_state(GameState::Menu)))
+            .add_systems(
+                Update,
+                (button_highlight, escape_out).run_if(in_state(GameState::Menu)),
+            )
             .add_systems(OnEnter(MenuState::Main), main_enter)
             .add_systems(OnEnter(MenuState::Settings), settings_enter)
             .add_systems(OnEnter(MenuState::Display), display_enter)
@@ -62,6 +67,8 @@ enum MenuButtonAction {
 #[derive(Component)]
 struct SelectedOption;
 
+/// Whenever the player hits the pause button, it should
+/// put them out as if they hit the back button.
 fn escape_out(
     menu_state: Res<State<MenuState>>,
     mut input_focus: ResMut<InputFocus>,
@@ -88,6 +95,7 @@ fn escape_out(
     }
 }
 
+/// Highlight the buttons on hover to make them look better.
 fn button_highlight(
     mut interaction_query: Query<
         (&Interaction, &mut BackgroundColor, Option<&SelectedOption>),
@@ -107,6 +115,7 @@ fn button_highlight(
     }
 }
 
+/// The action to preform when a button is clicked with a `MenuButtonAction`
 fn menu_button_click(
     mut click: Trigger<Pointer<Click>>,
     mut app_exit_events: EventWriter<AppExit>,
@@ -179,57 +188,28 @@ fn main_enter(mut commands: Commands, style: Res<Style>, asset_server: Res<Asset
                     // - new game
                     // - settings
                     // - quit
-                    builder
-                        .spawn((
-                            Button,
-                            button_node.clone(),
-                            BackgroundColor(style.button_color),
-                            MenuButtonAction::NewGame,
-                            children![
-                                //(ImageNode::new(right_icon), button_icon_node.clone()),
-                                (
-                                    Text::new("New Game"),
+                    [
+                        (MenuButtonAction::NewGame, Text::new("New Game")),
+                        (MenuButtonAction::Settings, Text::new("Settings")),
+                        (MenuButtonAction::Quit, Text::new("Quit")),
+                    ]
+                    .into_iter()
+                    .for_each(|(action, text)| {
+                        builder
+                            .spawn((
+                                Button,
+                                button_node.clone(),
+                                BackgroundColor(style.button_color),
+                                action,
+                                children![(
+                                    text,
                                     button_text_font.clone(),
                                     TextColor(style.text_color),
                                     Pickable::IGNORE
-                                ),
-                            ],
-                        ))
-                        .observe(menu_button_click);
-                    builder
-                        .spawn((
-                            Button,
-                            button_node.clone(),
-                            BackgroundColor(style.button_color),
-                            MenuButtonAction::Settings,
-                            children![
-                                //(ImageNode::new(wrench_icon), button_icon_node.clone()),
-                                (
-                                    Text::new("Settings"),
-                                    button_text_font.clone(),
-                                    TextColor(style.text_color),
-                                    Pickable::IGNORE
-                                ),
-                            ],
-                        ))
-                        .observe(menu_button_click);
-                    builder
-                        .spawn((
-                            Button,
-                            button_node,
-                            BackgroundColor(style.button_color),
-                            MenuButtonAction::Quit,
-                            children![
-                                //(ImageNode::new(exit_icon), button_icon_node),
-                                (
-                                    Text::new("Quit"),
-                                    button_text_font,
-                                    TextColor(style.text_color),
-                                    Pickable::IGNORE
-                                ),
-                            ],
-                        ))
-                        .observe(menu_button_click);
+                                ),],
+                            ))
+                            .observe(menu_button_click);
+                    });
                 });
         });
 }
@@ -385,6 +365,8 @@ fn sound_enter(mut commands: Commands, style: Res<Style> /*volume: Res<Volume>*/
 
 const LINE_HEIGHT: f32 = 65.0;
 
+/// Update the scroll position of the hovered node
+/// when scrolled
 pub fn update_scroll_position_event(
     mut trigger: Trigger<Pointer<Scroll>>,
     mut scrolled_node_query: Query<&mut ScrollPosition>,

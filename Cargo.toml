@@ -76,8 +76,12 @@ opt-level = 3
 
 [profile.wasm-release]
 inherits = "release"
-opt-level = "s"
-strip = "debuginfo"
+opt-level = "z"
+strip = "symbols"
+
+[profile.wasm-release.package."*"]
+opt-level = "z"
+strip = "symbols"
 
 [profile.wayland]
 inherits = "dev"

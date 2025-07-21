@@ -2,6 +2,10 @@ run:
   cargo fmt
   cargo run -F debug,dev
 
+build:
+  cargo fmt
+  cargo build -F debug,dev
+
 wayland:
   cargo fmt
   cargo run --profile wayland -F debug,dev,bevy/wayland
