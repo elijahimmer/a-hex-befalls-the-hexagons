@@ -3,8 +3,9 @@ use crate::generate_map::GenerationSettings;
 use crate::prelude::*;
 use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
-use bevy_ui_text_input::TextInputContents;
-use bevy_ui_text_input::{TextInputFilter, TextInputMode, TextInputNode};
+use bevy_ui_text_input::{
+    TextInputContents, TextInputFilter, TextInputMode, TextInputNode, TextInputPrompt,
+};
 
 pub struct MenuNewGamePlugin;
 impl Plugin for MenuNewGamePlugin {
@@ -123,9 +124,13 @@ fn generate_world_click(
 
     let seed = contents_query
         .single()
-        .inspect_err(|e| info!("Failed to get seed from textbox with {e}"))
+        .inspect_err(|e| warn!("Failed to get seed from textbox with {e}"))
         .ok()
-        .and_then(|seed| u64::from_str_radix(seed.get(), 16).ok())
+        .and_then(|seed| {
+            u64::from_str_radix(seed.get(), 16)
+                .inspect_err(|e| warn!("Failed to parse seed from textbox with {e}"))
+                .ok()
+        })
         .unwrap_or_else(|| getrandom::u64().unwrap_or(0x5eed_f0e_feee));
 
     commands.insert_resource(GenerationSettings { seed: seed });
@@ -197,6 +202,7 @@ fn new_game_enter(mut commands: Commands, style: Res<Style>) {
                                     ..default()
                                 },
                                 WorldNameTextBox,
+                                TextInputContents::default(),
                                 TextInputNode {
                                     clear_on_submit: false,
                                     mode: TextInputMode::SingleLine,
@@ -233,6 +239,7 @@ fn new_game_enter(mut commands: Commands, style: Res<Style>) {
                                     ..default()
                                 },
                                 WorldSeedTextBox,
+                                TextInputContents::default(),
                                 TextInputNode {
                                     clear_on_submit: false,
                                     mode: TextInputMode::SingleLine,
