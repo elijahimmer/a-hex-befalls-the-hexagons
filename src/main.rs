@@ -10,10 +10,11 @@ mod tile;
 mod util;
 
 pub mod prelude {
-    use bevy::prelude::States;
+    use bevy::prelude::*;
 
     #[cfg(feature = "debug")]
     pub use bevy::dev_tools::states::log_transitions;
+
     pub type RandomSource = wyrand::WyRand;
 
     #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
@@ -74,9 +75,6 @@ fn main() {
                 ..default()
             }),
     ); // fallback to nearest sampling
-
-    // Embed the sprite assets.
-    embed_asset!(app, "assets/sprites/basic_sheet.png");
 
     #[cfg(feature = "debug")]
     app.add_plugins(FpsOverlayPlugin {

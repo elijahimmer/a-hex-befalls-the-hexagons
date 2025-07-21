@@ -36,6 +36,8 @@ impl Plugin for TilePlugin {
                 KeyCode::F3,
             )),
         );
+        // Embed the sprite assets.
+        embed_asset!(app, "assets/sprites/basic_sheet.png");
         app.add_plugins(picking_backend::TilemapBackend)
             .add_systems(PreStartup, setup_hex_tile_image);
     }
