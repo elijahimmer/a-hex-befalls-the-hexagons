@@ -48,7 +48,7 @@ pub struct HexTileImage {
 }
 
 #[derive(Component)]
-struct TileLabel;
+pub struct TileLabel;
 
 fn setup_hex_tile_image(mut commands: Commands, asset_server: Res<AssetServer>) {
     let image = asset_server.load(TILE_ASSET_LOAD_PATH);

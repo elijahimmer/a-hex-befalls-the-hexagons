@@ -9,14 +9,21 @@ use bevy_ecs_tilemap::helpers::hex_grid::neighbors::HexNeighbors;
 use bevy_ecs_tilemap::prelude::*;
 use rand::{Rng, SeedableRng};
 use std::cmp::Ordering;
-use std::time::Duration;
 
 pub struct GenerateMapPlugin;
 
-pub const ROOM_SIZE: TilemapSize = TilemapSize { x: 21, y: 21 };
+pub const ROOM_RADIUS: u32 = 10;
+pub const ROOM_SIZE: TilemapSize = TilemapSize {
+    x: ROOM_RADIUS * 2 + 1,
+    y: ROOM_RADIUS * 2 + 1,
+};
+pub const ROOM_ORIGIN: TilePos = TilePos {
+    x: ROOM_RADIUS,
+    y: ROOM_RADIUS,
+};
 pub const ROOM_TILE_LAYER: f32 = 0.0;
-pub const RADIUS: u32 = 10;
 
+const GENERATION_SCHEDULE_FREQUENCY: f64 = 1000.0;
 const GENERATING_STATE: NewGameState = NewGameState::GeneratingWorld;
 
 impl Plugin for GenerateMapPlugin {
@@ -25,18 +32,22 @@ impl Plugin for GenerateMapPlugin {
             .add_systems(
                 OnEnter(GENERATING_STATE),
                 (
-                    set_fixed_update_time,
-                    spawn_room,
-                    create_origin,
-                    spawn_tile_labels::<With<RoomTilemap>, With<RoomTile>>,
-                )
-                    .chain(),
+                    set_fixed_update_time(GENERATION_SCHEDULE_FREQUENCY),
+                    (
+                        spawn_room,
+                        (
+                            create_origin,
+                            spawn_tile_labels::<With<RoomTilemap>, With<RoomTile>>,
+                        ),
+                    )
+                        .chain(),
+                ),
             )
             .add_systems(
                 OnExit(GENERATING_STATE),
                 (
                     restore_fixed_update_time,
-                    despawn_filtered::<With<RoomTilemap>>,
+                    despawn_tile_labels::<With<RoomTilemap>>,
                 ),
             )
             .add_systems(
@@ -59,7 +70,7 @@ pub struct RoomTilemap;
 #[derive(Resource)]
 struct TileRand(pub RandomSource);
 
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub struct ValidTiles {
     gray: bool,
     red: bool,
@@ -80,31 +91,36 @@ impl ValidTiles {
     }
 
     pub fn collapse(&self, rng: &mut RandomSource) -> Option<Collapsed> {
-        let mut options = Vec::with_capacity(6);
-        if self.gray {
-            options.push(Collapsed::Gray);
-        }
-        if self.red {
-            options.push(Collapsed::Red);
-        }
-        if self.yellow {
-            options.push(Collapsed::Yellow);
-        }
-        if self.green {
-            options.push(Collapsed::Green);
-        }
-        if self.lblue {
-            options.push(Collapsed::LBlue);
-        }
-        if self.dblue {
-            options.push(Collapsed::DBlue);
-        }
+        let possibilities = [
+            (self.gray, Collapsed::Gray),
+            (self.red, Collapsed::Red),
+            (self.yellow, Collapsed::Yellow),
+            (self.green, Collapsed::Green),
+            (self.lblue, Collapsed::LBlue),
+            (self.dblue, Collapsed::DBlue),
+        ]
+        .into_iter()
+        .filter_map(|(enable, c)| enable.then_some(c))
+        .collect::<Vec<_>>();
 
-        if options.len() == 0 {
+        if possibilities.len() == 0 {
             return None;
         }
 
-        Some(options[rng.random_range(0..options.len())])
+        Some(possibilities[rng.random_range(0..possibilities.len())])
+    }
+}
+
+impl Default for ValidTiles {
+    fn default() -> Self {
+        Self {
+            gray: true,
+            red: true,
+            yellow: true,
+            green: true,
+            lblue: true,
+            dblue: true,
+        }
     }
 }
 
@@ -131,61 +147,34 @@ impl Collapsed {
     }
 }
 
-#[derive(Resource)]
-struct OldFixedDuration(pub Duration);
-
-/// Change the fixed update timer so that this section will go much faster.
-fn set_fixed_update_time(mut commands: Commands, mut time: ResMut<Time<Fixed>>) {
-    let old_speed = time.timestep();
-    commands.insert_resource(OldFixedDuration(old_speed));
-
-    // a really high number
-    time.set_timestep_hz(100000.0);
-}
-
-/// Change back the time to not affect any other fixed update things.
-fn restore_fixed_update_time(
-    mut commands: Commands,
-    mut time: ResMut<Time<Fixed>>,
-    old_duration: Res<OldFixedDuration>,
-) {
-    time.set_timestep(old_duration.0);
-    commands.remove_resource::<OldFixedDuration>();
-}
-
 fn spawn_room(mut commands: Commands, asset_server: Res<AssetServer>) {
     let texture_handle: Handle<Image> = asset_server.load(TILE_ASSET_LOAD_PATH);
 
     let tilemap_entity = commands.spawn_empty().id();
 
     let mut tile_storage = TileStorage::empty(ROOM_SIZE);
-    let origin = TilePos { x: 10, y: 10 };
+    let origin = TilePos {
+        x: ROOM_SIZE.x / 2,
+        y: ROOM_SIZE.y / 2,
+    };
 
     let tile_positions = generate_hexagon(
         AxialPos::from_tile_pos_given_coord_system(&origin, HEX_COORD_SYSTEM),
-        RADIUS,
+        ROOM_RADIUS,
     )
     .into_iter()
-    .map(|axial_pos| axial_pos.as_tile_pos_given_coord_system(HEX_COORD_SYSTEM))
-    .collect::<Vec<TilePos>>();
+    .map(|axial_pos| axial_pos.as_tile_pos_given_coord_system(HEX_COORD_SYSTEM));
 
     commands.entity(tilemap_entity).with_children(|parent| {
         for tile_pos in tile_positions {
             let id = parent
                 .spawn((
                     RoomTile,
-                    ValidTiles {
-                        gray: false,
-                        red: true,
-                        yellow: true,
-                        green: true,
-                        lblue: true,
-                        dblue: true,
-                    },
+                    ValidTiles::default(),
                     TileBundle {
                         position: tile_pos,
                         tilemap_id: TilemapId(tilemap_entity),
-                        texture_index: TileTextureIndex(0),
+                        texture_index: TileTextureIndex(OUTLINE_TILE),
                         ..Default::default()
                     },
                 ))
@@ -214,22 +203,12 @@ fn create_origin(
     mut commands: Commands,
     tilestorage_q: Query<&mut TileStorage, With<RoomTilemap>>,
 ) {
-    let origin = TilePos { x: 10, y: 10 };
-
     for tile_storage in &tilestorage_q {
-        let tile = tile_storage.checked_get(&origin).unwrap();
+        let tile = tile_storage
+            .get(&ROOM_ORIGIN)
+            .expect("The origin should exist, as we just made it...");
 
         commands.entity(tile).insert(Collapsed::Red);
-        /*
-        commands.entity(tile).insert((
-
-            TileBundle {
-            position: origin,
-            tilemap_id: TilemapId(tilemap_entity),
-            texture_index: TileTextureIndex(0),
-            ..Default::default()
-        },));
-        */
     }
 }
 
