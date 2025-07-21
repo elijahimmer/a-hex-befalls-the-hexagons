@@ -9,6 +9,7 @@ use bevy_ecs_tilemap::helpers::hex_grid::neighbors::HexNeighbors;
 use bevy_ecs_tilemap::prelude::*;
 use rand::{Rng, SeedableRng};
 use std::cmp::Ordering;
+use std::time::Duration;
 
 pub struct GenerateMapPlugin;
 
@@ -21,18 +22,20 @@ const GENERATING_STATE: NewGameState = NewGameState::GeneratingWorld;
 impl Plugin for GenerateMapPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(TileRand(RandomSource::from_os_rng()))
-            // TODO: Find a better way to speed up these functions.
-            .insert_resource(Time::<Fixed>::from_hz(10000.0))
             .add_systems(
                 OnEnter(GENERATING_STATE),
                 (
+                    set_fixed_update_time,
                     spawn_room,
                     create_origin,
                     spawn_tile_labels::<RoomTilemap, RoomTile>,
                 )
                     .chain(),
             )
-            .add_systems(OnExit(GENERATING_STATE), despawn_all_with::<TileLabel>)
+            .add_systems(
+                OnExit(GENERATING_STATE),
+                (restore_fixed_update_time, despawn_all_with::<TileLabel>),
+            )
             .add_systems(
                 FixedUpdate,
                 (update_neighbors, collapse_tile)
@@ -123,6 +126,26 @@ impl Collapsed {
             Collapsed::DBlue => 5,
         })
     }
+}
+
+#[derive(Resource)]
+struct OldFixedDuration(pub Duration);
+
+fn set_fixed_update_time(mut commands: Commands, mut time: ResMut<Time<Fixed>>) {
+    let old_speed = time.timestep();
+    commands.insert_resource(OldFixedDuration(old_speed));
+
+    // a really high number
+    time.set_timestep_hz(100000.0);
+}
+
+fn restore_fixed_update_time(
+    mut commands: Commands,
+    mut time: ResMut<Time<Fixed>>,
+    old_duration: Res<OldFixedDuration>,
+) {
+    time.set_timestep(old_duration.0);
+    commands.remove_resource::<OldFixedDuration>();
 }
 
 fn spawn_room(mut commands: Commands, asset_server: Res<AssetServer>) {
