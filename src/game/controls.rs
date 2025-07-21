@@ -60,7 +60,7 @@ pub fn select_player<E: Debug + Clone>(
             Some(_) => {
                 commands.entity(ev.target()).remove::<IsSelected>();
             }
-            None => {
+            Option::None => {
                 commands.entity(ev.target()).insert(IsSelected);
             }
         }
@@ -103,7 +103,7 @@ fn move_to_target(
         transform.translation += move_player.extend(0.0);
 
         if transform.translation.xy() == target_tile {
-            commands.get_entity(entity).unwrap().remove::<MoveToTile>();
+            commands.entity(entity).remove::<MoveToTile>();
         }
     }
 }

@@ -1,4 +1,4 @@
-use super::{MenuButtonAction, MenuState, menu_button_click, update_scroll_position_event};
+use super::{MenuState, update_scroll_position_event};
 use crate::prelude::*;
 
 use accesskit::{Node as Accessible, Role};
@@ -67,15 +67,124 @@ pub enum ControlsState {
 #[derive(Resource)]
 struct PromptTarget(Control, usize);
 
-#[derive(Component, Clone, Debug)]
-pub enum ControlsButtonAction {
-    Prompt(Control, usize),
-    PromptCancel,
-    ResetBoth(Control),
-    ResetAll,
-    Save,
-    Discard,
-    Back,
+/// Must be set when entering this menu.
+/// Must be unset when leaving.
+/// This is used to store the shown controls,
+/// and is synced to the real controls on save,
+/// or ignored on discard
+#[derive(Resource, Reflect)]
+#[reflect(Resource)]
+pub struct ControlsWIP(pub Controls);
+
+impl FromWorld for ControlsWIP {
+    fn from_world(world: &mut World) -> Self {
+        Self(
+            world
+                .get_resource::<Controls>()
+                .expect("There should be controls by now!")
+                .clone(),
+        )
+    }
+}
+
+#[derive(Component)]
+pub struct CancelPromptButton;
+
+#[derive(Component)]
+pub struct PromptButton(pub Control, pub usize);
+
+fn prompt_on_click(
+    mut click: Trigger<Pointer<Click>>,
+    prompt: Query<&PromptButton>,
+    mut commands: Commands,
+    mut next_state: ResMut<NextState<ControlsState>>,
+    mut controls_wip: ResMut<ControlsWIP>,
+) {
+    click.propagate(false);
+
+    let Ok(PromptButton(control, entry)) = prompt.get(click.target()) else {
+        return;
+    };
+
+    match click.button {
+        PointerButton::Primary => {
+            commands.insert_resource(PromptTarget(*control, *entry));
+            next_state.set(ControlsState::Prompt);
+        }
+        PointerButton::Secondary => {
+            controls_wip.0.set_control(*control, *entry, None);
+        }
+        PointerButton::Middle => {
+            controls_wip.0.reset_control_part(*control, *entry);
+        }
+    }
+}
+
+fn reset_control_on_click(
+    control: Control,
+) -> impl Fn(Trigger<Pointer<Click>>, ResMut<ControlsWIP>) {
+    move |mut click, mut controls_wip| {
+        click.propagate(false);
+        match click.button {
+            PointerButton::Primary => controls_wip.0.reset_control(control),
+            _ => {}
+        }
+    }
+}
+
+fn reset_controls_on_click(
+    mut click: Trigger<Pointer<Click>>,
+    mut controls_wip: ResMut<ControlsWIP>,
+) {
+    click.propagate(false);
+    match click.button {
+        PointerButton::Primary => controls_wip.0.reset_controls(),
+        _ => {}
+    }
+}
+
+fn save_changes_on_click(
+    mut click: Trigger<Pointer<Click>>,
+    mut controls_master: ResMut<Controls>,
+    controls_wip: Res<ControlsWIP>,
+) {
+    click.propagate(false);
+    match click.button {
+        PointerButton::Primary => *controls_master = controls_wip.0.clone(),
+        _ => {}
+    }
+}
+
+fn discard_changes_on_click(
+    mut click: Trigger<Pointer<Click>>,
+    controls_master: Res<Controls>,
+    mut controls_wip: ResMut<ControlsWIP>,
+) {
+    click.propagate(false);
+    match click.button {
+        PointerButton::Primary => controls_wip.0 = controls_master.clone(),
+        _ => {}
+    }
+}
+
+fn back_button_click(
+    mut click: Trigger<Pointer<Click>>,
+    mut menu_state: ResMut<NextState<MenuState>>,
+    mut controls_state: ResMut<NextState<ControlsState>>,
+    controls_master: Res<Controls>,
+    controls_wip: Res<ControlsWIP>,
+) {
+    click.propagate(false);
+    match click.button {
+        PointerButton::Primary => {
+            if controls_wip.0 == *controls_master {
+                menu_state.set(MenuState::Settings);
+            } else {
+                controls_state.set(ControlsState::SaveWarning);
+            }
+        }
+        _ => {}
+    }
 }
 
 fn escape_out(
@@ -184,40 +293,36 @@ fn controls_enter(mut commands: Commands, style: Res<Style>, controls: Res<Contr
                         Button,
                         button_node.clone(),
                         BackgroundColor(style.button_color),
-                        ControlsButtonAction::Back,
                         children![(Text::new("Back"), button_text_style.clone(), Pickable::IGNORE)],
                     ))
-                        .observe(controls_menu_click);
+                        .observe(back_button_click);
 
                     builder
                         .spawn((
                             Button,
                             button_node.clone(),
                             BackgroundColor(style.button_color),
-                            ControlsButtonAction::Save,
                             children![(Text::new("Save"), button_text_style.clone())],
                         ))
-                        .observe(controls_menu_click);
+                        .observe(save_changes_on_click);
 
                     builder
                         .spawn((
                             Button,
                             button_node.clone(),
                             BackgroundColor(style.button_color),
-                            ControlsButtonAction::Discard,
                             children![(Text::new("Discard"), button_text_style.clone())],
                         ))
-                        .observe(controls_menu_click);
+                        .observe(discard_changes_on_click);
 
                     builder
                         .spawn((
                             Button,
                             button_node.clone(),
                             BackgroundColor(style.button_color),
-                            ControlsButtonAction::ResetAll,
                             children![(Text::new("Reset All"), button_text_style.clone())],
                         ))
-                        .observe(controls_menu_click);
+                        .observe(reset_controls_on_click);
 
                     builder.spawn((
                         Text::new(
@@ -273,14 +378,14 @@ fn controls_row(builder: &mut ChildSpawnerCommands<'_>, style: &Style, keybind: 
                             ..default()
                         },
                         BackgroundColor(style.button_color),
-                        ControlsButtonAction::Prompt(control, i),
                         AccessibilityNode(Accessible::new(Role::ListItem)),
+                        PromptButton(control, i),
                         Pickable {
                             should_block_lower: false,
                             is_hoverable: true,
                         },
                     ))
-                    .observe(controls_menu_click)
+                    .observe(prompt_on_click)
                     .with_children(|builder| input_to_screen(style, builder, &key));
             }
 
@@ -297,7 +402,6 @@ fn controls_row(builder: &mut ChildSpawnerCommands<'_>, style: &Style, keybind: 
                         ..default()
                     },
                     BackgroundColor(style.button_color),
-                    ControlsButtonAction::ResetBoth(control),
                     AccessibilityNode(Accessible::new(Role::ListItem)),
                     Pickable {
                         should_block_lower: false,
@@ -309,104 +413,25 @@ fn controls_row(builder: &mut ChildSpawnerCommands<'_>, style: &Style, keybind: 
                         TextColor(style.text_color)
                     )],
                 ))
-                .observe(controls_menu_click);
+                .observe(reset_control_on_click(control));
         });
-}
-
-#[derive(Resource, Reflect)]
-#[reflect(Resource)]
-pub struct ControlsWIP(pub Controls);
-
-impl FromWorld for ControlsWIP {
-    fn from_world(world: &mut World) -> Self {
-        Self(
-            world
-                .get_resource::<Controls>()
-                .expect("There should be controls by now!")
-                .clone(),
-        )
-    }
-}
-
-fn controls_menu_click(
-    mut click: Trigger<Pointer<Click>>,
-    mut commands: Commands,
-    mut controls_master: ResMut<Controls>,
-    mut controls_wip: ResMut<ControlsWIP>,
-    target_query: Query<&ControlsButtonAction>,
-) {
-    if let Ok(action) = target_query.get(click.target()) {
-        use ControlsButtonAction as C;
-        use PointerButton as P;
-        match (click.button, action) {
-            (P::Primary, C::Prompt(control, entry)) => {
-                commands.insert_resource(PromptTarget(*control, *entry));
-                commands.set_state(ControlsState::Prompt);
-            }
-            (P::Secondary, C::Prompt(control, entry)) => {
-                controls_wip.0.set_control(*control, *entry, None);
-            }
-            (P::Middle, C::Prompt(control, entry)) => {
-                controls_wip.0.reset_control_part(*control, *entry);
-            }
-            (P::Primary, C::PromptCancel) => commands.set_state(ControlsState::Main),
-            (_, C::PromptCancel) => {}
-
-            (P::Primary, C::ResetBoth(control)) => {
-                controls_wip.0.reset_control(*control);
-            }
-            (_, C::ResetBoth(..)) => {}
-
-            (P::Primary, C::ResetAll) => {
-                controls_wip.0.reset_controls();
-            }
-            (_, C::ResetAll) => {}
-
-            (P::Primary, C::Save) => {
-                *controls_master = controls_wip.0.clone();
-            }
-            (_, C::Save) => {}
-
-            (P::Primary, C::Discard) => {
-                controls_wip.0 = controls_master.clone();
-            }
-            (_, C::Discard) => {}
-
-            (P::Primary, C::Back) => {
-                if controls_wip.0 == *controls_master {
-                    commands.set_state(MenuState::Settings);
-                } else {
-                    commands.set_state(ControlsState::SaveWarning);
-                }
-            }
-            (_, C::Back) => {}
-        }
-    }
-
-    click.propagate(false);
 }
 
 fn controls_changed(
     mut commands: Commands,
     style: Res<Style>,
     controls: Res<ControlsWIP>,
-    button: Query<(Entity, &ControlsButtonAction, &Children)>,
+    button: Query<(Entity, &PromptButton, &Children)>,
 ) {
-    for (entity, action, children) in button.iter() {
-        use ControlsButtonAction as C;
-        if let C::Prompt(control, idx) = action {
-            let key = controls.0.get_control_part(*control, *idx);
-            for child in children {
-                if let Ok(mut child) = commands.get_entity(*child) {
-                    child.despawn();
-                }
-            }
-            commands
-                .get_entity(entity)
-                .expect("It was just clicked, it should be alive?")
-                .remove_children(children)
-                .with_children(|builder| input_to_screen(&style, builder, &key));
+    for (entity, PromptButton(control, entry), children) in button.iter() {
+        let key = controls.0.get_control_part(*control, *entry);
+        for child in children {
+            commands.entity(*child).despawn();
         }
+        commands
+            .entity(entity)
+            .remove_children(children)
+            .with_children(|builder| input_to_screen(&style, builder, &key));
     }
 }
 
@@ -471,11 +496,11 @@ fn control_prompt_enter(mut commands: Commands, style: Res<Style>) {
                         ..default()
                     },
                     BackgroundColor(style.button_color),
-                    ControlsButtonAction::PromptCancel,
+                    CancelPromptButton,
                     children![(
                         Text::new("Cancel"),
                         button_text_style.clone(),
-                        ControlsButtonAction::PromptCancel
+                        CancelPromptButton
                     )],
                 )
             ],
@@ -489,7 +514,7 @@ fn assign_key_input(
     mut mouse: EventReader<MouseButtonInput>,
     mut gamepad: EventReader<GamepadButtonChangedEvent>,
     mut controls: ResMut<ControlsWIP>,
-    cancel_button_query: Query<(), With<ControlsButtonAction>>,
+    cancel_button_query: Query<Has<CancelPromptButton>>,
     target: Res<PromptTarget>,
     hover_map: Res<HoverMap>,
 ) {
@@ -512,7 +537,7 @@ fn assign_key_input(
                 if ev.button == MouseButton::Left {
                     for (_pointer, pointer_map) in hover_map.iter() {
                         for (entity, _hit) in pointer_map.iter() {
-                            if let Ok(_) = cancel_button_query.get(*entity) {
+                            if let Ok(true) = cancel_button_query.get(*entity) {
                                 commands.set_state(ControlsState::Main);
                                 return;
                             }
@@ -591,16 +616,13 @@ fn control_save_warning_enter(mut commands: Commands, style: Res<Style>) {
                                 ..default()
                             },
                             BackgroundColor(style.button_color),
-                            ControlsButtonAction::Save,
-                            MenuButtonAction::Settings,
-                            children![(
-                                Text::new("Save Changes"),
-                                button_text_style.clone(),
-                                ControlsButtonAction::PromptCancel
-                            )],
+                            children![(Text::new("Save Changes"), button_text_style.clone(),)],
                         ))
-                        .observe(controls_menu_click)
-                        .observe(menu_button_click);
+                        .observe(save_changes_on_click)
+                        .observe(change_state_on_click(
+                            PointerButton::Primary,
+                            MenuState::Settings,
+                        ));
                     builder
                         .spawn((
                             Button,
@@ -614,16 +636,13 @@ fn control_save_warning_enter(mut commands: Commands, style: Res<Style>) {
                                 ..default()
                             },
                             BackgroundColor(style.button_color),
-                            ControlsButtonAction::Discard,
-                            MenuButtonAction::Settings,
-                            children![(
-                                Text::new("Discard Changes"),
-                                button_text_style.clone(),
-                                ControlsButtonAction::PromptCancel
-                            )],
+                            children![(Text::new("Discard Changes"), button_text_style.clone(),)],
                         ))
-                        .observe(controls_menu_click)
-                        .observe(menu_button_click);
+                        .observe(discard_changes_on_click)
+                        .observe(change_state_on_click(
+                            PointerButton::Primary,
+                            MenuState::Settings,
+                        ));
                 });
         });
 }

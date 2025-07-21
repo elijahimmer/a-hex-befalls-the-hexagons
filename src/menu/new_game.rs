@@ -3,9 +3,7 @@ use crate::generate_map::GenerationSettings;
 use crate::prelude::*;
 use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
-use bevy_ui_text_input::{
-    TextInputContents, TextInputFilter, TextInputMode, TextInputNode, TextInputPrompt,
-};
+use bevy_ui_text_input::{TextInputContents, TextInputFilter, TextInputMode, TextInputNode};
 
 pub struct MenuNewGamePlugin;
 impl Plugin for MenuNewGamePlugin {

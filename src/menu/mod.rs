@@ -49,20 +49,6 @@ pub enum MenuState {
     NewGame,
 }
 
-/// Specifies the action that should be taken the button it is on is clicked.
-///
-/// The node will need to be observed by `menu_button_action` for this to take effect.
-#[derive(Component)]
-enum MenuButtonAction {
-    MainMenu,
-    Settings,
-    Controls,
-    Display,
-    Sound,
-    NewGame,
-    Quit,
-}
-
 /// Tag component used to mark which setting is currently selected
 #[derive(Component)]
 struct SelectedOption;
@@ -116,30 +102,15 @@ fn button_highlight(
 }
 
 /// The action to preform when a button is clicked with a `MenuButtonAction`
-fn menu_button_click(
+fn quit_game_on_click(
     mut click: Trigger<Pointer<Click>>,
     mut app_exit_events: EventWriter<AppExit>,
-    mut menu_state: ResMut<NextState<MenuState>>,
-    target_query: Query<&MenuButtonAction>,
 ) {
-    if click.button == PointerButton::Primary {
-        let Ok(menu_button_action) = target_query.get(click.target()) else {
-            return;
-        };
-        match menu_button_action {
-            MenuButtonAction::Quit => {
-                app_exit_events.write(AppExit::Success);
-            }
-            MenuButtonAction::NewGame => menu_state.set(MenuState::NewGame),
-            MenuButtonAction::Settings => menu_state.set(MenuState::Settings),
-            MenuButtonAction::Controls => menu_state.set(MenuState::Controls),
-            MenuButtonAction::Display => menu_state.set(MenuState::Display),
-            MenuButtonAction::Sound => menu_state.set(MenuState::Sound),
-            MenuButtonAction::MainMenu => menu_state.set(MenuState::Main),
-        }
-    }
-
     click.propagate(false);
+
+    if click.button == PointerButton::Primary {
+        app_exit_events.write(AppExit::Success);
+    }
 }
 
 fn main_enter(mut commands: Commands, style: Res<Style>, asset_server: Res<AssetServer>) {
@@ -184,14 +155,15 @@ fn main_enter(mut commands: Commands, style: Res<Style>, asset_server: Res<Asset
                             ..default()
                         },
                     ));
-                    // Display three buttons for each action available from the main menu:
-                    // - new game
-                    // - settings
-                    // - quit
                     [
-                        (MenuButtonAction::NewGame, Text::new("New Game")),
-                        (MenuButtonAction::Settings, Text::new("Settings")),
-                        (MenuButtonAction::Quit, Text::new("Quit")),
+                        (
+                            change_state_on_click(PointerButton::Primary, MenuState::NewGame),
+                            "New Game",
+                        ),
+                        (
+                            change_state_on_click(PointerButton::Primary, MenuState::Settings),
+                            "Settings",
+                        ),
                     ]
                     .into_iter()
                     .for_each(|(action, text)| {
@@ -200,16 +172,29 @@ fn main_enter(mut commands: Commands, style: Res<Style>, asset_server: Res<Asset
                                 Button,
                                 button_node.clone(),
                                 BackgroundColor(style.button_color),
-                                action,
                                 children![(
-                                    text,
+                                    Text::new(text),
                                     button_text_font.clone(),
                                     TextColor(style.text_color),
                                     Pickable::IGNORE
                                 ),],
                             ))
-                            .observe(menu_button_click);
+                            .observe(action);
                     });
+
+                    builder
+                        .spawn((
+                            Button,
+                            button_node.clone(),
+                            BackgroundColor(style.button_color),
+                            children![(
+                                Text::new("Quit"),
+                                button_text_font.clone(),
+                                TextColor(style.text_color),
+                                Pickable::IGNORE
+                            ),],
+                        ))
+                        .observe(quit_game_on_click);
                 });
         });
 }
@@ -246,10 +231,22 @@ fn settings_enter(mut commands: Commands, style: Res<Style>) {
                 })
                 .with_children(|builder| {
                     [
-                        (MenuButtonAction::Controls, "Controls"),
-                        (MenuButtonAction::Display, "Display"),
-                        (MenuButtonAction::Sound, "Sound"),
-                        (MenuButtonAction::MainMenu, "Back"),
+                        (
+                            change_state_on_click(PointerButton::Primary, MenuState::Controls),
+                            "Controls",
+                        ),
+                        (
+                            change_state_on_click(PointerButton::Primary, MenuState::Display),
+                            "Display",
+                        ),
+                        (
+                            change_state_on_click(PointerButton::Primary, MenuState::Sound),
+                            "Sound",
+                        ),
+                        (
+                            change_state_on_click(PointerButton::Primary, MenuState::Main),
+                            "Back",
+                        ),
                     ]
                     .into_iter()
                     .for_each(|(action, text)| {
@@ -258,14 +255,13 @@ fn settings_enter(mut commands: Commands, style: Res<Style>) {
                                 Button,
                                 button_node.clone(),
                                 BackgroundColor(style.button_color),
-                                action,
                                 children![(
                                     Text::new(text),
                                     button_text_style.clone(),
                                     Pickable::IGNORE
                                 )],
                             ))
-                            .observe(menu_button_click);
+                            .observe(action);
                     });
                 });
         });
@@ -307,10 +303,12 @@ fn display_enter(mut commands: Commands, style: Res<Style>) {
                             Button,
                             button_node.clone(),
                             BackgroundColor(style.button_color),
-                            MenuButtonAction::Settings,
                             children![(Text::new("Back"), button_text_style.clone())],
                         ))
-                        .observe(menu_button_click);
+                        .observe(change_state_on_click(
+                            PointerButton::Primary,
+                            MenuState::Settings,
+                        ));
                 });
         });
 }
@@ -355,10 +353,12 @@ fn sound_enter(mut commands: Commands, style: Res<Style> /*volume: Res<Volume>*/
                             Button,
                             button_node.clone(),
                             BackgroundColor(style.button_color),
-                            MenuButtonAction::Settings,
                             children![(Text::new("Back"), button_text_style.clone())],
                         ))
-                        .observe(menu_button_click);
+                        .observe(change_state_on_click(
+                            PointerButton::Primary,
+                            MenuState::Settings,
+                        ));
                 });
         });
 }
