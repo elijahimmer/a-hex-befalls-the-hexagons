@@ -3,7 +3,7 @@ use crate::prelude::*;
 
 use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
-use bevy_ui_text_input::{TextInputMode, TextInputNode};
+use bevy_ui_text_input::{TextInputFilter, TextInputMode, TextInputNode};
 
 pub struct MenuNewGamePlugin;
 impl Plugin for MenuNewGamePlugin {
@@ -39,6 +39,9 @@ pub enum NewGameButtonAction {
 
 #[derive(Component)]
 pub struct WorldNameTextBox;
+
+#[derive(Component)]
+pub struct WorldSeedTextBox;
 
 fn set_camera_scale(
     camera_id: Res<MainCamera>,
@@ -164,11 +167,14 @@ fn new_game_enter(mut commands: Commands, style: Res<Style>) {
                     ..default()
                 })
                 .with_children(|builder| {
+                    builder.spawn((button_text_style.clone(), Text::new("Save Name:")));
+
                     builder
                         .spawn((
                             Node {
                                 width: Val::Px(300.0),
                                 height: Val::Px(60.0),
+                                margin: UiRect::all(Val::Px(10.0)),
                                 padding: UiRect::all(Val::Px(10.0)),
                                 align_items: AlignItems::Center,
                                 justify_content: JustifyContent::Center,
@@ -196,6 +202,44 @@ fn new_game_enter(mut commands: Commands, style: Res<Style>) {
                             ));
                         })
                         .observe(stop_event_propagate::<Pointer<Click>>);
+
+                    builder.spawn((button_text_style.clone(), Text::new("Seed:")));
+
+                    builder
+                        .spawn((
+                            Node {
+                                width: Val::Px(300.0),
+                                height: Val::Px(60.0),
+                                padding: UiRect::all(Val::Px(10.0)),
+                                margin: UiRect::all(Val::Px(10.0)),
+                                align_items: AlignItems::Center,
+                                justify_content: JustifyContent::Center,
+                                ..default()
+                            },
+                            BackgroundColor(style.background_color.with_alpha(1.0)),
+                        ))
+                        .with_children(|builder| {
+                            builder.spawn((
+                                Node {
+                                    width: Val::Percent(100.0),
+                                    height: Val::Percent(100.0),
+                                    ..default()
+                                },
+                                WorldSeedTextBox,
+                                TextInputNode {
+                                    clear_on_submit: false,
+                                    mode: TextInputMode::SingleLine,
+                                    focus_on_pointer_down: true,
+                                    unfocus_on_submit: true,
+                                    max_chars: Some(16),
+                                    filter: Some(TextInputFilter::Hex),
+                                    ..default()
+                                },
+                                button_text_style.clone(),
+                            ));
+                        })
+                        .observe(stop_event_propagate::<Pointer<Click>>);
+
                     builder
                         .spawn((
                             Button,

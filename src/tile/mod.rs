@@ -1,5 +1,6 @@
 mod picking_backend;
 
+use crate::embed_asset;
 use bevy::ecs::query::QueryFilter;
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::HexCoordSystem;
