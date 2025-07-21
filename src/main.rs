@@ -1,8 +1,9 @@
 mod camera;
 mod controls;
 mod database;
-mod menu;
+mod game;
 mod generate_map;
+mod menu;
 mod sky;
 mod style;
 mod tile;
@@ -17,10 +18,9 @@ pub mod prelude {
 
     #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
     pub enum GameState {
+        #[default]
         InitialLoading,
         Menu,
-        // TODO: Change back to `InitialLoading` when merging
-        #[default]
         Game,
     }
 
@@ -31,6 +31,8 @@ pub mod prelude {
     };
     pub use crate::controls::{Control, ControlState, Controls, Keybind};
     pub use crate::database::{Database, DatabaseError, FromDatabase, ToDatabase};
+    pub use crate::generate_map::ROOM_TILE_LAYER;
+    pub use crate::generate_map::{RoomTile, RoomTilemap};
     pub use crate::style::{Icons, Style};
     pub use crate::tile::*;
     pub use crate::util::*;
@@ -39,8 +41,9 @@ pub mod prelude {
 use camera::CameraPlugin;
 use controls::ControlsPlugin;
 use database::DatabasePlugin;
-use menu::MenuPlugin;
+use game::GamePlugin;
 use generate_map::GenerateMapPlugin;
+use menu::MenuPlugin;
 use prelude::*;
 use sky::SkyPlugin;
 use style::StylePlugin;
@@ -100,6 +103,7 @@ fn main() {
     app.add_plugins(DatabasePlugin);
 
     app.add_plugins(TilePlugin)
+        .add_plugins(GamePlugin)
         .add_plugins(StylePlugin)
         .add_plugins(ControlsPlugin)
         .add_plugins(MenuPlugin)

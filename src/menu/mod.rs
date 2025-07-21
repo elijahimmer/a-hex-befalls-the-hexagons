@@ -35,13 +35,12 @@ impl Plugin for MenuPlugin {
 #[source(GameState = GameState::Menu)]
 #[states(scoped_entities)]
 pub enum MenuState {
+    #[default]
     Main,
     Settings,
     Display,
     Sound,
     Controls,
-    // TODO: Change back to `Main` when merging
-    #[default]
     NewGame,
 }
 

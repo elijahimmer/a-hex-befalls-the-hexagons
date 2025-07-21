@@ -1,6 +1,8 @@
+// TODO: Make this run not limited to the game loop
+
 use crate::menu::new_game::NewGameState;
 use crate::prelude::*;
-use crate::tiles::spawn_tile_labels;
+use crate::tile::spawn_tile_labels;
 use bevy::prelude::*;
 use bevy_ecs_tilemap::helpers::hex_grid::axial::AxialPos;
 use bevy_ecs_tilemap::helpers::hex_grid::neighbors::HexNeighbors;
@@ -10,26 +12,29 @@ use std::cmp::Ordering;
 
 pub struct GenerateMapPlugin;
 
-const ROOM_SIZE: TilemapSize = TilemapSize { x: 21, y: 21 };
-const ROOM_TILE_LAYER: f32 = 0.0;
-const RADIUS: u32 = 10;
+pub const ROOM_SIZE: TilemapSize = TilemapSize { x: 21, y: 21 };
+pub const ROOM_TILE_LAYER: f32 = 0.0;
+pub const RADIUS: u32 = 10;
 
 const GENERATING_STATE: NewGameState = NewGameState::GeneratingWorld;
 
 impl Plugin for GenerateMapPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(TileRand(RandomSource::from_os_rng()))
+            // TODO: Find a better way to speed up these functions.
+            .insert_resource(Time::<Fixed>::from_hz(10000.0))
             .add_systems(
                 OnEnter(GENERATING_STATE),
                 (
                     spawn_room,
                     create_origin,
-                    spawn_tile_labels::<RoomTileMap, RoomTile>,
+                    spawn_tile_labels::<RoomTilemap, RoomTile>,
                 )
                     .chain(),
             )
+            .add_systems(OnExit(GENERATING_STATE), despawn_all_with::<TileLabel>)
             .add_systems(
-                Update,
+                FixedUpdate,
                 (update_neighbors, collapse_tile)
                     .chain()
                     .run_if(in_state(GENERATING_STATE)),
@@ -43,7 +48,7 @@ pub struct RoomTile;
 
 #[derive(Component, Reflect)]
 #[reflect(Component)]
-pub struct RoomTileMap;
+pub struct RoomTilemap;
 
 #[derive(Resource)]
 struct TileRand(pub RandomSource);
@@ -58,8 +63,6 @@ pub struct ValidTiles {
     dblue: bool,
 }
 
-
-
 impl ValidTiles {
     pub fn entropy(&self) -> u8 {
         self.gray as u8
@@ -70,7 +73,7 @@ impl ValidTiles {
             + self.dblue as u8
     }
 
-    pub fn collapse(&self, mut rng: &mut RandomSource) -> Option<Collapsed> {
+    pub fn collapse(&self, rng: &mut RandomSource) -> Option<Collapsed> {
         let mut options = Vec::with_capacity(6);
         if self.gray {
             options.push(Collapsed::Gray);
@@ -95,7 +98,7 @@ impl ValidTiles {
             return None;
         }
 
-        Some(options[rng.random_range(0..options.len())]) 
+        Some(options[rng.random_range(0..options.len())])
     }
 }
 
@@ -122,7 +125,7 @@ impl Collapsed {
     }
 }
 
-fn spawn_room(mut commands: Commands, asset_server: Res<AssetServer>, mut rng: ResMut<TileRand>) {
+fn spawn_room(mut commands: Commands, asset_server: Res<AssetServer>) {
     let texture_handle: Handle<Image> = asset_server.load(TILE_ASSET_LOAD_PATH);
 
     let tilemap_entity = commands.spawn_empty().id();
@@ -164,7 +167,7 @@ fn spawn_room(mut commands: Commands, asset_server: Res<AssetServer>, mut rng: R
     });
 
     commands.entity(tilemap_entity).insert((
-        RoomTileMap,
+        RoomTilemap,
         TilemapBundle {
             grid_size: TILE_SIZE.into(),
             map_type: TilemapType::Hexagon(HexCoordSystem::Row),
@@ -176,12 +179,13 @@ fn spawn_room(mut commands: Commands, asset_server: Res<AssetServer>, mut rng: R
             transform: Transform::from_xyz(0., 0., ROOM_TILE_LAYER),
             ..Default::default()
         },
+        Pickable::IGNORE,
     ));
 }
 
 fn create_origin(
     mut commands: Commands,
-    tilestorage_q: Query<&mut TileStorage, With<RoomTileMap>>,
+    tilestorage_q: Query<&mut TileStorage, With<RoomTilemap>>,
 ) {
     let origin = TilePos { x: 10, y: 10 };
 
@@ -204,7 +208,7 @@ fn create_origin(
 
 fn update_neighbors(
     changed_tile_q: Query<(&Collapsed, &TilePos), Changed<Collapsed>>,
-    tilestorage_q: Single<&TileStorage, With<RoomTileMap>>,
+    tilestorage_q: Single<&TileStorage, With<RoomTilemap>>,
     mut valid_tile_q: Query<&mut ValidTiles>,
 ) {
     let tile_storage = *tilestorage_q;
@@ -240,7 +244,6 @@ fn update_neighbors(
                     Collapsed::DBlue => {
                         valid_tile.dblue = false;
                     }
-                    _ => println!("ERROR"),
                 }
             }
         }
@@ -249,37 +252,37 @@ fn update_neighbors(
 
 fn collapse_tile(
     mut commands: Commands,
-    tile_storage_q: Query<&TileStorage, With<RoomTileMap>>,
+    tile_storage: Single<&TileStorage, With<RoomTilemap>>,
     valid_tile_q: Query<&ValidTiles>,
     mut tile_text_q: Query<&mut TileTextureIndex>,
     mut tile_rand: ResMut<TileRand>,
+    mut next_state: ResMut<NextState<GameState>>,
 ) {
     let mut entity_vec: Vec<Entity> = Vec::new();
-    for tile_storage in tile_storage_q {
-        let mut lowest = 7;
+    let mut lowest = u8::MAX;
 
-        for tile in tile_storage.iter().filter_map(|t| *t) {
-            let Ok(valid_tile) = valid_tile_q.get(tile) else {
-                continue;
-            };
+    for tile in tile_storage.iter().filter_map(|t| *t) {
+        let Ok(valid_tile) = valid_tile_q.get(tile) else {
+            continue;
+        };
 
-            let entropy = valid_tile.entropy();
+        let entropy = valid_tile.entropy();
 
-            match lowest.cmp(&entropy) {
-                Ordering::Less => {}
-                Ordering::Equal => {
-                    entity_vec.push(tile);
-                }
-                Ordering::Greater => {
-                    entity_vec.clear();
-                    entity_vec.push(tile);
-                    lowest = entropy;
-                }
+        match lowest.cmp(&entropy) {
+            Ordering::Less => {}
+            Ordering::Equal => {
+                entity_vec.push(tile);
+            }
+            Ordering::Greater => {
+                entity_vec.clear();
+                entity_vec.push(tile);
+                lowest = entropy;
             }
         }
     }
 
     if entity_vec.len() == 0 {
+        next_state.set(GameState::Game);
         return;
     }
 
@@ -288,10 +291,11 @@ fn collapse_tile(
     let Some(collapsed) = valid_tile_q
         .get(selected_entity)
         .unwrap()
-        .collapse(&mut tile_rand.0) else {
-            commands.entity(selected_entity).remove::<ValidTiles>();
-            return;
-        };
+        .collapse(&mut tile_rand.0)
+    else {
+        commands.entity(selected_entity).remove::<ValidTiles>();
+        return;
+    };
 
     *tile_texture = collapsed.to_texture();
     commands

@@ -98,8 +98,8 @@ pub fn spawn_tile_labels<MapMarker: Component, TileMarker: Component>(
                 TextColor(Color::BLACK),
                 TextLayout::new_with_justify(JustifyText::Center),
                 transform,
+                TileLabel,
             ));
-            commands.entity(*tile_entity).insert(TileLabel);
         }
     }
 }
