@@ -13,7 +13,10 @@ pub struct AnimationFrameTimer(pub Timer);
 
 impl Default for AnimationFrameTimer {
     fn default() -> Self {
-        Self(Timer::from_seconds(ANIMATION_FRAME_TIMER_SECONDS, TimerMode::Repeating))
+        Self(Timer::from_seconds(
+            ANIMATION_FRAME_TIMER_SECONDS,
+            TimerMode::Repeating,
+        ))
     }
 }
 
@@ -52,7 +55,6 @@ impl AnimationConfig {
         self.tick_count == 0
     }
 }
-
 
 #[expect(dead_code)]
 pub fn execute_animations(

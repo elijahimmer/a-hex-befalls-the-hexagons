@@ -37,7 +37,6 @@ impl HealthBundle {
     }
 }
 
-
 /// The health of an actor.
 /// This also determines whether that actor is alive or not.
 #[derive(Component, Clone, Copy, Reflect, Serialize, Deserialize)]
@@ -161,7 +160,9 @@ impl Health {
 }
 
 /// The health of the actor before the latest round of [`kill_heal_revive`]
-#[derive(Component, Deref, DerefMut, Debug, Default, Clone, Copy, Reflect, Serialize, Deserialize)]
+#[derive(
+    Component, Deref, DerefMut, Debug, Default, Clone, Copy, Reflect, Serialize, Deserialize,
+)]
 #[reflect(Component, Default, Debug, Clone, Serialize, Deserialize)]
 pub struct HealthOld(Option<NonZero<u32>>);
 
@@ -356,7 +357,7 @@ pub fn kill_heal_revive(
 }
 
 #[cfg(test)]
-mod kill_heal_revive_tests{
+mod kill_heal_revive_tests {
     use super::*;
 
     #[test]
@@ -390,7 +391,9 @@ mod kill_heal_revive_tests{
 
         // Check resulting changes
         assert!(app.world().get::<HealthOld>(health_id).is_some());
-        assert_eq!(**app.world().get::<HealthOld>(health_id).unwrap(), NonZero::new(health));
+        assert_eq!(
+            **app.world().get::<HealthOld>(health_id).unwrap(),
+            NonZero::new(health)
+        );
     }
 }
-

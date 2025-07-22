@@ -60,4 +60,3 @@ pub struct HitChance(pub f32);
 #[reflect(Component, Clone, Serialize, Deserialize)]
 #[repr(transparent)]
 pub struct BlockChance(pub f32);
-

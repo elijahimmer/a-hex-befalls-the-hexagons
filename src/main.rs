@@ -1,5 +1,5 @@
-mod animation;
 mod actor;
+mod animation;
 mod camera;
 mod controls;
 mod database;

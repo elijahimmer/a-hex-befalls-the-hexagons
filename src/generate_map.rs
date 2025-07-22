@@ -23,7 +23,7 @@ pub const ROOM_ORIGIN: TilePos = TilePos {
 };
 pub const ROOM_TILE_LAYER: f32 = 0.0;
 
-const GENERATION_SCHEDULE_FREQUENCY: f64 = 100.0;
+const GENERATION_SCHEDULE_FREQUENCY: f64 = 10000.0;
 const GENERATING_STATE: NewGameState = NewGameState::GeneratingWorld;
 
 impl Plugin for GenerateMapPlugin {
