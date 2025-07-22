@@ -4,6 +4,7 @@ mod database;
 mod game;
 mod generate_map;
 mod menu;
+mod model;
 mod sky;
 mod style;
 mod tile;
