@@ -1,5 +1,7 @@
+mod attack;
 mod health;
 
+pub use attack::*;
 pub use health::*;
 
 use crate::prelude::*;
@@ -8,12 +10,12 @@ use serde::{Deserialize, Serialize};
 use std::num::NonZero;
 use std::ops::Range;
 
-#[derive(Component, Deref, DerefMut, Clone, Reflect, Serialize, Deserialize)]
-pub struct PartyID(pub u32);
+#[derive(Deref, DerefMut, Clone, Reflect, Serialize, Deserialize)]
+pub struct GameID(pub u32);
 
 #[derive(Resource)]
-pub struct Party {
-    party_id: i32,
+pub struct SaveGame {
+    game_id: GameId,
     members: Vec<Entity>,
     //items: Vec<Item>
 }
@@ -34,9 +36,7 @@ pub struct Actor {
     pub name: Name,
     pub team: Team,
     pub health: HealthBundle,
-    pub attack_damage: AttackDamage,
-    pub attack_speed: AttackSpeed,
-    pub hit_chance: HitChance,
+    pub attack: Attack,
     pub transform: Transform,
     pub sprite: Sprite,
     pub animation: AnimationConfig,
@@ -89,7 +89,11 @@ impl Actor {
     }
 
     #[cfg(feature = "sqlite")]
-    pub fn from_database(&self, db: &Database, game_id: GameID) -> Result<Box<[Self]>, DatabaseError> {
+    pub fn from_database(
+        &self,
+        db: &Database,
+        game_id: GameID,
+    ) -> Result<Box<[Self]>, DatabaseError> {
         let query = r#"
             SELECT
                 name,
@@ -107,9 +111,8 @@ impl Actor {
 
         let res = Vec::<Self>::with_capacity(8);
 
-
         while matches!(statement.next()?, sqlite::State::Row) {
-            res.append(Self {
+            res.push(Self {
                 name: statement.get::<u32>(0),
             });
         }
@@ -118,7 +121,11 @@ impl Actor {
     }
 
     #[cfg(not(feature = "sqlite"))]
-    pub fn from_database(&self, db: &Database, party_id: PartyID) -> Result<Box<[Self]>, DatabaseError> {
+    pub fn from_database(
+        &self,
+        db: &Database,
+        party_id: PartyID,
+    ) -> Result<Box<[Self]>, DatabaseError> {
         Ok(())
     }
 }
@@ -134,29 +141,3 @@ pub enum Team {
     /// on a given turn.
     Enemy,
 }
-
-/// The range of damage they can do.
-#[derive(Component, Deref, DerefMut, Clone, Reflect, Serialize, Deserialize)]
-#[reflect(Component, Clone, Serialize, Deserialize)]
-pub struct AttackDamage(pub Range<u32>);
-
-/// Determines the order of turns in combat.
-/// Higher numbers means they will go sooner.
-#[derive(Component, Deref, DerefMut, Clone, Copy, Reflect, Serialize, Deserialize)]
-#[reflect(Component, Clone, Serialize, Deserialize)]
-#[repr(transparent)]
-pub struct AttackSpeed(pub NonZero<u32>);
-
-/// The chance the actor has to hit when they attack.
-/// Should be between 0.0 and 1.0
-#[derive(Component, Deref, DerefMut, Clone, Copy, Reflect, Serialize, Deserialize)]
-#[reflect(Component, Clone, Serialize, Deserialize)]
-#[repr(transparent)]
-pub struct HitChance(pub f32);
-
-/// The chance the actor has to block in combat.
-/// Should be between 0.0 and 1.0
-#[derive(Component, Deref, DerefMut, Clone, Copy, Reflect, Serialize, Deserialize)]
-#[reflect(Component, Clone, Serialize, Deserialize)]
-#[repr(transparent)]
-pub struct BlockChance(pub f32);
