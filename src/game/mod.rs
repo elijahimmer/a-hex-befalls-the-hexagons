@@ -1,5 +1,3 @@
-use crate::actor::*;
-use crate::animation::{AnimationConfig, AnimationFrameTimer, execute_animations};
 use crate::embed_asset;
 use crate::prelude::*;
 use bevy::prelude::*;
@@ -8,7 +6,6 @@ use bevy_ecs_tilemap::prelude::*;
 use std::num::NonZero;
 
 const PLAYER_LAYER: f32 = 1.0;
-const SQUARE_SIZE: f32 = 20.0;
 
 const THEIF_IMAGE_PATH: &str = "embedded://assets/sprites/theif.png";
 const THEIF_FRAME_SIZE: UVec2 = UVec2::new(16, 30);
@@ -21,10 +18,20 @@ impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         embed_asset!(app, "assets/sprites/theif.png");
         //app.add_plugins(controls::GameControlsPlugin);
-        app.init_resource::<AnimationFrameTimer>()
-            .add_systems(OnEnter(GameState::Game), (fixup_room, spawn_theif))
-            .add_systems(Update, execute_animations);
+        app.add_sub_state::<GameState>()
+            // TODO: Game re-loading and setup should be different
+            .add_systems(OnEnter(AppState::Game), (fixup_room, spawn_theif));
     }
+}
+
+#[derive(SubStates, Clone, Copy, Default, Eq, PartialEq, Debug, Hash)]
+#[source(AppState = AppState::Game)]
+#[states(scoped_entities)]
+pub enum GameState {
+    #[default]
+    Intermission,
+    PlayerTurn,
+    EnemyTurn,
 }
 
 fn fixup_room(mut commands: Commands, tilemap: Single<(Entity, &TileStorage), With<RoomTilemap>>) {

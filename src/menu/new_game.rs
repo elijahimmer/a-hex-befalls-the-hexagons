@@ -14,9 +14,8 @@ impl Plugin for MenuNewGamePlugin {
         app.add_systems(OnEnter(NewGameState::Main), new_game_enter)
             .add_systems(
                 OnEnter(NewGameState::GeneratingWorld),
-                (generating_world_enter, set_camera_scale),
+                generating_world_enter,
             )
-            .add_systems(OnExit(NewGameState::GeneratingWorld), reset_camera_scale)
             .add_systems(Update, escape_out.run_if(in_state(MenuState::NewGame)));
     }
 }
@@ -35,36 +34,6 @@ pub struct WorldNameTextBox;
 
 #[derive(Component)]
 pub struct WorldSeedTextBox;
-
-fn set_camera_scale(
-    camera_id: Res<MainCamera>,
-    mut projection: Query<&mut Projection, With<MainCameraMarker>>,
-) {
-    let projection = &mut projection
-        .get_mut(camera_id.0)
-        .expect("There should be a camera!");
-
-    let Projection::Orthographic(ref mut projection2d) = **projection else {
-        unreachable!("Only Orthographic Projection is supported!");
-    };
-
-    projection2d.scale = CAMERA_DEFAULT_SCALE * 4.0;
-}
-
-fn reset_camera_scale(
-    camera_id: Res<MainCamera>,
-    mut projection: Query<&mut Projection, With<MainCameraMarker>>,
-) {
-    let projection = &mut projection
-        .get_mut(camera_id.0)
-        .expect("There should be a camera!");
-
-    let Projection::Orthographic(ref mut projection2d) = **projection else {
-        unreachable!("Only Orthographic Projection is supported!");
-    };
-
-    projection2d.scale = CAMERA_DEFAULT_SCALE;
-}
 
 fn escape_out(
     new_game_state: Res<State<NewGameState>>,

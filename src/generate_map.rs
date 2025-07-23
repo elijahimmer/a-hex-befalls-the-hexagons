@@ -12,7 +12,7 @@ use std::cmp::Ordering;
 
 pub struct GenerateMapPlugin;
 
-pub const ROOM_RADIUS: u32 = 10;
+pub const ROOM_RADIUS: u32 = 4;
 pub const ROOM_SIZE: TilemapSize = TilemapSize {
     x: ROOM_RADIUS * 2 + 1,
     y: ROOM_RADIUS * 2 + 1,
@@ -273,7 +273,7 @@ fn collapse_tile(
     valid_tile_q: Query<&ValidTiles>,
     mut tile_text_q: Query<&mut TileTextureIndex>,
     mut tile_rand: ResMut<GenerationRand>,
-    mut next_state: ResMut<NextState<GameState>>,
+    mut next_state: ResMut<NextState<AppState>>,
 ) {
     let mut entity_vec: Vec<Entity> = Vec::new();
     let mut lowest = u8::MAX;
@@ -299,7 +299,7 @@ fn collapse_tile(
     }
 
     if entity_vec.len() == 0 {
-        next_state.set(GameState::Game);
+        next_state.set(AppState::Game);
         return;
     }
 

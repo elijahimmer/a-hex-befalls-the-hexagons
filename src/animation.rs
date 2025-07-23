@@ -1,8 +1,14 @@
 use bevy::prelude::*;
-use rand::Rng;
 use serde::{Deserialize, Serialize};
-use std::num::NonZero;
-use std::ops::{DerefMut, Range};
+
+pub struct AnimationPlugin;
+
+impl Plugin for AnimationPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<AnimationFrameTimer>()
+            .add_systems(Update, execute_animations);
+    }
+}
 
 /// The number of seconds the per AnimationFrameTimer trigger.
 pub const ANIMATION_FRAME_TIMER_SECONDS: f32 = 0.5;
@@ -30,7 +36,6 @@ pub struct AnimationConfig {
     ticks_per_frame: usize,
 }
 
-#[expect(dead_code)]
 impl AnimationConfig {
     pub fn new(first: usize, last: usize, ticks_per_frame: usize) -> Self {
         Self {
@@ -56,7 +61,6 @@ impl AnimationConfig {
     }
 }
 
-#[expect(dead_code)]
 pub fn execute_animations(
     time: Res<Time>,
     mut frame_timer: ResMut<AnimationFrameTimer>,

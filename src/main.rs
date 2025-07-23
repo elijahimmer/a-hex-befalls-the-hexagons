@@ -20,18 +20,16 @@ pub mod prelude {
     pub type RandomSource = wyrand::WyRand;
 
     #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
-    pub enum GameState {
+    pub enum AppState {
         #[default]
         InitialLoading,
         Menu,
         Game,
     }
 
-    pub use crate::camera::{
-        CAMERA_DEFAULT_MOVE_AREA, CAMERA_DEFAULT_MOVE_SPEED, CAMERA_DEFAULT_SCALE,
-        CAMERA_DEFAULT_ZOOM_LIMIT, CAMERA_DEFAULT_ZOOM_SPEED, CameraMovementSettings, MainCamera,
-        MainCameraMarker,
-    };
+    pub use crate::actor::*;
+    pub use crate::animation::AnimationConfig;
+    pub use crate::camera::{MainCamera, MainCameraMarker};
     pub use crate::controls::{Control, ControlState, Controls, Keybind};
     pub use crate::database::{Database, DatabaseError, FromDatabase, ToDatabase};
     pub use crate::generate_map::ROOM_TILE_LAYER;
@@ -41,6 +39,7 @@ pub mod prelude {
     pub use crate::util::*;
 }
 
+use animation::AnimationPlugin;
 use camera::CameraPlugin;
 use controls::ControlsPlugin;
 use database::DatabasePlugin;
@@ -98,11 +97,12 @@ fn main() {
 
     // Debug state transitions
     #[cfg(feature = "debug")]
-    app.add_systems(Update, log_transitions::<GameState>);
+    app.add_systems(Update, log_transitions::<AppState>);
 
-    app.init_state::<GameState>();
+    app.init_state::<AppState>();
     // Local Plugins
     app.add_plugins(DatabasePlugin)
+        .add_plugins(AnimationPlugin)
         .add_plugins(TilePlugin)
         .add_plugins(GamePlugin)
         .add_plugins(StylePlugin)
@@ -114,13 +114,13 @@ fn main() {
 
     app.add_systems(
         Update,
-        check_textures.run_if(in_state(GameState::InitialLoading)),
+        check_textures.run_if(in_state(AppState::InitialLoading)),
     )
     .run();
 }
 
 /// Wait for all of the `StartUp` commands to run for first iteration
 /// before the `OnEnter` triggers of the Main menu.
-fn check_textures(mut next_state: ResMut<NextState<GameState>>) {
-    next_state.set(GameState::Menu);
+fn check_textures(mut next_state: ResMut<NextState<AppState>>) {
+    next_state.set(AppState::Menu);
 }

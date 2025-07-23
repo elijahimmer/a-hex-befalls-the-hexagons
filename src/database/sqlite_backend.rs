@@ -17,7 +17,7 @@ pub type DatabaseError = sqlite::Error;
 
 type Version = i64;
 
-const DB_VERSION: Version = 5;
+const DB_VERSION: Version = 6;
 
 const ADD_SCHEMA: &str = formatcp!(
     r#"
@@ -42,6 +42,24 @@ CREATE TABLE Keybinds(
 CREATE TABLE Style(
     key   TEXT PRIMARY KEY,
     value ANY
+) STRICT;
+
+CREATE TABLE SaveGame (
+    game_id     INTEGER PRIMARY KEY AUTOINCREMENT,
+    created     DATETIME DEFAULT CURRENT_TIMESTAMP,
+    last_saved  DATETIME
+);
+
+CREATE TABLE Actor (
+  game_id           INTEGER,
+  name              TEXT,
+  party             TEXT,
+  health_max        INTEGER,
+  health_curr       INTEGER,
+  attack_damage_min INTEGER,
+  attack_damage_max INTEGER,
+  hit_chance        INTEGER,
+  FOREIGN KEY(game_id) REFERENCES SaveGame(game_id)
 ) STRICT;
 
 COMMIT;
@@ -368,7 +386,7 @@ pub enum ValidateSchemaError {
     DatabaseError(#[from] DatabaseError),
 }
 
-const _: () = assert!(DB_VERSION == 5, "UPDATE VALIDATE SCRIPT");
+const _: () = assert!(DB_VERSION == 6, "UPDATE VALIDATE SCRIPT");
 fn validate_schema(db: &Database) -> Result<(), ValidateSchemaError> {
     let mut statement = db
         .connection
@@ -380,6 +398,29 @@ fn validate_schema(db: &Database) -> Result<(), ValidateSchemaError> {
     validate_table(db, "KeyValue", &[("key", "TEXT"), ("value", "ANY")])?;
     validate_table(db, "Keybinds", &[("key", "TEXT"), ("value", "TEXT")])?;
     validate_table(db, "Style", &[("key", "TEXT"), ("value", "ANY")])?;
+    validate_table(
+        db,
+        "SaveGame",
+        &[
+            ("game_id", "INTEGER"),
+            ("created", "DATETIME"),
+            ("last_saved", "DATETIME"),
+        ],
+    )?;
+    validate_table(
+        db,
+        "Actor",
+        &[
+            ("game_id", "INTEGER"),
+            ("name", "TEXT"),
+            ("party", "TEXT"),
+            ("health_max", "INTEGER"),
+            ("health_curr", "INTEGER"),
+            ("attack_damage_min", "INTEGER"),
+            ("attack_damage_max", "INTEGER"),
+            ("hit_chance", "INTEGER"),
+        ],
+    )?;
 
     Ok(())
 }
@@ -431,7 +472,7 @@ pub enum BackupError {
     FileError(#[from] std::io::Error),
 }
 
-///
+/// Backs up the database to another file in the same directory with a timestamp in the name.
 fn backup_database() -> Result<(), BackupError> {
     let mut db_path = get_default_db_directory();
     db_path.push("database.sqlite");
@@ -465,7 +506,7 @@ pub enum MigrationError {
 
 const MIN_VERSION_MIGRATEABLE: Version = 3;
 /// Make sure the migrations are set up properly
-const _: () = assert!(DB_VERSION == 5, "UPDATE THE MIGRATION SCRIPT");
+const _: () = assert!(DB_VERSION == 6, "UPDATE THE MIGRATION SCRIPT");
 
 /// MAINTENANCE: UPDATE EVERY DATABASE UPDGRADE
 fn migrate_database(db: &Database, from: Version) -> Result<(), MigrationError> {
@@ -474,13 +515,18 @@ fn migrate_database(db: &Database, from: Version) -> Result<(), MigrationError> 
     let mut from = from;
 
     if from == 3 {
-        migrate_from_3_to_4(db)?;
+        db.connection.execute(MIGRATE_FROM_3_TO_4)?;
         from = 4;
     }
 
     if from == 4 {
-        migrate_from_4_to_5(db)?;
+        db.connection.execute(MIGRATE_FROM_4_TO_5)?;
         from = 5;
+    }
+
+    if from == 5 {
+        db.connection.execute(MIGRATE_FROM_5_TO_6)?;
+        from = 6;
     }
 
     assert_eq!(
@@ -490,48 +536,62 @@ fn migrate_database(db: &Database, from: Version) -> Result<(), MigrationError> 
     Ok(())
 }
 
-fn migrate_from_3_to_4(db: &Database) -> Result<(), DatabaseError> {
-    let query = r#"
-        BEGIN TRANSACTION;
+const MIGRATE_FROM_3_TO_4: &str = r#"
+    BEGIN TRANSACTION;
 
-        UPDATE Version SET version = 4;
+    UPDATE Version SET version = 4;
 
-        DROP TABLE Colors;
+    DROP TABLE Colors;
 
-        CREATE TABLE Style(
-            key   TEXT PRIMARY KEY,
-            value ANY
-        ) STRICT;
+    CREATE TABLE Style(
+        key   TEXT PRIMARY KEY,
+        value ANY
+    ) STRICT;
 
-        COMMIT;
-    "#;
+    COMMIT;
+"#;
 
-    db.connection.execute(query)?;
+const MIGRATE_FROM_4_TO_5: &str = r#"
+    BEGIN TRANSACTION;
 
-    Ok(())
-}
+    UPDATE Version SET version = 5;
 
-fn migrate_from_4_to_5(db: &Database) -> Result<(), DatabaseError> {
-    let query = r#"
-        BEGIN TRANSACTION;
+    UPDATE Keybinds Set key1 = CONCAT('Some(', key1, ')') WHERE key1 IS NOT NULL;
+    UPDATE Keybinds Set key2 = CONCAT('Some(', key2, ')') WHERE key2 IS NOT NULL;
+    UPDATE Keybinds Set key1 = 'None' WHERE key1 IS NULL;
+    UPDATE Keybinds Set key2 = 'None' WHERE key2 IS NULL;
 
-        UPDATE Version SET version = 5;
+    UPDATE Keybinds SET key1 = CONCAT('(', key1, ',', key2, ')');
 
-        UPDATE Keybinds Set key1 = CONCAT('Some(', key1, ')') WHERE key1 IS NOT NULL;
-        UPDATE Keybinds Set key2 = CONCAT('Some(', key2, ')') WHERE key2 IS NOT NULL;
-        UPDATE Keybinds Set key1 = 'None' WHERE key1 IS NULL;
-        UPDATE Keybinds Set key2 = 'None' WHERE key2 IS NULL;
+    ALTER TABLE Keybinds DROP COLUMN key2;
+    ALTER TABLE Keybinds RENAME COLUMN key1 TO value;
+    ALTER TABLE Keybinds RENAME COLUMN keybind TO key;
 
-        UPDATE Keybinds SET key1 = CONCAT('(', key1, ',', key2, ')');
+    COMMIT;
+"#;
 
-        ALTER TABLE Keybinds DROP COLUMN key2;
-        ALTER TABLE Keybinds RENAME COLUMN key1 TO value;
-        ALTER TABLE Keybinds RENAME COLUMN keybind TO key;
+const MIGRATE_FROM_5_TO_6: &str = r#"
+    BEGIN TRANSACTION;
 
-        COMMIT;
-    "#;
+    UPDATE Version SET version = 6;
 
-    db.connection.execute(query)?;
+    CREATE TABLE SaveGame (
+        game_id     INTEGER PRIMARY KEY AUTOINCREMENT,
+        created     DATETIME DEFAULT CURRENT_TIMESTAMP,
+        last_saved  DATETIME
+    );
 
-    Ok(())
-}
+    CREATE TABLE Actor (
+      game_id           INTEGER,
+      name              TEXT,
+      party             TEXT,
+      health_max        INTEGER,
+      health_curr       INTEGER,
+      attack_damage_min INTEGER,
+      attack_damage_max INTEGER,
+      hit_chance        INTEGER,
+      FOREIGN KEY(game_id) REFERENCES SaveGame(game_id)
+    ) STRICT;
+
+    COMMIT;
+"#;

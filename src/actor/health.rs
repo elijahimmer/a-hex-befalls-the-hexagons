@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::num::NonZero;
-use std::ops::{DerefMut, Range};
+use std::ops::DerefMut;
 
 /// Triggered on the actor when their health changes.
 /// How the health of an actor was changed since last check.
@@ -52,7 +52,6 @@ pub struct Health {
     max: NonZero<u32>,
 }
 
-#[expect(dead_code)]
 impl Health {
     /// Makes a new health component with the current health
     /// set to the max.
@@ -334,7 +333,6 @@ mod health_tests {
 
 /// Heals all actors that end of round
 /// based on their [`HealChance`]
-#[expect(dead_code)]
 pub fn end_of_turn_healing<Rand: Resource + DerefMut<Target: Rng>>(
     mut actor_q: Query<(&HealChance, &mut Health)>,
     mut rng: ResMut<Rand>,
@@ -348,7 +346,6 @@ pub fn end_of_turn_healing<Rand: Resource + DerefMut<Target: Rng>>(
 
 /// Runs after the damage step before you want to trigger any animations.
 /// Also updates the [`Health`]'s old health
-#[expect(dead_code)]
 pub fn kill_heal_revive(
     mut commands: Commands,
     mut actor_q: Query<(Entity, &Health, &mut HealthOld), Changed<Health>>,

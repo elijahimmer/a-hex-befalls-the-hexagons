@@ -27,7 +27,7 @@ impl Plugin for MenuPlugin {
             .add_plugins(MenuNewGamePlugin)
             .add_systems(
                 Update,
-                (button_highlight, escape_out).run_if(in_state(GameState::Menu)),
+                (button_highlight, escape_out).run_if(in_state(AppState::Menu)),
             )
             .add_systems(OnEnter(MenuState::Main), main_enter)
             .add_systems(OnEnter(MenuState::Settings), settings_enter)
@@ -37,7 +37,7 @@ impl Plugin for MenuPlugin {
 }
 
 #[derive(SubStates, Clone, Copy, Default, Eq, PartialEq, Debug, Hash)]
-#[source(GameState = GameState::Menu)]
+#[source(AppState = AppState::Menu)]
 #[states(scoped_entities)]
 pub enum MenuState {
     #[default]
