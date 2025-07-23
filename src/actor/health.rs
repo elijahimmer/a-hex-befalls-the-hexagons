@@ -15,6 +15,10 @@ pub enum HealthChange {
     Revived,
 }
 
+/// The typical bundle for health.
+/// You shouldn't have one of these without the other
+/// as they together are used to properly track health and output
+/// health events.
 #[derive(Bundle)]
 pub struct HealthBundle {
     pub health: Health,
@@ -160,6 +164,9 @@ impl Health {
 }
 
 /// The health of the actor before the latest round of [`kill_heal_revive`]
+///
+/// This is a separate entity so that changing the old health doesn't
+/// re-trigger the event to update itself
 #[derive(
     Component, Deref, DerefMut, Debug, Default, Clone, Copy, Reflect, Serialize, Deserialize,
 )]
