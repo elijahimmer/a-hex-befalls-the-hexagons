@@ -26,9 +26,30 @@ impl Default for AnimationFrameTimer {
     }
 }
 
+//#[derive(Bundle, Serialize, Deserialize)]
+//pub struct AnimationBundle {
+//    sprite: Sprite,
+//    animations: AnimationConfigs,
+//    active_animation: ActiveAnimation,
+//}
+//
+//#[derive(Component, Serialize, Deserialize)]
+//pub struct AnimationConfigs {
+//    /// The normal animation
+//    normal: AnimationConfig,
+//    damaged: AnimationConfig,
+//    dead: AnimationConfig,
+//}
+//
+//#[derive(Component, Debug, Hash, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
+//pub enum ActiveAnimation {
+//    Normal,
+//    Damaged,
+//    Dead,
+//}
+
 /// The config for automating animation
-#[derive(Component, Clone, Reflect, Serialize, Deserialize)]
-#[reflect(Component, Clone, Serialize, Deserialize)]
+#[derive(Component, Clone, Serialize, Deserialize)]
 pub struct AnimationConfig {
     first_sprite_index: usize,
     last_sprite_index: usize,

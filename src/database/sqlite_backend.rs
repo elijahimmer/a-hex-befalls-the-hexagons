@@ -5,19 +5,18 @@
 use super::*;
 
 use bevy::prelude::*;
-use sqlite::ConnectionThreadSafe;
-
-use std::cmp::Ordering;
-
 use const_format::formatcp;
+use rusqlite::Connection;
+use rusqlite::params;
 use serde::{Serialize, de::DeserializeOwned};
+use std::cmp::Ordering;
 use thiserror::Error;
 
-pub type DatabaseError = sqlite::Error;
+pub type DatabaseError = rusqlite::Error;
 
 type Version = i64;
 
-const DB_VERSION: Version = 6;
+const DB_VERSION: Version = 7;
 
 const ADD_SCHEMA: &str = formatcp!(
     r#"
@@ -27,12 +26,7 @@ CREATE TABLE Version(
   version INTEGER PRIMARY KEY
 ) STRICT;
 
-INSERT INTO Version VALUES ({DB_VERSION});
-
-CREATE TABLE KeyValue(
-    key   TEXT PRIMARY KEY,
-    value ANY
-) STRICT;
+INSERT INTO Version VALUES({DB_VERSION});
 
 CREATE TABLE Keybinds(
     key   TEXT PRIMARY KEY,
@@ -44,14 +38,22 @@ CREATE TABLE Style(
     value ANY
 ) STRICT;
 
-CREATE TABLE SaveGame (
+CREATE TABLE SaveGame(
     game_id     INTEGER PRIMARY KEY AUTOINCREMENT,
     created     DATETIME DEFAULT CURRENT_TIMESTAMP,
     last_saved  DATETIME
 );
 
-CREATE TABLE Actor (
-  game_id           INTEGER,
+CREATE TABLE Sprite(
+    sprite_id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    sprite_path         TEXT,
+    normal_animation    TEXT,
+    damaged_animation   TEXT,
+    dead_animation      TEXT
+) STRICT;
+
+CREATE TABLE Actor(
+  game_id           INTEGER REFERENCES SaveGame(game_id),
   name              TEXT,
   party             TEXT,
   health_max        INTEGER,
@@ -59,16 +61,15 @@ CREATE TABLE Actor (
   attack_damage_min INTEGER,
   attack_damage_max INTEGER,
   hit_chance        INTEGER,
-  FOREIGN KEY(game_id) REFERENCES SaveGame(game_id)
+  sprite_id         INTEGER REFERENCES Sprite(sprite_id)
 ) STRICT;
 
 COMMIT;
 "#
 );
 
-#[derive(Resource)]
 pub struct Database {
-    pub connection: ConnectionThreadSafe,
+    pub connection: Connection,
 }
 
 impl Database {
@@ -78,14 +79,14 @@ impl Database {
 
         let exists = path.exists();
         let db = {
-            let connection = match sqlite::Connection::open_thread_safe(&path) {
+            let connection = match rusqlite::Connection::open(&path) {
                 Ok(conn) => conn,
                 Err(err) => {
                     warn!(
                         "Failed to open database at '{}' with error: {err}",
                         path.display()
                     );
-                    sqlite::Connection::open_thread_safe(":memory:")?
+                    rusqlite::Connection::open_in_memory()?
                 }
             };
             Self {
@@ -136,7 +137,7 @@ impl Database {
             }
         } else {
             info!("Database not found! Creating it at '{}'!", path.display());
-            db.connection.execute(ADD_SCHEMA)?;
+            db.connection.execute_batch(ADD_SCHEMA)?;
         }
 
         info!("Running database validation checks.");
@@ -155,141 +156,43 @@ impl Database {
         Ok(db)
     }
 
-    pub fn get_kv_table_direct<T: sqlite::ReadableWithIndex>(
-        &self,
-        table: &str,
-        key: &str,
-    ) -> Result<Option<T>, DatabaseError> {
-        let query = format!("SELECT value FROM {table} WHERE key = :key");
-        let mut statement = self.connection.prepare(query)?;
+    pub fn get_kv<T>(&self, table: &str, key: &str, default: T) -> T
+    where
+        T: Serialize + DeserializeOwned + Clone,
+    {
+        let query = format!("SELECT value FROM {table} WHERE key = ?1");
+        let ret = self
+            .connection
+            .prepare_cached(&query)
+            .map(|mut q| q.query_row((key,), |row| row.get::<_, String>(0)));
 
-        statement.bind((":key", key))?;
-
-        if let sqlite::State::Done = statement.next()? {
-            return Ok(None);
-        }
-
-        // read the value column index.
-        let value = statement.read::<Option<T>, usize>(0)?;
-
-        assert!(matches!(statement.next()?, sqlite::State::Done));
-
-        Ok(value)
-    }
-
-    pub fn get_kv_table<T: DeserializeOwned>(
-        &self,
-        table: &str,
-        key: &str,
-    ) -> Result<Option<T>, GetKvError> {
-        Ok(self
-            .get_kv_table_direct::<String>(table, key)?
-            .as_deref()
-            .map(|str| ron::from_str(str))
-            .transpose()?)
-    }
-
-    pub fn get_kv_direct<T: sqlite::ReadableWithIndex>(
-        &self,
-        key: &str,
-    ) -> Result<Option<T>, DatabaseError> {
-        self.get_kv_table_direct("KeyValue", key)
-    }
-
-    pub fn get_kv<T: DeserializeOwned>(&self, key: &str) -> Result<Option<T>, GetKvError> {
-        self.get_kv_table("KeyValue", key)
-    }
-
-    pub fn get_kv_table_direct_or_default<
-        T: sqlite::ReadableWithIndex,
-        U: sqlite::BindableWithIndex + Into<T> + Clone,
-    >(
-        &self,
-        table: &str,
-        key: &str,
-        default: U,
-    ) -> T {
-        match self.get_kv_table_direct(table, key) {
+        match ret {
             Err(err) => {
                 warn!("Failed to read key '{key}' from table '{table}' with error: {err}");
-                default.into()
+                default
             }
-            Ok(None) => {
+            Ok(Err(err)) => {
                 warn!(
-                    "No such key '{key}' in table '{table}' (this is expected first launch or after an update)."
+                    "Error {err} when settings '{key}' in table '{table}' (this is expected first launch or after an update)."
                 );
-                if let Err(err) = self.set_kv_table_direct(table, key, default.clone()) {
+                if let Err(err) = self.set_kv(table, key, default.clone()) {
                     warn!(
                         "Failed to set key '{key}' in table '{table}' in database with error: {err}"
                     )
                 }
-                default.into()
+                default
             }
-            Ok(Some(t)) => t,
+            Ok(Ok(t)) => ron::from_str(&t).unwrap_or(default),
         }
     }
 
-    pub fn get_kv_table_or_default<T: Serialize + DeserializeOwned + Clone>(
-        &self,
-        table: &str,
-        key: &str,
-        default: T,
-    ) -> T {
-        match self.get_kv_table(table, key) {
-            Err(err) => {
-                warn!("Failed to read key '{key}' from table '{table}' with error: {err}");
-                default.into()
-            }
-            Ok(None) => {
-                warn!(
-                    "No such key '{key}' in table '{table}' (this is expected first launch or after an update)."
-                );
-                if let Err(err) = self.set_kv_table(table, key, default.clone()) {
-                    warn!(
-                        "Failed to set key '{key}' in table '{table}' in database with error: {err}"
-                    )
-                }
-                default.into()
-            }
-            Ok(Some(t)) => t,
-        }
-    }
+    pub fn set_kv<T: Serialize>(&self, table: &str, key: &str, value: T) -> Result<(), SetKvError> {
+        let value = ron::to_string(&value)?;
 
-    pub fn set_kv_table_direct<T: sqlite::BindableWithIndex>(
-        &self,
-        table: &str,
-        key: &str,
-        value: T,
-    ) -> Result<(), DatabaseError> {
-        let query = format!("INSERT OR REPLACE INTO {table} VALUES (:key, :value)");
-        let mut statement = self.connection.prepare(query)?;
-        statement.bind((":key", key))?;
-        statement.bind((":value", value))?;
-
-        assert!(matches!(statement.next()?, sqlite::State::Done));
+        let query = format!("INSERT OR REPLACE INTO {table} VALUES (?1, ?2)");
+        self.connection.execute(&query, params![key, value])?;
 
         Ok(())
-    }
-
-    pub fn set_kv_table<T: Serialize>(
-        &self,
-        table: &str,
-        key: &str,
-        value: T,
-    ) -> Result<(), SetKvError> {
-        Ok(self.set_kv_table_direct(table, key, ron::to_string(&value)?.as_str())?)
-    }
-
-    pub fn set_kv_direct<T: sqlite::BindableWithIndex>(
-        &self,
-        key: &str,
-        value: T,
-    ) -> Result<(), DatabaseError> {
-        self.set_kv_table_direct("KeyValue", key, value)
-    }
-
-    pub fn set_kv<T: Serialize>(&self, key: &str, value: T) -> Result<(), SetKvError> {
-        self.set_kv_table("KeyValue", key, value)
     }
 }
 
@@ -327,14 +230,6 @@ pub enum VersionCompatability {
 }
 
 #[derive(Error, Debug)]
-pub enum GetKvError {
-    #[error("Failed to deserialize value with error `{0}`")]
-    DeserializerError(#[from] ron::error::SpannedError),
-    #[error("SQLite error occured: `{0}`")]
-    DatabaseError(#[from] DatabaseError),
-}
-
-#[derive(Error, Debug)]
 pub enum SetKvError {
     #[error("Failed to serialize value with error `{0}`")]
     SerializeError(#[from] ron::Error),
@@ -345,28 +240,13 @@ pub enum SetKvError {
 fn check_version(db: &Database) -> Result<VersionCompatability, CheckVersionError> {
     let mut statement = db.connection.prepare("SELECT version FROM Version;")?;
 
-    if !matches!(statement.next()?, sqlite::State::Row) {
-        error!("No version found in database!");
-        return Err(CheckVersionError::VersionNotFound);
-    }
-
-    if statement.column_count() != 1 {
-        warn!("Version entry contains invalid values!");
-        return Err(CheckVersionError::IncompatableVersionTable);
-    }
-
-    let version = match statement.read::<i64, usize>(0) {
+    let version = match statement.query_row([], |row| row.get::<_, Version>(0)) {
         Ok(v) => v,
         Err(err) => {
             warn!("Version entry not found in table with error: {err}");
             return Err(CheckVersionError::VersionNotFound);
         }
     };
-
-    if let sqlite::State::Row = statement.next()? {
-        warn!("Malformed version table! Expected only 1 entry, found multiple!");
-        return Err(CheckVersionError::IncompatableVersionTable);
-    }
 
     Ok(match version.cmp(&DB_VERSION) {
         Ordering::Equal => VersionCompatability::Same,
@@ -386,16 +266,12 @@ pub enum ValidateSchemaError {
     DatabaseError(#[from] DatabaseError),
 }
 
-const _: () = assert!(DB_VERSION == 6, "UPDATE VALIDATE SCRIPT");
+const _: () = assert!(DB_VERSION == 7, "UPDATE VALIDATE SCRIPT");
 fn validate_schema(db: &Database) -> Result<(), ValidateSchemaError> {
-    let mut statement = db
-        .connection
-        .prepare("PRAGMA integrity_check; PRAGMA optimize;")?;
-    assert!(matches!(statement.next()?, sqlite::State::Row));
-    assert!(matches!(statement.next()?, sqlite::State::Done));
+    db.connection
+        .execute_batch("PRAGMA integrity_check; PRAGMA optimize;")?;
 
     validate_table(db, "Version", &[("version", "INTEGER")])?;
-    validate_table(db, "KeyValue", &[("key", "TEXT"), ("value", "ANY")])?;
     validate_table(db, "Keybinds", &[("key", "TEXT"), ("value", "TEXT")])?;
     validate_table(db, "Style", &[("key", "TEXT"), ("value", "ANY")])?;
     validate_table(
@@ -419,6 +295,18 @@ fn validate_schema(db: &Database) -> Result<(), ValidateSchemaError> {
             ("attack_damage_min", "INTEGER"),
             ("attack_damage_max", "INTEGER"),
             ("hit_chance", "INTEGER"),
+            ("sprite_id", "INTEGER"),
+        ],
+    )?;
+    validate_table(
+        db,
+        "Sprite",
+        &[
+            ("sprite_id", "INTEGER"),
+            ("sprite_path", "TEXT"),
+            ("normal_animation", "TEXT"),
+            ("damaged_animation", "TEXT"),
+            ("dead_animation", "TEXT"),
         ],
     )?;
 
@@ -430,18 +318,18 @@ fn validate_table(
     table_name: &str,
     contents: &[(&str, &str)],
 ) -> Result<(), ValidateSchemaError> {
+    // SAFETY: Use `format` here as it has to be the exact table name with no quotes.
+    //         This name should also not be user input in any way.
     let query = format!("PRAGMA table_info({table_name});");
-    let mut statement = db.connection.prepare(query)?;
 
-    for (expected_name, expected_ctype) in contents.iter() {
-        if let sqlite::State::Done = statement.next()? {
-            error!("SQLite table `{table_name}` missing column 'expected_name'!");
-            return Err(ValidateSchemaError::Invalid(table_name.into()));
-        }
+    let mut statement = db.connection.prepare(&query)?;
+    let rows = statement
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(1)?, row.get::<_, String>(2)?))
+        })?
+        .filter_map(|row| row.ok());
 
-        let name = statement.read::<String, usize>(1).unwrap();
-        let ctype = statement.read::<String, usize>(2).unwrap();
-
+    for ((expected_name, expected_ctype), (name, ctype)) in contents.into_iter().zip(rows) {
         if &name != expected_name {
             error!(
                 "SQLite table `{table_name}` found column `{name}` yet expected column `{expected_name}`"
@@ -456,10 +344,12 @@ fn validate_table(
         }
     }
 
-    if !matches!(statement.next()?, sqlite::State::Done) {
-        let next_column = statement.read::<String, usize>(1)?;
-        error!("SQLite table `{table_name}` has unexpected column '{next_column}'");
-    };
+    //if let Some(row) = rows.next() {
+    //    error!(
+    //        "SQLite table `{table_name}` has unexpected column '{}'",
+    //        row.1
+    //    );
+    //};
 
     Ok(())
 }
@@ -506,7 +396,7 @@ pub enum MigrationError {
 
 const MIN_VERSION_MIGRATEABLE: Version = 3;
 /// Make sure the migrations are set up properly
-const _: () = assert!(DB_VERSION == 6, "UPDATE THE MIGRATION SCRIPT");
+const _: () = assert!(DB_VERSION == 7, "UPDATE THE MIGRATION SCRIPT");
 
 /// MAINTENANCE: UPDATE EVERY DATABASE UPDGRADE
 fn migrate_database(db: &Database, from: Version) -> Result<(), MigrationError> {
@@ -515,18 +405,23 @@ fn migrate_database(db: &Database, from: Version) -> Result<(), MigrationError> 
     let mut from = from;
 
     if from == 3 {
-        db.connection.execute(MIGRATE_FROM_3_TO_4)?;
+        db.connection.execute_batch(MIGRATE_FROM_3_TO_4)?;
         from = 4;
     }
 
     if from == 4 {
-        db.connection.execute(MIGRATE_FROM_4_TO_5)?;
+        db.connection.execute_batch(MIGRATE_FROM_4_TO_5)?;
         from = 5;
     }
 
     if from == 5 {
-        db.connection.execute(MIGRATE_FROM_5_TO_6)?;
+        db.connection.execute_batch(MIGRATE_FROM_5_TO_6)?;
         from = 6;
+    }
+
+    if from == 6 {
+        db.connection.execute_batch(MIGRATE_FROM_6_TO_7)?;
+        from = 7;
     }
 
     assert_eq!(
@@ -592,6 +487,26 @@ const MIGRATE_FROM_5_TO_6: &str = r#"
       hit_chance        INTEGER,
       FOREIGN KEY(game_id) REFERENCES SaveGame(game_id)
     ) STRICT;
+
+    COMMIT;
+"#;
+
+const MIGRATE_FROM_6_TO_7: &str = r#"
+    BEGIN TRANSACTION;
+
+    UPDATE Version SET version = 7;
+
+    DROP TABLE KeyValue;
+
+    CREATE TABLE Sprite(
+        sprite_id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        sprite_path         TEXT,
+        normal_animation    TEXT,
+        damaged_animation   TEXT,
+        dead_animation      TEXT
+    ) STRICT;
+
+    ALTER TABLE Actor ADD COLUMN sprite_id INTEGER REFERENCES Sprite(sprite_id);
 
     COMMIT;
 "#;

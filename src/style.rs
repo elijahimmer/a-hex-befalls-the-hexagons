@@ -30,17 +30,18 @@ impl Plugin for StylePlugin {
     }
 }
 
-fn sync_to_database(db: Res<Database>, style: Res<Style>, asset_server: Res<AssetServer>) {
+fn sync_to_database(db: NonSend<Database>, style: Res<Style>, asset_server: Res<AssetServer>) {
     if let Err(err) = style.to_database(&db, &asset_server) {
         warn!("Failed to sync style settings to database with: {err}");
     };
 }
 
-pub fn add_style(mut commands: Commands, database: Res<Database>, asset_server: Res<AssetServer>) {
-    commands.insert_resource(Style::from_database(
-        database.into_inner(),
-        asset_server.into_inner(),
-    ));
+pub fn add_style(
+    mut commands: Commands,
+    database: NonSend<Database>,
+    asset_server: Res<AssetServer>,
+) {
+    commands.insert_resource(Style::from_database(&database, asset_server.into_inner()));
 }
 
 #[derive(Resource, Reflect)]
@@ -151,44 +152,31 @@ impl Style {
 
     /// Loads state from a database, resorting to defaults on failure.
     pub fn from_database(db: &Database, asset_server: &AssetServer) -> Self {
-        let font_path: String =
-            db.get_kv_table_direct_or_default(STYLE_DB_TABLE, "font", DEFAULT_FONT_PATH);
+        let font_path: String = db.get_kv(STYLE_DB_TABLE, "font", DEFAULT_FONT_PATH.into());
 
         Self {
             font: asset_server.load(font_path),
             icons: Icons::new(asset_server, BUTTON_SPRITE_IMAGE_PATH),
 
-            background_color: db.get_kv_table_or_default(
+            background_color: db.get_kv(
                 STYLE_DB_TABLE,
                 "background_color",
                 DEFAULT_BACKGROUND_COLOR,
             ),
-            title_color: db.get_kv_table_or_default(
-                STYLE_DB_TABLE,
-                "title_color",
-                DEFAULT_TITLE_COLOR,
-            ),
-            text_color: db.get_kv_table_or_default(
-                STYLE_DB_TABLE,
-                "text_color",
-                DEFAULT_TEXT_COLOR,
-            ),
-            button_color: db.get_kv_table_or_default(
-                STYLE_DB_TABLE,
-                "normal_button",
-                DEFAULT_BUTTON_COLOR,
-            ),
-            pressed_button_color: db.get_kv_table_or_default(
+            title_color: db.get_kv(STYLE_DB_TABLE, "title_color", DEFAULT_TITLE_COLOR),
+            text_color: db.get_kv(STYLE_DB_TABLE, "text_color", DEFAULT_TEXT_COLOR),
+            button_color: db.get_kv(STYLE_DB_TABLE, "normal_button", DEFAULT_BUTTON_COLOR),
+            pressed_button_color: db.get_kv(
                 STYLE_DB_TABLE,
                 "pressed_button",
                 DEFAULT_PRESSED_BUTTON_COLOR,
             ),
-            hovered_button_color: db.get_kv_table_or_default(
+            hovered_button_color: db.get_kv(
                 STYLE_DB_TABLE,
                 "hovered_button",
                 DEFAULT_HOVERED_BUTTON_COLOR,
             ),
-            hovered_pressed_button_color: db.get_kv_table_or_default(
+            hovered_pressed_button_color: db.get_kv(
                 STYLE_DB_TABLE,
                 "hovered_pressed_button",
                 DEFAULT_HOVERED_PRESSED_BUTTON_COLOR,
@@ -207,24 +195,24 @@ impl Style {
             .expect("The font should have a file path!")
             .to_string();
 
-        db.set_kv_table_direct(STYLE_DB_TABLE, "font", asset_path.as_str())?;
-        db.set_kv_table(STYLE_DB_TABLE, "text_color", self.text_color)?;
-        db.set_kv_table(STYLE_DB_TABLE, "text_color", self.text_color)?;
-        db.set_kv_table(STYLE_DB_TABLE, "background_color", self.background_color)?;
-        db.set_kv_table(STYLE_DB_TABLE, "title_color", self.title_color)?;
-        db.set_kv_table(STYLE_DB_TABLE, "text_color", self.text_color)?;
-        db.set_kv_table(STYLE_DB_TABLE, "button_color", self.button_color)?;
-        db.set_kv_table(
+        db.set_kv(STYLE_DB_TABLE, "font", asset_path.as_str())?;
+        db.set_kv(STYLE_DB_TABLE, "text_color", self.text_color)?;
+        db.set_kv(STYLE_DB_TABLE, "text_color", self.text_color)?;
+        db.set_kv(STYLE_DB_TABLE, "background_color", self.background_color)?;
+        db.set_kv(STYLE_DB_TABLE, "title_color", self.title_color)?;
+        db.set_kv(STYLE_DB_TABLE, "text_color", self.text_color)?;
+        db.set_kv(STYLE_DB_TABLE, "button_color", self.button_color)?;
+        db.set_kv(
             STYLE_DB_TABLE,
             "pressed_button_color",
             self.pressed_button_color,
         )?;
-        db.set_kv_table(
+        db.set_kv(
             STYLE_DB_TABLE,
             "hovered_button_color",
             self.hovered_button_color,
         )?;
-        db.set_kv_table(
+        db.set_kv(
             STYLE_DB_TABLE,
             "hovered_pressed_button_color",
             self.hovered_pressed_button_color,

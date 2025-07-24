@@ -19,34 +19,27 @@ pub struct SkyPlugin;
 
 impl Plugin for SkyPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<SkyTile>()
-            .register_type::<SkyTileMap>()
-            .register_type::<SkySettings>()
-            .insert_resource(SkyRand(RandomSource::from_os_rng()))
+        app.insert_resource(SkyRand(RandomSource::from_os_rng()))
             .add_systems(Startup, spawn_sky)
             .add_systems(Update, sky_movement);
     }
 }
 
 /// A marker to mark the Sky Tiles in the Sky TileMap
-#[derive(Component, Reflect)]
-#[reflect(Component)]
+#[derive(Component)]
 pub struct SkyTile;
 
-#[derive(Resource, Reflect)]
-#[reflect(Resource)]
+#[derive(Resource)]
 pub struct SkyTileMap(Entity);
 
 /// A marker to mark the Sky TileMap
-#[derive(Component, Reflect)]
-#[reflect(Component)]
+#[derive(Component)]
 pub struct SkyTileMapMarker;
 
 #[derive(Resource)]
 struct SkyRand(pub RandomSource);
 
-#[derive(Resource, Reflect)]
-#[reflect(Resource)]
+#[derive(Resource)]
 pub struct SkySettings {
     /// The speed of movement in tiles per second, in axial coordinates.
     pub speed: Vec2,

@@ -18,7 +18,7 @@ pub struct DatabasePlugin;
 
 impl Plugin for DatabasePlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(
+        app.insert_non_send_resource(
             Database::open()
                 .inspect_err(|e| error!("Failed to open database with: {e}"))
                 .unwrap(),

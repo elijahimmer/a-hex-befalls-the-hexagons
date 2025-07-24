@@ -31,12 +31,11 @@ impl Plugin for ControlsPlugin {
     }
 }
 
-fn setup_controls(mut commands: Commands, database: Res<Database>) {
+fn setup_controls(mut commands: Commands, database: NonSend<Database>) {
     commands.insert_resource(Controls::from_database(&database));
 }
 
-#[derive(Clone, Default, Resource, Reflect)]
-#[reflect(Clone, Default, Resource)]
+#[derive(Clone, Default, Resource)]
 pub struct ControlState {
     pressed: HashMap<Control, f32>,
     just_pressed: HashSet<Control>,
@@ -238,8 +237,7 @@ fn update_control_state(
 }
 
 /// All of the information about an individual keybind
-#[derive(Debug, Hash, PartialEq, Eq, Clone, Reflect, Serialize, Deserialize)]
-#[reflect(Debug, Hash, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct Keybind(pub Control, pub InputList);
 
 impl Keybind {
@@ -270,14 +268,13 @@ pub fn input_to_screen(style: &Style, builder: &mut ChildSpawnerCommands, input:
 }
 
 /// The number of keybinds associated with a given control.
-/// When changed, the update must be reflected in the database
+/// When changed, the update must be in the database
 /// so that we sync all of them correctly.
 const INPUT_LIST_LEN: usize = 2;
 /// An individual set of inputs for a keybind
 pub type InputList = [Option<Input>; INPUT_LIST_LEN];
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy, Reflect, Serialize, Deserialize)]
-#[reflect(Debug, Hash, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub enum Input {
     Keyboard(KeyCode),
     Mouse(MouseButton),
@@ -286,8 +283,7 @@ pub enum Input {
     GamepadAxis(GamepadAxis),
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy, Reflect, Serialize, Deserialize)]
-#[reflect(Debug, Hash, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub enum MouseWheelAxis {
     X,
     Y,
@@ -541,8 +537,7 @@ impl std::fmt::Display for Input {
 }
 
 /// The list of controls for each input
-#[derive(Resource, Reflect, Clone, Eq, PartialEq, Debug)]
-#[reflect(Resource, Clone, PartialEq, Debug)]
+#[derive(Resource, Clone, Eq, PartialEq, Debug)]
 pub struct Controls {
     pub move_up: InputList,
     pub move_down: InputList,
@@ -628,51 +623,27 @@ impl Controls {
     // TODO: Do this in a single transaction maybe? (don't know if it matters)
     fn from_database(db: &Database) -> Self {
         Self {
-            move_up: db.get_kv_table_or_default(KEYBINDS_DB_TABLE, "move_up", DEFAULT_UP_CONTROLS),
-            move_down: db.get_kv_table_or_default(
-                KEYBINDS_DB_TABLE,
-                "move_down",
-                DEFAULT_DOWN_CONTROLS,
-            ),
-            move_left: db.get_kv_table_or_default(
-                KEYBINDS_DB_TABLE,
-                "move_left",
-                DEFAULT_LEFT_CONTROLS,
-            ),
-            move_right: db.get_kv_table_or_default(
-                KEYBINDS_DB_TABLE,
-                "move_right",
-                DEFAULT_RIGHT_CONTROLS,
-            ),
-            zoom_in: db.get_kv_table_or_default(
-                KEYBINDS_DB_TABLE,
-                "zoom_in",
-                DEFAULT_ZOOM_IN_CONTROLS,
-            ),
-            zoom_out: db.get_kv_table_or_default(
-                KEYBINDS_DB_TABLE,
-                "zoom_out",
-                DEFAULT_ZOOM_OUT_CONTROLS,
-            ),
-            pause: db.get_kv_table_or_default(KEYBINDS_DB_TABLE, "pause", DEFAULT_PAUSE_CONTROLS),
-            select: db.get_kv_table_or_default(
-                KEYBINDS_DB_TABLE,
-                "select",
-                DEFAULT_SELECT_CONTROLS,
-            ),
+            move_up: db.get_kv(KEYBINDS_DB_TABLE, "move_up", DEFAULT_UP_CONTROLS),
+            move_down: db.get_kv(KEYBINDS_DB_TABLE, "move_down", DEFAULT_DOWN_CONTROLS),
+            move_left: db.get_kv(KEYBINDS_DB_TABLE, "move_left", DEFAULT_LEFT_CONTROLS),
+            move_right: db.get_kv(KEYBINDS_DB_TABLE, "move_right", DEFAULT_RIGHT_CONTROLS),
+            zoom_in: db.get_kv(KEYBINDS_DB_TABLE, "zoom_in", DEFAULT_ZOOM_IN_CONTROLS),
+            zoom_out: db.get_kv(KEYBINDS_DB_TABLE, "zoom_out", DEFAULT_ZOOM_OUT_CONTROLS),
+            pause: db.get_kv(KEYBINDS_DB_TABLE, "pause", DEFAULT_PAUSE_CONTROLS),
+            select: db.get_kv(KEYBINDS_DB_TABLE, "select", DEFAULT_SELECT_CONTROLS),
         }
     }
 
-    // TODO: Do this in a single transaction maybe? (don't know if it matters)
+    //// TODO: Do this in a single transaction maybe? (don't know if it matters)
     fn to_database(&self, db: &Database) -> Result<(), crate::database::SetKvError> {
-        db.set_kv_table(KEYBINDS_DB_TABLE, "move_up", self.move_up)?;
-        db.set_kv_table(KEYBINDS_DB_TABLE, "move_down", self.move_down)?;
-        db.set_kv_table(KEYBINDS_DB_TABLE, "move_left", self.move_left)?;
-        db.set_kv_table(KEYBINDS_DB_TABLE, "move_right", self.move_right)?;
-        db.set_kv_table(KEYBINDS_DB_TABLE, "zoom_in", self.zoom_in)?;
-        db.set_kv_table(KEYBINDS_DB_TABLE, "zoom_out", self.zoom_out)?;
-        db.set_kv_table(KEYBINDS_DB_TABLE, "pause", self.pause)?;
-        db.set_kv_table(KEYBINDS_DB_TABLE, "select", self.select)?;
+        db.set_kv(KEYBINDS_DB_TABLE, "move_up", self.move_up)?;
+        db.set_kv(KEYBINDS_DB_TABLE, "move_down", self.move_down)?;
+        db.set_kv(KEYBINDS_DB_TABLE, "move_left", self.move_left)?;
+        db.set_kv(KEYBINDS_DB_TABLE, "move_right", self.move_right)?;
+        db.set_kv(KEYBINDS_DB_TABLE, "zoom_in", self.zoom_in)?;
+        db.set_kv(KEYBINDS_DB_TABLE, "zoom_out", self.zoom_out)?;
+        db.set_kv(KEYBINDS_DB_TABLE, "pause", self.pause)?;
+        db.set_kv(KEYBINDS_DB_TABLE, "select", self.select)?;
 
         Ok(())
     }
@@ -734,8 +705,7 @@ impl Iterator for ControlsIter {
     }
 }
 
-#[derive(Default, Debug, Hash, PartialEq, Eq, Clone, Copy, Reflect, Serialize, Deserialize)]
-#[reflect(Default, Debug, Hash, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Default, Debug, Hash, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub enum Control {
     #[default]
     MoveUp,
@@ -810,7 +780,7 @@ const DEFAULT_SELECT_CONTROLS: InputList = [
     Some(Input::Keyboard(KeyCode::KeyE)),
 ];
 
-fn controls_sync(database: Res<Database>, controls: Res<Controls>) {
+fn controls_sync(database: NonSend<Database>, controls: Res<Controls>) {
     match controls.to_database(&database) {
         Ok(()) => {}
         Err(err) => {

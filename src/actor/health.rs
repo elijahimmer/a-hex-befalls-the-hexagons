@@ -33,9 +33,9 @@ impl HealthBundle {
         }
     }
 
-    pub fn new_with_current(current: u32, max: NonZero<u32>) -> Self {
+    pub fn with_current(current: u32, max: NonZero<u32>) -> Self {
         Self {
-            health: Health::new_with_current(NonZero::new(current), max),
+            health: Health::with_current(NonZero::new(current), max),
             health_old: HealthOld::new(NonZero::new(current)),
         }
     }
@@ -63,7 +63,7 @@ impl Health {
     }
 
     /// Makes a new health component with the given current health.
-    pub fn new_with_current(current: Option<NonZero<u32>>, max: NonZero<u32>) -> Self {
+    pub fn with_current(current: Option<NonZero<u32>>, max: NonZero<u32>) -> Self {
         Self { current, max }
     }
 
@@ -209,21 +209,21 @@ mod health_tests {
 
     #[test]
     fn test_heal() {
-        let mut health = Health::new_with_current(NonZero::new(5), NonZero::new(10).unwrap());
+        let mut health = Health::with_current(NonZero::new(5), NonZero::new(10).unwrap());
         health.heal(2);
         assert_eq!(health.current().unwrap().get(), 7);
 
-        let mut health = Health::new_with_current(NonZero::new(5), NonZero::new(10).unwrap());
+        let mut health = Health::with_current(NonZero::new(5), NonZero::new(10).unwrap());
         health.heal(10);
         assert_eq!(health.current().unwrap().get(), 10);
         health.heal(10);
         assert_eq!(health.current().unwrap().get(), 10);
 
-        let mut health = Health::new_with_current(NonZero::new(5), NonZero::new(10).unwrap());
+        let mut health = Health::with_current(NonZero::new(5), NonZero::new(10).unwrap());
         health.heal(0);
         assert_eq!(health.current().unwrap().get(), 5);
 
-        let mut health = Health::new_with_current(NonZero::new(0), NonZero::new(10).unwrap());
+        let mut health = Health::with_current(NonZero::new(0), NonZero::new(10).unwrap());
         health.heal(0);
         assert_eq!(health.current(), None);
         health.heal(1);
@@ -232,21 +232,21 @@ mod health_tests {
 
     #[test]
     fn test_heal_or_revive() {
-        let mut health = Health::new_with_current(NonZero::new(5), NonZero::new(10).unwrap());
+        let mut health = Health::with_current(NonZero::new(5), NonZero::new(10).unwrap());
         health.heal_or_revive(2);
         assert_eq!(health.current().unwrap().get(), 7);
 
-        let mut health = Health::new_with_current(NonZero::new(5), NonZero::new(10).unwrap());
+        let mut health = Health::with_current(NonZero::new(5), NonZero::new(10).unwrap());
         health.heal_or_revive(10);
         assert_eq!(health.current().unwrap().get(), 10);
         health.heal_or_revive(10);
         assert_eq!(health.current().unwrap().get(), 10);
 
-        let mut health = Health::new_with_current(NonZero::new(5), NonZero::new(10).unwrap());
+        let mut health = Health::with_current(NonZero::new(5), NonZero::new(10).unwrap());
         health.heal_or_revive(0);
         assert_eq!(health.current().unwrap().get(), 5);
 
-        let mut health = Health::new_with_current(NonZero::new(0), NonZero::new(10).unwrap());
+        let mut health = Health::with_current(NonZero::new(0), NonZero::new(10).unwrap());
         health.heal_or_revive(0);
         assert_eq!(health.current(), None);
         health.heal_or_revive(1);
@@ -255,19 +255,19 @@ mod health_tests {
 
     #[test]
     fn test_damage() {
-        let mut health = Health::new_with_current(NonZero::new(5), NonZero::new(10).unwrap());
+        let mut health = Health::with_current(NonZero::new(5), NonZero::new(10).unwrap());
         health.damage(2);
         assert_eq!(health.current().unwrap().get(), 3);
         health.damage(5);
         assert_eq!(health.current(), None);
 
-        let mut health = Health::new_with_current(NonZero::new(5), NonZero::new(10).unwrap());
+        let mut health = Health::with_current(NonZero::new(5), NonZero::new(10).unwrap());
         health.damage(2);
         assert_eq!(health.current().unwrap().get(), 3);
         health.damage(3);
         assert_eq!(health.current(), None);
 
-        let mut health = Health::new_with_current(NonZero::new(5), NonZero::new(10).unwrap());
+        let mut health = Health::with_current(NonZero::new(5), NonZero::new(10).unwrap());
         health.damage(10);
         assert_eq!(health.current(), None);
         health.damage(5);
@@ -276,7 +276,7 @@ mod health_tests {
 
     #[test]
     fn test_damage_no_kill() {
-        let mut health = Health::new_with_current(NonZero::new(5), NonZero::new(10).unwrap());
+        let mut health = Health::with_current(NonZero::new(5), NonZero::new(10).unwrap());
         health.damage_no_kill(2);
         assert_eq!(health.current().unwrap().get(), 3);
         health.damage_no_kill(5);
@@ -284,7 +284,7 @@ mod health_tests {
         health.damage_no_kill(1);
         assert_eq!(health.current().unwrap().get(), 1);
 
-        let mut health = Health::new_with_current(NonZero::new(5), NonZero::new(10).unwrap());
+        let mut health = Health::with_current(NonZero::new(5), NonZero::new(10).unwrap());
         health.damage_no_kill(2);
         assert_eq!(health.current().unwrap().get(), 3);
         health.damage_no_kill(3);
@@ -292,7 +292,7 @@ mod health_tests {
         health.damage_no_kill(5);
         assert_eq!(health.current().unwrap().get(), 1);
 
-        let mut health = Health::new_with_current(NonZero::new(5), NonZero::new(10).unwrap());
+        let mut health = Health::with_current(NonZero::new(5), NonZero::new(10).unwrap());
         health.damage_no_kill(10);
         assert_eq!(health.current().unwrap().get(), 1);
         health.damage_no_kill(5);
@@ -301,7 +301,7 @@ mod health_tests {
 
     #[test]
     fn test_damage_endurence() {
-        let mut health = Health::new_with_current(NonZero::new(5), NonZero::new(10).unwrap());
+        let mut health = Health::with_current(NonZero::new(5), NonZero::new(10).unwrap());
         health.damage_endurence(2);
         assert_eq!(health.current().unwrap().get(), 3);
         health.damage_endurence(5);
@@ -311,7 +311,7 @@ mod health_tests {
         health.damage_endurence(1);
         assert_eq!(health.current(), None);
 
-        let mut health = Health::new_with_current(NonZero::new(5), NonZero::new(10).unwrap());
+        let mut health = Health::with_current(NonZero::new(5), NonZero::new(10).unwrap());
         health.damage_endurence(2);
         assert_eq!(health.current().unwrap().get(), 3);
         health.damage_endurence(3);
@@ -321,7 +321,7 @@ mod health_tests {
         health.damage_endurence(3);
         assert_eq!(health.current(), None);
 
-        let mut health = Health::new_with_current(NonZero::new(5), NonZero::new(10).unwrap());
+        let mut health = Health::with_current(NonZero::new(5), NonZero::new(10).unwrap());
         health.damage_endurence(10);
         assert_eq!(health.current().unwrap().get(), 1);
         health.damage_endurence(5);
@@ -384,7 +384,7 @@ mod kill_heal_revive_tests {
         let health_id = app
             .world_mut()
             .spawn((
-                Health::new_with_current(NonZero::new(health), NonZero::new(100).unwrap()),
+                Health::with_current(NonZero::new(health), NonZero::new(100).unwrap()),
                 HealthOld::new(NonZero::new(old)),
             ))
             .observe(move |t: Trigger<HealthChange>| assert_eq!(Some(*t.event()), event))

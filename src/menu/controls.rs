@@ -72,8 +72,7 @@ struct PromptTarget(Control, usize);
 /// This is used to store the shown controls,
 /// and is synced to the real controls on save,
 /// or ignored on discard
-#[derive(Resource, Reflect)]
-#[reflect(Resource)]
+#[derive(Resource)]
 pub struct ControlsWIP(pub Controls);
 
 impl FromWorld for ControlsWIP {

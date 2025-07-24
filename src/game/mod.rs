@@ -90,10 +90,8 @@ fn spawn_theif(
         Actor {
             team: Team::Player,
             animation: AnimationConfig::new(0, 1, 1),
-            attack_damage: AttackDamage(0..10),
-            attack_speed: AttackSpeed(NonZero::new(10).unwrap()),
+            attack: Attack::new(0..10, 10, 1.0),
             health: HealthBundle::new(NonZero::new(10).unwrap()),
-            hit_chance: HitChance(1.0),
             name: Name::new("Theif"),
             sprite: Sprite {
                 image: theif_image,
