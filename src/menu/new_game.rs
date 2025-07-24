@@ -83,6 +83,7 @@ fn generate_world_click(
     mut click: Trigger<Pointer<Click>>,
     mut commands: Commands,
     mut next_new_game_state: ResMut<NextState<NewGameState>>,
+    db: NonSend<Database>,
     contents_query: Query<&TextInputContents, With<WorldSeedTextBox>>,
 ) {
     let PointerButton::Primary = click.button else {
@@ -100,6 +101,7 @@ fn generate_world_click(
         })
         .unwrap_or_else(|| getrandom::u64().unwrap_or(0x5eed_f0e_feee));
 
+    commands.insert_resource(SaveGame::new(&db, seed));
     commands.insert_resource(GenerationSettings { seed: seed });
 
     next_new_game_state.set(NewGameState::GeneratingWorld);

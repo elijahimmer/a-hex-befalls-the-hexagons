@@ -2,6 +2,7 @@
 //! TODO: Implement title screen and pausing separately.
 
 pub mod controls;
+pub mod load_game;
 pub mod new_game;
 
 use crate::embed_asset;
@@ -9,6 +10,7 @@ use crate::prelude::*;
 use bevy::input_focus::InputFocus;
 use bevy::{input::mouse::MouseScrollUnit, prelude::*};
 use controls::*;
+use load_game::*;
 use new_game::*;
 
 const TITLE_IMAGE_PATH: &str = "embedded://assets/sprites/title.png";
@@ -25,6 +27,7 @@ impl Plugin for MenuPlugin {
 
         app.add_plugins(MenuControlsPlugin)
             .add_plugins(MenuNewGamePlugin)
+            .add_plugins(MenuLoadGamePlugin)
             .add_systems(
                 Update,
                 (button_highlight, escape_out).run_if(in_state(AppState::Menu)),
@@ -47,6 +50,7 @@ pub enum MenuState {
     Sound,
     Controls,
     NewGame,
+    LoadGame,
 }
 
 /// Tag component used to mark which setting is currently selected
@@ -72,8 +76,8 @@ fn escape_out(
             M::Main
                 // they implement it themselves
                 | M::NewGame
-                |M::Controls=> {}
-
+                | M::Controls
+                | M::LoadGame => {}
 
             M::Settings => next_state.set(MenuState::Main),
             M::Sound | M::Display => next_state.set(MenuState::Settings),
@@ -118,7 +122,7 @@ fn main_enter(mut commands: Commands, style: Res<Style>, asset_server: Res<Asset
     let button_node = Node {
         width: Val::Px(300.0),
         height: Val::Px(65.0),
-        margin: UiRect::all(Val::Px(20.0)),
+        margin: UiRect::all(Val::Px(15.0)),
         justify_content: JustifyContent::Center,
         align_items: AlignItems::Center,
         ..default()
@@ -159,6 +163,10 @@ fn main_enter(mut commands: Commands, style: Res<Style>, asset_server: Res<Asset
                         (
                             change_state_on_click(PointerButton::Primary, MenuState::NewGame),
                             "New Game",
+                        ),
+                        (
+                            change_state_on_click(PointerButton::Primary, MenuState::LoadGame),
+                            "Load Game",
                         ),
                         (
                             change_state_on_click(PointerButton::Primary, MenuState::Settings),

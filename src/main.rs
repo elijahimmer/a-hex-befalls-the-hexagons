@@ -6,6 +6,7 @@ mod database;
 mod game;
 mod generate_map;
 mod menu;
+mod saving;
 mod sky;
 mod style;
 mod tile;
@@ -32,8 +33,8 @@ pub mod prelude {
     pub use crate::camera::{MainCamera, MainCameraMarker};
     pub use crate::controls::{Control, ControlState, Controls, Keybind};
     pub use crate::database::{Database, DatabaseError, FromDatabase, ToDatabase};
-    pub use crate::generate_map::ROOM_TILE_LAYER;
-    pub use crate::generate_map::{RoomTile, RoomTilemap};
+    pub use crate::generate_map::{ROOM_TILE_LAYER, RoomTile, RoomTilemap};
+    pub use crate::saving::{GameID, SaveGame, SaveGameInfo};
     pub use crate::style::{Icons, Style};
     pub use crate::tile::*;
     pub use crate::util::*;

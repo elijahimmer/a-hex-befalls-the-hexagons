@@ -41,7 +41,8 @@ CREATE TABLE Style(
 CREATE TABLE SaveGame(
     game_id     INTEGER PRIMARY KEY AUTOINCREMENT,
     created     DATETIME DEFAULT CURRENT_TIMESTAMP,
-    last_saved  DATETIME
+    last_saved  DATETIME,
+    world_seed  INTEGER
 );
 
 CREATE TABLE Sprite(
@@ -238,9 +239,9 @@ pub enum SetKvError {
 }
 
 fn check_version(db: &Database) -> Result<VersionCompatability, CheckVersionError> {
-    let mut statement = db.connection.prepare("SELECT version FROM Version;")?;
+    let mut statement = db.connection.prepare("SELECT version FROM Version")?;
 
-    let version = match statement.query_row([], |row| row.get::<_, Version>(0)) {
+    let version = match statement.query_one([], |row| row.get::<_, Version>(0)) {
         Ok(v) => v,
         Err(err) => {
             warn!("Version entry not found in table with error: {err}");
@@ -507,6 +508,7 @@ const MIGRATE_FROM_6_TO_7: &str = r#"
     ) STRICT;
 
     ALTER TABLE Actor ADD COLUMN sprite_id INTEGER REFERENCES Sprite(sprite_id);
+    ALTER TABLE SaveGame ADD COLUMN world_seed INTEGER;
 
     COMMIT;
 "#;
