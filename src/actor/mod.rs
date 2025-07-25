@@ -7,6 +7,7 @@ pub use health::*;
 use crate::prelude::*;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::num::NonZero;
 
 /// The typical components for any given actor.
 #[derive(Bundle)]
@@ -20,110 +21,117 @@ pub struct Actor {
     pub animation: AnimationConfig,
 }
 
-//impl Actor {
-//    #[cfg(feature = "sqlite")]
-//    pub fn to_database(&self, db: &Database, game_id: GameID) -> Result<(), DatabaseError> {
-//        let query = r#"
-//            INSERT INTO Actor (
-//                name,
-//                game,
-//                team,
-//                health_max,
-//                health_curr,
-//                attack_damage_min,
-//                attack_damage_min,
-//                hit_chance
-//            )
-//            VALUES (
-//                :name
-//                :game,
-//                :team,
-//                :health_max,
-//                :health_curr,
-//                :attack_damage_min,
-//                :attack_damage_max,
-//                :hit_chance
-//            );
-//        "#;
-//
-//        let mut statement = db.connection.prepare(query)?;
-//        statement.bind((":name", &*self.name))?;
-//        statement.bind((":game", *game_id as i64))?;
-//        let team = ron::to_string(&self.team).unwrap();
-//        statement.bind((":team", &*team))?;
-//        statement.bind((":health_max", self.health.health.max().get() as i64))?;
-//        statement.bind((
-//            ":health_curr",
-//            self.health.health.current().map(|a| a.get()).unwrap_or(0) as i64,
-//        ))?;
-//        statement.bind((":attack_damage_min", self.attack.damage.start as i64))?;
-//        statement.bind((":attack_damage_max", self.attack.damage.end as i64))?;
-//        statement.bind((":hit_chance", self.attack.hit_chance as i64))?;
-//
-//        assert!(matches!(statement.next()?, sqlite::State::Done));
-//
-//        Ok(())
-//    }
-//
-//    #[cfg(feature = "sqlite")]
-//    pub fn from_database(
-//        &self,
-//        db: &Database,
-//        game_id: GameID,
-//    ) -> Result<Box<[Self]>, DatabaseError> {
-//        let query = r#"
-//            SELECT
-//                name,
-//                team,
-//                health_curr,
-//                health_max,
-//                attack_damage_max,
-//                attack_damage_min,
-//                attack_speed,
-//                hit_chance,
-//            FROM Actor WHERE Actor.game = :game;
-//        "#;
-//
-//        let mut statement = db.connection.prepare(query)?;
-//        statement.bind((":game", *game_id as i64))?;
-//
-//        let res = Vec::<Self>::with_capacity(8);
-//
-//        while matches!(statement.next()?, sqlite::State::Row) {
-//            let name = statement.read::<String, _>("name")?;
-//            let name = Name::new(&name);
-//            let team = statement.read::<String, _>("team")?;
-//            let team = ron::from_str(&team).unwrap_or(Team::Enemy);
-//            let health = HealthBundle::with_current(
-//                statement.read::<i64, _>("health_curr")? as u32,
-//                NonZero::new(statement.read::<i64, _>("health_max")? as u32)
-//                    .unwrap_or(NonZero::new(1).unwrap()),
-//            );
-//            let attack = Attack::new(
-//                statement.read::<i64, _>("attack_damage_min")? as u32
-//                    ..statement.read::<i64, _>("attack_damage_max")? as u32,
-//                statement.read::<i64, _>("attack_speed")? as u32,
-//                statement.read::<f64, _>("hit_chance")? as f32,
-//            );
-//            // the actor will be placed after this
-//            let transform = Transform::IDENTITY;
-//
-//            //res.push(
-//            //);
-//        }
-//
-//        Ok(res.into_boxed_slice())
-//    }
-//
-//    #[cfg(not(feature = "sqlite"))]
-//    pub fn from_database(
-//        &self,
-//        db: &Database,
-//        party_id: PartyID,
-//    ) -> Result<Box<[Self]>, DatabaseError> {
-//        Ok(())
-//    }
-//}
+#[cfg(feature = "sqlite")]
+use rusqlite::types::*;
+
+#[cfg(feature = "sqlite")]
+impl Actor {
+    fn to_database(&self, db: &Database, game_id: GameID) -> Result<(), DatabaseError> {
+        let query = r#"
+            INSERT INTO Actor (
+                name,
+                game,
+                team,
+                health_max,
+                health_curr,
+                attack_damage_min,
+                attack_damage_min,
+                hit_chance
+            )
+            VALUES (
+                :name
+                :game,
+                :team,
+                :health_max,
+                :health_curr,
+                :attack_damage_min,
+                :attack_damage_max,
+                :hit_chance
+            );
+        "#;
+
+        db.connection.execute(
+            query,
+            (
+                &*self.name,
+                *game_id,
+                ron::to_string(&self.team).unwrap(),
+                self.health.health.max(),
+                self.health.health.current(),
+                self.attack.damage.start,
+                self.attack.damage.end,
+                self.attack.hit_chance,
+            ),
+        )?;
+
+        Ok(())
+    }
+
+    //pub fn from_database(
+    //    &self,
+    //    db: &Database,
+    //    game_id: GameID,
+    //) -> Result<Box<[Self]>, DatabaseError> {
+    //    let query = r#"
+    //        SELECT
+    //            name,
+    //            team,
+    //            health_curr,
+    //            health_max,
+    //            attack_damage_max,
+    //            attack_damage_min,
+    //            attack_speed,
+    //            hit_chance,
+    //        FROM Actor WHERE Actor.game = :game;
+    //    "#;
+
+    //    db.connection
+    //        .prepare(query)?
+    //        .query_map((), |row| {
+    //            let name = row.get(0)?;
+    //            let name = Name::new(&name);
+
+    //            let team = row.get::<_, String>(1)?;
+    //            let team = ron::from_str(&team).unwrap_or(Team::Enemy);
+
+    //            let health = HealthBundle::with_current(
+    //                row.get("health_curr")?,
+    //                NonZero::new(row.get("health_max")?).unwrap_or(NonZero::new(1).unwrap()),
+    //            );
+    //            let attack = Attack::new(
+    //                row.get("attack_damage_min")?..row.get("attack_damage_max")?,
+    //                row.get("attack_speed")?,
+    //                row.get("hit_chance")?,
+    //            );
+    //            // the actor will be placed after this
+    //            let transform = Transform::IDENTITY;
+
+    //            Self {
+    //                name,
+    //                team,
+    //                health,
+    //                atat
+    //            }
+    //        })
+    //        .collect();
+    //}
+}
+
+#[cfg(not(feature = "sqlite"))]
+impl Actor {
+    pub fn to_database(&self, db: &Database, game_id: GameID) -> Result<(), DatabaseError> {
+        Ok(())
+    }
+
+    #[cfg(not(feature = "sqlite"))]
+    pub fn from_database(
+        &self,
+        db: &Database,
+        party_id: PartyID,
+    ) -> Result<Box<[Self]>, DatabaseError> {
+        Ok(())
+    }
+}
 
 /// The team the actor is in for combat.
 #[derive(Component, Debug, Hash, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]

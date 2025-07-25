@@ -223,6 +223,7 @@ pub enum CheckVersionError {
     DatabaseError(#[from] DatabaseError),
 }
 
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum VersionCompatability {
     Same,
     Future(Version),
@@ -325,26 +326,42 @@ fn validate_table(
     let query = format!("PRAGMA table_info({table_name});");
 
     let mut statement = db.connection.prepare(&query)?;
-    let rows = statement
+    let mut rows = statement
         .query_map([], |row| {
             Ok((row.get::<_, String>(1)?, row.get::<_, String>(2)?))
         })?
         .filter_map(|row| row.ok());
 
-    for ((expected_name, expected_ctype), (name, ctype)) in contents.into_iter().zip(rows) {
-        if &name != expected_name {
+    let mut contents = contents.into_iter();
+
+    while let (Some((expected_name, expected_ctype)), Some((name, ctype))) =
+        (rows.next(), contents.next())
+    {
+        if *name != expected_name {
             error!(
                 "SQLite table `{table_name}` found column `{name}` yet expected column `{expected_name}`"
             );
             return Err(ValidateSchemaError::Invalid(table_name.into()));
         }
-        if &ctype != expected_ctype {
+        if *ctype != expected_ctype {
             error!(
                 "SQLite table `{table_name}` found column `{name}` of type `{ctype}` yet expected the type `{expected_ctype}`"
             );
             return Err(ValidateSchemaError::Invalid(table_name.into()));
         }
     }
+
+    if let Some((expected_name, expected_ctype)) = contents.next() {
+        error!(
+            "SQLite table `{table_name}` is missing column `{expected_name}` of type `{expected_ctype}`"
+        );
+        return Err(ValidateSchemaError::Invalid(table_name.into()));
+    };
+
+    if let Some((name, ctype)) = rows.next() {
+        error!("SQLite table `{table_name}` has unexpected column `{name}` of type `{ctype}`");
+        return Err(ValidateSchemaError::Invalid(table_name.into()));
+    };
 
     Ok(())
 }
@@ -387,6 +404,8 @@ pub enum MigrationError {
     NoMigrationScript,
     #[error("SQLite error occured: `{0}`")]
     DatabaseError(#[from] DatabaseError),
+    #[error("Migration script failed version update: `{0}`")]
+    CheckVersionError(#[from] CheckVersionError),
 }
 
 const MIN_VERSION_MIGRATEABLE: Version = 3;
@@ -423,6 +442,13 @@ fn migrate_database(db: &Database, from: Version) -> Result<(), MigrationError> 
         from, DB_VERSION,
         "Failed to find migration script to migrate fully."
     );
+
+    assert_eq!(
+        check_version(db)?,
+        VersionCompatability::Same,
+        "Migration script failed to update version"
+    );
+
     Ok(())
 }
 

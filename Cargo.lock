@@ -20,7 +20,6 @@ dependencies = [
  "ron 0.10.1",
  "rusqlite",
  "serde",
- "serde_rusqlite",
  "thiserror 2.0.12",
  "wyrand",
 ]
@@ -4295,16 +4294,6 @@ dependencies = [
  "itoa",
  "memchr",
  "ryu",
- "serde",
-]
-
-[[package]]
-name = "serde_rusqlite"
-version = "0.40.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32d9325839c0a5dc4820323190bff9bba33f57362cb5591fa30db66cb56874b2"
-dependencies = [
- "rusqlite",
  "serde",
 ]
 
