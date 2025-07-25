@@ -18,6 +18,11 @@ impl Plugin for MenuLoadGamePlugin {
             (get_save_games, load_game_enter).chain(),
         )
         .add_systems(OnExit(MenuState::LoadGame), remove_resource::<SaveGames>)
+        .add_systems(OnEnter(LoadGameState::Prompt), prompt_enter)
+        .add_systems(
+            OnExit(LoadGameState::Prompt),
+            remove_resource::<PromptTarget>,
+        )
         .add_systems(Update, escape_out.run_if(in_state(MenuState::LoadGame)));
     }
 }
@@ -28,10 +33,14 @@ impl Plugin for MenuLoadGamePlugin {
 pub enum LoadGameState {
     #[default]
     Main,
+    Prompt,
 }
 
 #[derive(Resource)]
 pub struct SaveGames(pub Vec<SaveGameInfo>);
+
+#[derive(Resource)]
+struct PromptTarget(pub GameID);
 
 fn get_save_games(mut commands: Commands, db: NonSend<Database>) {
     let games = SaveGameInfo::get_all(&db).unwrap();
@@ -45,6 +54,7 @@ pub struct LoadGameButton(pub GameID);
 fn escape_out(
     controls_state: Res<State<LoadGameState>>,
     mut input_focus: ResMut<InputFocus>,
+    mut next_load_game_state: ResMut<NextState<LoadGameState>>,
     mut next_menu_state: ResMut<NextState<MenuState>>,
     key: Res<ControlState>,
 ) {
@@ -57,20 +67,29 @@ fn escape_out(
         use LoadGameState as L;
         match *controls_state.get() {
             L::Main => next_menu_state.set(MenuState::Main),
+            L::Prompt => next_load_game_state.set(LoadGameState::Main),
         }
     }
 }
 
-fn back_button_click(
+fn prompt_on_click(
     mut click: Trigger<Pointer<Click>>,
-    mut menu_state: ResMut<NextState<MenuState>>,
+    prompt: Query<&LoadGameButton>,
+    mut commands: Commands,
+    mut next_state: ResMut<NextState<LoadGameState>>,
 ) {
     click.propagate(false);
+
+    let Ok(LoadGameButton(game_id)) = prompt.get(click.target()) else {
+        return;
+    };
+
     match click.button {
         PointerButton::Primary => {
-            menu_state.set(MenuState::Main);
+            commands.insert_resource(PromptTarget(*game_id));
+            next_state.set(LoadGameState::Prompt);
         }
-        _ => {}
+        PointerButton::Secondary | PointerButton::Middle => {}
     }
 }
 
@@ -170,7 +189,10 @@ fn load_game_enter(mut commands: Commands, style: Res<Style>, saves: Res<SaveGam
                                 Pickable::IGNORE
                             )],
                         ))
-                        .observe(back_button_click);
+                        .observe(change_state_on_click(
+                            PointerButton::Primary,
+                            MenuState::Main,
+                        ));
                 });
         });
 }
@@ -182,44 +204,143 @@ fn game_entry(builder: &mut ChildSpawnerCommands<'_>, style: &Style, game: SaveG
             builder
                 .spawn((
                     Node {
-                        width: Val::Px(100.0),
                         min_height: Val::Px(60.0),
                         align_items: AlignItems::Center,
+                        padding: UiRect::px(20.0, 20.0, 5.0, 5.0),
                         ..default()
                     },
                     Label,
                     AccessibilityNode(Accessible::new(Role::ListItem)),
-                    Pickable::IGNORE,
+                    BackgroundColor(style.button_color),
+                    Button,
+                    LoadGameButton(game.id),
+                    Pickable {
+                        should_block_lower: false,
+                        is_hoverable: true,
+                    },
                 ))
+                .observe(prompt_on_click)
                 .with_children(|builder| {
-                    builder.spawn((
-                        Text::new(game.id.to_string()),
-                        TextColor(style.title_color),
-                        style.font(33.0),
-                        Pickable::IGNORE,
-                    ));
+                    builder
+                        .spawn((
+                            Node {
+                                flex_direction: FlexDirection::Column,
+                                height: Val::Percent(100.0),
+                                margin: UiRect::px(2.0, 2.0, 0.0, 0.0),
+                                justify_content: JustifyContent::Center,
+                                align_items: AlignItems::Center,
+                                overflow: Overflow::clip(),
+                                ..default()
+                            },
+                            Pickable::IGNORE,
+                        ))
+                        .with_children(|builder| {
+                            builder.spawn((
+                                Text::new(format!("game: {}", game.id.to_string())),
+                                style.font(33.0),
+                                Pickable::IGNORE,
+                            ));
 
-                    builder.spawn((
-                        Button,
-                        Node {
-                            height: Val::Percent(100.0),
-                            width: Val::Px(150.0),
-                            margin: UiRect::px(2.0, 2.0, 0.0, 0.0),
-                            justify_content: JustifyContent::Center,
-                            align_items: AlignItems::Center,
-                            overflow: Overflow::clip(),
-                            ..default()
-                        },
-                        BackgroundColor(style.button_color),
-                        AccessibilityNode(Accessible::new(Role::ListItem)),
-                        LoadGameButton(game.id),
-                        Pickable {
-                            should_block_lower: false,
-                            is_hoverable: true,
-                        },
-                        children![(Text::new("Load Game"), Pickable::IGNORE)],
-                    ));
-                    //.observe(prompt_on_click);
+                            builder.spawn((
+                                Text::new(format!(
+                                    "created: {}",
+                                    game.created.format("%Y/%m/%d %H:%M")
+                                )),
+                                style.font(24.0),
+                                Pickable::IGNORE,
+                            ));
+
+                            builder.spawn((
+                                Text::new(format!(
+                                    "last saved: {}",
+                                    game.last_saved.format("%Y/%m/%d %H:%M")
+                                )),
+                                style.font(24.0),
+                                Pickable::IGNORE,
+                            ));
+
+                            builder.spawn((
+                                Text::new(format!("seed: {:X}", game.world_seed)),
+                                style.font(24.0),
+                                Pickable::IGNORE,
+                            ));
+                        });
+                });
+        });
+}
+
+fn prompt_enter(mut commands: Commands, style: Res<Style>) {
+    let button_text_style = (
+        style.font(33.0),
+        TextColor(style.text_color),
+        TextLayout::new_with_justify(JustifyText::Center),
+    );
+
+    commands
+        .spawn((
+            Node {
+                display: Display::Flex,
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                align_self: AlignSelf::Center,
+                ..default()
+            },
+            StateScoped(LoadGameState::Prompt),
+            BackgroundColor(style.background_color),
+            ZIndex(2),
+        ))
+        .with_children(|builder| {
+            builder
+                .spawn((Node {
+                    display: Display::Flex,
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    flex_direction: FlexDirection::Column,
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    ..default()
+                },))
+                .with_children(|builder| {
+                    builder
+                        .spawn((
+                            Button,
+                            Node {
+                                width: Val::Px(200.0),
+                                height: Val::Px(65.0),
+                                margin: UiRect::all(Val::Px(5.0)),
+                                justify_content: JustifyContent::Center,
+                                align_items: AlignItems::Center,
+                                align_self: AlignSelf::Center,
+                                ..default()
+                            },
+                            BackgroundColor(style.button_color),
+                            children![(Text::new("Load Game"), button_text_style.clone())],
+                        ))
+                        .observe(change_state_on_click(
+                            PointerButton::Primary,
+                            LoadGameState::Main,
+                        ));
+                    builder
+                        .spawn((
+                            Button,
+                            Node {
+                                width: Val::Px(200.0),
+                                height: Val::Px(65.0),
+                                margin: UiRect::all(Val::Px(5.0)),
+                                justify_content: JustifyContent::Center,
+                                align_items: AlignItems::Center,
+                                align_self: AlignSelf::Center,
+                                ..default()
+                            },
+                            BackgroundColor(style.button_color),
+                            children![(Text::new("Cancel"), button_text_style.clone())],
+                        ))
+                        .observe(change_state_on_click(
+                            PointerButton::Primary,
+                            LoadGameState::Main,
+                        ));
                 });
         });
 }

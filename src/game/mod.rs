@@ -17,7 +17,6 @@ pub struct GamePlugin;
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         embed_asset!(app, "assets/sprites/theif.png");
-        //app.add_plugins(controls::GameControlsPlugin);
         app.add_sub_state::<GameState>()
             // TODO: Game re-loading and setup should be different
             .add_systems(OnEnter(AppState::Game), (fixup_room, spawn_theif));

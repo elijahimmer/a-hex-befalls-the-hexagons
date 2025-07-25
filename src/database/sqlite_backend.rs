@@ -20,52 +20,52 @@ const DB_VERSION: Version = 7;
 
 const ADD_SCHEMA: &str = formatcp!(
     r#"
-BEGIN TRANSACTION;
+    BEGIN TRANSACTION;
 
-CREATE TABLE Version(
-  version INTEGER PRIMARY KEY
-) STRICT;
+    CREATE TABLE Version(
+      version INTEGER PRIMARY KEY
+    ) STRICT;
 
-INSERT INTO Version VALUES({DB_VERSION});
+    INSERT INTO Version VALUES({DB_VERSION});
 
-CREATE TABLE Keybinds(
-    key   TEXT PRIMARY KEY,
-    value TEXT
-) STRICT;
+    CREATE TABLE Keybinds(
+        key   TEXT PRIMARY KEY,
+        value TEXT
+    ) STRICT;
 
-CREATE TABLE Style(
-    key   TEXT PRIMARY KEY,
-    value ANY
-) STRICT;
+    CREATE TABLE Style(
+        key   TEXT PRIMARY KEY,
+        value ANY
+    ) STRICT;
 
-CREATE TABLE SaveGame(
-    game_id     INTEGER PRIMARY KEY AUTOINCREMENT,
-    created     DATETIME DEFAULT CURRENT_TIMESTAMP,
-    last_saved  DATETIME,
-    world_seed  INTEGER
-);
+    CREATE TABLE SaveGame(
+        game_id     INTEGER PRIMARY KEY AUTOINCREMENT,
+        created     TEXT DEFAULT CURRENT_TIMESTAMP,
+        last_saved  TEXT,
+        world_seed  INTEGER
+    ) STRICT;
 
-CREATE TABLE Sprite(
-    sprite_id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    sprite_path         TEXT,
-    normal_animation    TEXT,
-    damaged_animation   TEXT,
-    dead_animation      TEXT
-) STRICT;
+    CREATE TABLE Sprite(
+        sprite_id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        sprite_path         TEXT,
+        normal_animation    TEXT,
+        damaged_animation   TEXT,
+        dead_animation      TEXT
+    ) STRICT;
 
-CREATE TABLE Actor(
-  game_id           INTEGER REFERENCES SaveGame(game_id),
-  name              TEXT,
-  party             TEXT,
-  health_max        INTEGER,
-  health_curr       INTEGER,
-  attack_damage_min INTEGER,
-  attack_damage_max INTEGER,
-  hit_chance        INTEGER,
-  sprite_id         INTEGER REFERENCES Sprite(sprite_id)
-) STRICT;
+    CREATE TABLE Actor(
+      game_id           INTEGER REFERENCES SaveGame(game_id),
+      name              TEXT,
+      party             TEXT,
+      health_max        INTEGER,
+      health_curr       INTEGER,
+      attack_damage_min INTEGER,
+      attack_damage_max INTEGER,
+      hit_chance        INTEGER,
+      sprite_id         INTEGER REFERENCES Sprite(sprite_id)
+    ) STRICT;
 
-COMMIT;
+    COMMIT;
 "#
 );
 
@@ -280,8 +280,9 @@ fn validate_schema(db: &Database) -> Result<(), ValidateSchemaError> {
         "SaveGame",
         &[
             ("game_id", "INTEGER"),
-            ("created", "DATETIME"),
-            ("last_saved", "DATETIME"),
+            ("created", "TEXT"),
+            ("last_saved", "TEXT"),
+            ("world_seed", "INTEGER"),
         ],
     )?;
     validate_table(
@@ -344,13 +345,6 @@ fn validate_table(
             return Err(ValidateSchemaError::Invalid(table_name.into()));
         }
     }
-
-    //if let Some(row) = rows.next() {
-    //    error!(
-    //        "SQLite table `{table_name}` has unexpected column '{}'",
-    //        row.1
-    //    );
-    //};
 
     Ok(())
 }

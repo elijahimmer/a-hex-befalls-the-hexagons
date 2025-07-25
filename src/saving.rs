@@ -1,14 +1,9 @@
 use crate::prelude::*;
 use bevy::prelude::*;
+use chrono::{DateTime, Local, Utc};
 
-const GET_NEWEST_SAVE_GAME: &str = r#"
-    SELECT seq FROM sqlite_sequence WHERE name='SaveGame';
-"#;
-
-#[derive(Deref, DerefMut, Clone)]
+#[derive(Deref, DerefMut, Clone, Copy)]
 pub struct GameID(pub u32);
-
-impl GameID {}
 
 #[derive(Resource)]
 pub struct SaveGame {
@@ -20,7 +15,9 @@ pub struct SaveGame {
 impl SaveGame {
     pub fn new(db: &Database, seed: u64) -> Self {
         let query = "INSERT INTO SaveGame(last_saved,world_seed) VALUES(datetime('now'), ?1)";
-        db.connection.execute(query, (seed,)).unwrap();
+        db.connection
+            .execute(query, ((seed as i64).to_string(),))
+            .unwrap();
 
         let query = "SELECT MAX(game_id) FROM SaveGame";
         let game_id = db
@@ -50,11 +47,13 @@ impl SaveGameInfo {
                 "SELECT game_id,created,last_saved,world_seed FROM SaveGame ORDER BY game_id DESC",
             )?
             .query_map((), |row| {
+                let created: DateTime<Utc> = row.get(1)?;
+                let last_saved: DateTime<Utc> = row.get(2)?;
                 Ok(Self {
                     id: GameID(row.get(0)?),
-                    created: row.get(1)?,
-                    last_saved: row.get(2)?,
-                    world_seed: row.get(3)?,
+                    created: created.into(),
+                    last_saved: last_saved.into(),
+                    world_seed: row.get::<_, i64>(3)? as u64,
                 })
             })?
             .collect()
