@@ -29,7 +29,9 @@ pub mod prelude {
     }
 
     pub use crate::actor::*;
-    pub use crate::animation::AnimationConfig;
+    pub use crate::animation::{
+        AnimationBundle, AnimationConfig, AnimationConfigs, AnimationFrameTimer,
+    };
     pub use crate::camera::{MainCamera, MainCameraMarker};
     pub use crate::controls::{Control, ControlState, Controls, Keybind};
     pub use crate::database::{Database, DatabaseError, FromDatabase, ToDatabase};

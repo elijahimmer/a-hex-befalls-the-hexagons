@@ -1,3 +1,4 @@
+use crate::prelude::*;
 use bevy::prelude::*;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -22,6 +23,16 @@ impl Attack {
             speed,
             hit_chance,
         }
+    }
+
+    pub fn from_name(name: ActorName) -> Self {
+        use ActorName as A;
+        let (damage, speed, hit_chance) = match name {
+            A::Theif => (20..41, 6, 0.8),
+            A::UnknownJim => (0..1, 1, 0.0),
+        };
+
+        Self::new(damage, speed, hit_chance)
     }
 
     /// Simulates an attack using the rng and returns the

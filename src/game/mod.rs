@@ -1,23 +1,13 @@
-use crate::embed_asset;
-use crate::prelude::*;
 use crate::prelude::*;
 use bevy::prelude::*;
-use bevy::sprite::Anchor;
 use bevy_ecs_tilemap::prelude::*;
-use std::num::NonZero;
 
 const PLAYER_LAYER: f32 = 1.0;
-
-const THEIF_IMAGE_PATH: &str = "embedded://assets/sprites/theif.png";
-const THEIF_FRAME_SIZE: UVec2 = UVec2::new(16, 30);
-const THEIF_TEXTURE_COLUMNS: u32 = 2;
-const THEIF_TEXTURE_ROWS: u32 = 1;
 
 pub struct GamePlugin;
 
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
-        embed_asset!(app, "assets/sprites/theif.png");
         app.add_sub_state::<GameState>()
             // TODO: Game re-loading and setup should be different
             .add_systems(OnEnter(AppState::Game), (fixup_room, spawn_theif));
@@ -63,20 +53,6 @@ fn spawn_theif(
     asset_server: Res<AssetServer>,
 ) {
     let (map_size, grid_size, tile_size, map_type, map_anchor) = *tilemap;
-    let theif_image = asset_server.load(THEIF_IMAGE_PATH);
-    let atlas_layout = TextureAtlasLayout::from_grid(
-        THEIF_FRAME_SIZE,
-        THEIF_TEXTURE_COLUMNS,
-        THEIF_TEXTURE_ROWS,
-        None,
-        None,
-    );
-    let atlas_layout = asset_server.add(atlas_layout);
-
-    let theif_atlas = TextureAtlas {
-        layout: atlas_layout,
-        index: 0,
-    };
 
     let center_tile_pos = TilePos {
         x: map_size.x / 2 - 1,
@@ -86,24 +62,13 @@ fn spawn_theif(
     let world_pos =
         center_tile_pos.center_in_world(map_size, grid_size, tile_size, map_type, map_anchor);
 
+    let transform = Transform::from_xyz(world_pos.x, world_pos.y, PLAYER_LAYER);
+
     commands.spawn((
-        Actor {
-            team: Team::Player,
-            animation: AnimationConfig::new(0, 1, 1),
-            attack: Attack::new(0..10, 10, 1.0),
-            health: HealthBundle::new(NonZero::new(10).unwrap()),
-            name: Name::new("Theif"),
-            sprite: Sprite {
-                image: theif_image,
-                texture_atlas: Some(theif_atlas),
-                anchor: Anchor::Center,
-                custom_size: Some(Vec2::new(32., 60.0)),
-                ..Default::default()
-            },
-            transform: Transform::from_xyz(world_pos.x, world_pos.y, PLAYER_LAYER),
-        },
+        Actor::from_name(&asset_server, ActorName::Theif, Team::Player, transform),
         Pickable::default(),
         Visibility::Visible,
     ));
+
     //.observe(select_player::<Pointer<Click>>);
 }

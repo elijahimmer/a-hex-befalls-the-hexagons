@@ -1,3 +1,4 @@
+use crate::prelude::*;
 use bevy::prelude::*;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -38,6 +39,16 @@ impl HealthBundle {
             health: Health::with_current(NonZero::new(current), max),
             health_old: HealthOld::new(NonZero::new(current)),
         }
+    }
+
+    pub fn from_name(name: ActorName) -> Self {
+        use ActorName as A;
+        let max = match name {
+            A::Theif => 75,
+            A::UnknownJim => 1,
+        };
+
+        Self::new(NonZero::new(max).unwrap())
     }
 }
 

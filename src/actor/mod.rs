@@ -7,22 +7,38 @@ pub use health::*;
 use crate::prelude::*;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
 use std::num::NonZero;
+use strum::{Display, EnumIter};
 
 /// The typical components for any given actor.
 #[derive(Bundle)]
 pub struct Actor {
-    pub name: Name,
+    pub name: ActorName,
     pub team: Team,
     pub health: HealthBundle,
     pub attack: Attack,
     pub transform: Transform,
-    pub sprite: Sprite,
-    pub animation: AnimationConfig,
+    pub animation: AnimationBundle,
 }
 
-#[cfg(feature = "sqlite")]
-use rusqlite::types::*;
+impl Actor {
+    pub fn from_name(
+        asset_server: &AssetServer,
+        name: ActorName,
+        team: Team,
+        transform: Transform,
+    ) -> Self {
+        Self {
+            name,
+            team,
+            health: HealthBundle::from_name(name),
+            attack: Attack::from_name(name),
+            transform,
+            animation: AnimationBundle::from_name(asset_server, name),
+        }
+    }
+}
 
 #[cfg(feature = "sqlite")]
 impl Actor {
@@ -36,7 +52,7 @@ impl Actor {
                 health_curr,
                 attack_damage_min,
                 attack_damage_min,
-                hit_chance
+                hit_chance,
             )
             VALUES (
                 :name
@@ -46,16 +62,16 @@ impl Actor {
                 :health_curr,
                 :attack_damage_min,
                 :attack_damage_max,
-                :hit_chance
+                :hit_chance,
             );
         "#;
 
         db.connection.execute(
             query,
             (
-                &*self.name,
+                self.name.to_string(),
                 *game_id,
-                ron::to_string(&self.team).unwrap(),
+                self.team.to_string(),
                 self.health.health.max(),
                 self.health.health.current(),
                 self.attack.damage.start,
@@ -67,54 +83,58 @@ impl Actor {
         Ok(())
     }
 
-    //pub fn from_database(
-    //    &self,
-    //    db: &Database,
-    //    game_id: GameID,
-    //) -> Result<Box<[Self]>, DatabaseError> {
-    //    let query = r#"
-    //        SELECT
-    //            name,
-    //            team,
-    //            health_curr,
-    //            health_max,
-    //            attack_damage_max,
-    //            attack_damage_min,
-    //            attack_speed,
-    //            hit_chance,
-    //        FROM Actor WHERE Actor.game = :game;
-    //    "#;
+    pub fn from_database(
+        &self,
+        db: &Database,
+        game_id: GameID,
+        asset_server: Res<AssetServer>,
+    ) -> Result<Box<[Self]>, DatabaseError> {
+        let query = r#"
+            SELECT
+                name,
+                team,
+                health_curr,
+                health_max,
+                attack_damage_max,
+                attack_damage_min,
+                attack_speed,
+                hit_chance,
+            FROM Actor WHERE Actor.game = :game;
+        "#;
 
-    //    db.connection
-    //        .prepare(query)?
-    //        .query_map((), |row| {
-    //            let name = row.get(0)?;
-    //            let name = Name::new(&name);
+        db.connection
+            .prepare(query)?
+            .query_map((game_id.0,), |row| {
+                let name = row.get::<_, String>("name")?;
+                let name = ron::from_str(&name).unwrap_or(ActorName::UnknownJim);
 
-    //            let team = row.get::<_, String>(1)?;
-    //            let team = ron::from_str(&team).unwrap_or(Team::Enemy);
+                let team = row.get::<_, String>("team")?;
+                let team = ron::from_str(&team).unwrap_or(Team::Enemy);
 
-    //            let health = HealthBundle::with_current(
-    //                row.get("health_curr")?,
-    //                NonZero::new(row.get("health_max")?).unwrap_or(NonZero::new(1).unwrap()),
-    //            );
-    //            let attack = Attack::new(
-    //                row.get("attack_damage_min")?..row.get("attack_damage_max")?,
-    //                row.get("attack_speed")?,
-    //                row.get("hit_chance")?,
-    //            );
-    //            // the actor will be placed after this
-    //            let transform = Transform::IDENTITY;
+                let health = HealthBundle::with_current(
+                    row.get("health_curr")?,
+                    NonZero::new(row.get("health_max")?).unwrap_or(NonZero::new(1).unwrap()),
+                );
+                let attack = Attack::new(
+                    row.get("attack_damage_min")?..row.get("attack_damage_max")?,
+                    row.get("attack_speed")?,
+                    row.get("hit_chance")?,
+                );
+                // the actor will be placed after this
+                let transform = Transform::IDENTITY;
+                let animation = AnimationBundle::from_name(&asset_server, name);
 
-    //            Self {
-    //                name,
-    //                team,
-    //                health,
-    //                atat
-    //            }
-    //        })
-    //        .collect();
-    //}
+                Ok(Self {
+                    name,
+                    team,
+                    health,
+                    attack,
+                    transform,
+                    animation,
+                })
+            })?
+            .collect()
+    }
 }
 
 #[cfg(not(feature = "sqlite"))]
@@ -134,7 +154,9 @@ impl Actor {
 }
 
 /// The team the actor is in for combat.
-#[derive(Component, Debug, Hash, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
+#[derive(
+    Component, Debug, Hash, PartialEq, Eq, Clone, Copy, Serialize, Deserialize, EnumIter, Display,
+)]
 pub enum Team {
     /// The player controls this actor and
     /// decides their moves.
@@ -144,40 +166,13 @@ pub enum Team {
     Enemy,
 }
 
-///// The team the actor is in for combat.
-//#[derive(Component, Debug, Hash, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
-//pub enum ActorType {
-//    Theif,
-//    Ogre,
-//    Goblin,
-//}
-//
-//impl ActorType {
-//    pub fn get_sprite(self, asset_server: &AssetServer) -> Sprite {
-//        let asset = asset_server.load(self.get_sprite_path());
-//        let atlas_layout = asset_server.add(atlas_layout);
-//
-//        let theif_atlas = TextureAtlas {
-//            layout: atlas_layout,
-//            index: 0,
-//        };
-//    }
-//
-//    pub fn get_sprite_path(self) -> &'static str {
-//        use ActorType as A;
-//        match self {
-//            A::Theif => "embedded://assets/sprites/Theif.png",
-//            A::Ogre => "embedded://assets/sprites/Ogre.png",
-//            A::Goblin => "embedded://assets/sprites/Goblin.png",
-//        }
-//    }
-//
-//    pub fn get_sprite_size(self) -> UVec2 {
-//        use ActorType as A;
-//        match self {
-//            A::Theif => UVec2::new(16, 20),
-//            A::Ogre => UVec2::new(16, 20),
-//            A::Goblin => UVec2::new(16, 20),
-//        }
-//    }
-//}
+/// The team the actor, both in combat and for the sprite image.
+#[derive(
+    Component, Debug, Hash, PartialEq, Eq, Clone, Copy, Serialize, Deserialize, EnumIter, Display,
+)]
+pub enum ActorName {
+    #[strum(to_string = "Theif")]
+    Theif,
+    #[strum(to_string = "Unknown Jim")]
+    UnknownJim,
+}

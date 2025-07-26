@@ -45,14 +45,6 @@ const ADD_SCHEMA: &str = formatcp!(
         world_seed  INTEGER
     ) STRICT;
 
-    CREATE TABLE Sprite(
-        sprite_id           INTEGER PRIMARY KEY AUTOINCREMENT,
-        sprite_path         TEXT,
-        normal_animation    TEXT,
-        damaged_animation   TEXT,
-        dead_animation      TEXT
-    ) STRICT;
-
     CREATE TABLE Actor(
       game_id           INTEGER REFERENCES SaveGame(game_id),
       name              TEXT,
@@ -62,7 +54,6 @@ const ADD_SCHEMA: &str = formatcp!(
       attack_damage_min INTEGER,
       attack_damage_max INTEGER,
       hit_chance        INTEGER,
-      sprite_id         INTEGER REFERENCES Sprite(sprite_id)
     ) STRICT;
 
     COMMIT;
@@ -519,15 +510,6 @@ const MIGRATE_FROM_6_TO_7: &str = r#"
 
     DROP TABLE KeyValue;
 
-    CREATE TABLE Sprite(
-        sprite_id           INTEGER PRIMARY KEY AUTOINCREMENT,
-        sprite_path         TEXT,
-        normal_animation    TEXT,
-        damaged_animation   TEXT,
-        dead_animation      TEXT
-    ) STRICT;
-
-    ALTER TABLE Actor ADD COLUMN sprite_id INTEGER REFERENCES Sprite(sprite_id);
     ALTER TABLE SaveGame ADD COLUMN world_seed INTEGER;
 
     COMMIT;
