@@ -44,7 +44,12 @@ impl HealthBundle {
     pub fn from_name(name: ActorName) -> Self {
         use ActorName as A;
         let max = match name {
+            A::Warrior => 125,
+            A::Priestess => 75,
             A::Theif => 75,
+            A::Ogre => 200,
+            A::Goblin => 70,
+            A::Skeleton => 100,
             A::UnknownJim => 1,
         };
 

@@ -28,7 +28,12 @@ impl Attack {
     pub fn from_name(name: ActorName) -> Self {
         use ActorName as A;
         let (damage, speed, hit_chance) = match name {
+            A::Warrior => (35..61, 4, 0.8),
+            A::Priestess => (25..46, 5, 0.7),
             A::Theif => (20..41, 6, 0.8),
+            A::Ogre => (30..61, 2, 0.6),
+            A::Goblin => (15..31, 5, 0.8),
+            A::Skeleton => (30..51, 3, 0.8),
             A::UnknownJim => (0..1, 1, 0.0),
         };
 

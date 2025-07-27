@@ -172,7 +172,17 @@ pub enum Team {
 )]
 pub enum ActorName {
     #[strum(to_string = "Theif")]
+    Warrior,
+    #[strum(to_string = "Theif")]
+    Priestess,
+    #[strum(to_string = "Theif")]
     Theif,
+    #[strum(to_string = "Goblin")]
+    Goblin,
+    #[strum(to_string = "Goblin")]
+    Ogre,
+    #[strum(to_string = "Goblin")]
+    Skeleton,
     #[strum(to_string = "Unknown Jim")]
     UnknownJim,
 }

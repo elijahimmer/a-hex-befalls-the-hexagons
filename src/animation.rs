@@ -121,9 +121,32 @@ impl AnimationConfig {
         use ActiveAnimation as A;
         use ActorName as C;
         match (active, name) {
+
+            // TODO: Make Real stats Self stats accurate (I copied it from Theif)
+            (A::Normal, C::Warrior) => Self::new(0, 1),
+            (A::Damaged, C::Warrior) => Self::new(0, 1),
+            (A::Dead, C::Warrior) => Self::new(0, 1),
+
+            (A::Normal, C::Priestess) => Self::new(0, 1),
+            (A::Damaged, C::Priestess) => Self::new(0, 1),
+            (A::Dead, C::Priestess) => Self::new(0, 1),
+
             (A::Normal, C::Theif) => Self::new(0, 1),
             (A::Damaged, C::Theif) => Self::new(0, 1),
             (A::Dead, C::Theif) => Self::new(0, 1),
+
+            (A::Normal, C::Ogre) => Self::new(0, 1),
+            (A::Damaged, C::Ogre) => Self::new(0, 1),
+            (A::Dead, C::Ogre) => Self::new(0, 1),
+
+            (A::Normal, C::Goblin) => Self::new(0, 1),
+            (A::Damaged, C::Goblin) => Self::new(0, 1),
+            (A::Dead, C::Goblin) => Self::new(0, 1),
+
+            (A::Normal, C::Skeleton) => Self::new(0, 1),
+            (A::Damaged, C::Skeleton) => Self::new(0, 1),
+            (A::Dead, C::Skeleton) => Self::new(0, 1),
+ 
             (A::Normal, C::UnknownJim) => Self::new(0, 3),
             (A::Damaged, C::UnknownJim) => Self::new(4, 4),
             (A::Dead, C::UnknownJim) => Self::new(8, 8),
@@ -151,8 +174,14 @@ pub fn name_to_sprite_path(name: ActorName) -> String {
 pub fn name_to_sprite_size(name: ActorName) -> UVec2 {
     use ActorName as A;
     match name {
+        A::Warrior => UVec2::new(32, 60),
+        A::Priestess => UVec2::new(32, 60),
         A::Theif => UVec2::new(32, 60),
+        A::Ogre => UVec2::new(32, 60),
+        A::Goblin => UVec2::new(32, 60),
+        A::Skeleton => UVec2::new(32, 60),
         A::UnknownJim => UVec2::new(32, 60),
+
     }
 }
 
@@ -162,7 +191,12 @@ pub fn name_to_atlas_layout(name: ActorName) -> TextureAtlasLayout {
         x: columns,
         y: rows,
     } = match name {
+        A::Warrior => UVec2::new(2, 1),
+        A::Priestess => UVec2::new(2, 1),
         A::Theif => UVec2::new(2, 1),
+        A::Ogre => UVec2::new(2, 1),
+        A::Goblin => UVec2::new(2, 1),
+        A::Skeleton => UVec2::new(2, 1),
         A::UnknownJim => UVec2::new(4, 2),
     };
 
