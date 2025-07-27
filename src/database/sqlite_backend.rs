@@ -289,18 +289,6 @@ fn validate_schema(db: &Database) -> Result<(), ValidateSchemaError> {
             ("attack_damage_min", "INTEGER"),
             ("attack_damage_max", "INTEGER"),
             ("hit_chance", "INTEGER"),
-            ("sprite_id", "INTEGER"),
-        ],
-    )?;
-    validate_table(
-        db,
-        "Sprite",
-        &[
-            ("sprite_id", "INTEGER"),
-            ("sprite_path", "TEXT"),
-            ("normal_animation", "TEXT"),
-            ("damaged_animation", "TEXT"),
-            ("dead_animation", "TEXT"),
         ],
     )?;
 
