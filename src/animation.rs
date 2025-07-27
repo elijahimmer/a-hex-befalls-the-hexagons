@@ -121,7 +121,6 @@ impl AnimationConfig {
         use ActiveAnimation as A;
         use ActorName as C;
         match (active, name) {
-
             // TODO: Make Real stats Self stats accurate (I copied it from Theif)
             (A::Normal, C::Warrior) => Self::new(0, 1),
             (A::Damaged, C::Warrior) => Self::new(0, 1),
@@ -146,7 +145,7 @@ impl AnimationConfig {
             (A::Normal, C::Skeleton) => Self::new(0, 1),
             (A::Damaged, C::Skeleton) => Self::new(0, 1),
             (A::Dead, C::Skeleton) => Self::new(0, 1),
- 
+
             (A::Normal, C::UnknownJim) => Self::new(0, 3),
             (A::Damaged, C::UnknownJim) => Self::new(4, 4),
             (A::Dead, C::UnknownJim) => Self::new(8, 8),
@@ -181,23 +180,19 @@ pub fn name_to_sprite_size(name: ActorName) -> UVec2 {
         A::Goblin => UVec2::new(32, 60),
         A::Skeleton => UVec2::new(32, 60),
         A::UnknownJim => UVec2::new(32, 60),
-
     }
 }
 
 pub fn name_to_atlas_layout(name: ActorName) -> TextureAtlasLayout {
     use ActorName as A;
-    let UVec2 {
-        x: columns,
-        y: rows,
-    } = match name {
-        A::Warrior => UVec2::new(2, 1),
-        A::Priestess => UVec2::new(2, 1),
-        A::Theif => UVec2::new(2, 1),
-        A::Ogre => UVec2::new(2, 1),
-        A::Goblin => UVec2::new(2, 1),
-        A::Skeleton => UVec2::new(2, 1),
-        A::UnknownJim => UVec2::new(4, 2),
+    let (columns, rows) = match name {
+        A::Warrior => (2, 1),
+        A::Priestess => (2, 1),
+        A::Theif => (2, 1),
+        A::Ogre => (2, 1),
+        A::Goblin => (2, 1),
+        A::Skeleton => (2, 1),
+        A::UnknownJim => (4, 2),
     };
 
     TextureAtlasLayout::from_grid(name_to_sprite_size(name), columns, rows, None, None)

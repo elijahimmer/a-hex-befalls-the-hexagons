@@ -13,6 +13,7 @@ use std::cmp::Ordering;
 use thiserror::Error;
 
 pub type DatabaseError = rusqlite::Error;
+pub type DatabaseResult<T> = Result<T, DatabaseError>;
 
 type Version = i64;
 

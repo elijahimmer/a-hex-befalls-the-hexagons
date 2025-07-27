@@ -8,6 +8,7 @@ use crate::prelude::*;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
+#[cfg(feature = "sqlite")]
 use std::num::NonZero;
 use strum::{Display, EnumIter};
 
@@ -139,17 +140,12 @@ impl Actor {
 
 #[cfg(not(feature = "sqlite"))]
 impl Actor {
-    pub fn to_database(&self, db: &Database, game_id: GameID) -> Result<(), DatabaseError> {
+    pub fn to_database(&self, _: &Database, _: GameID) -> Result<(), DatabaseError> {
         Ok(())
     }
 
-    #[cfg(not(feature = "sqlite"))]
-    pub fn from_database(
-        &self,
-        db: &Database,
-        party_id: PartyID,
-    ) -> Result<Box<[Self]>, DatabaseError> {
-        Ok(())
+    pub fn from_database(&self, _: &Database, _: GameID) -> Result<Box<[Self]>, DatabaseError> {
+        Ok(Box::new([]))
     }
 }
 
@@ -171,17 +167,11 @@ pub enum Team {
     Component, Debug, Hash, PartialEq, Eq, Clone, Copy, Serialize, Deserialize, EnumIter, Display,
 )]
 pub enum ActorName {
-    #[strum(to_string = "Theif")]
     Warrior,
-    #[strum(to_string = "Theif")]
     Priestess,
-    #[strum(to_string = "Theif")]
     Theif,
-    #[strum(to_string = "Goblin")]
     Goblin,
-    #[strum(to_string = "Goblin")]
     Ogre,
-    #[strum(to_string = "Goblin")]
     Skeleton,
     #[strum(to_string = "Unknown Jim")]
     UnknownJim,

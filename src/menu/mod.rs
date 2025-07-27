@@ -2,6 +2,7 @@
 //! TODO: Implement title screen and pausing separately.
 
 pub mod controls;
+#[cfg(feature = "sqlite")]
 pub mod load_game;
 pub mod new_game;
 
@@ -10,6 +11,7 @@ use crate::prelude::*;
 use bevy::input_focus::InputFocus;
 use bevy::{input::mouse::MouseScrollUnit, prelude::*};
 use controls::*;
+#[cfg(feature = "sqlite")]
 use load_game::*;
 use new_game::*;
 
@@ -26,16 +28,17 @@ impl Plugin for MenuPlugin {
         app.add_systems(Update, log_transitions::<MenuState>);
 
         app.add_plugins(MenuControlsPlugin)
-            .add_plugins(MenuNewGamePlugin)
-            .add_plugins(MenuLoadGamePlugin)
-            .add_systems(
-                Update,
-                (button_highlight, escape_out).run_if(in_state(AppState::Menu)),
-            )
-            .add_systems(OnEnter(MenuState::Main), main_enter)
-            .add_systems(OnEnter(MenuState::Settings), settings_enter)
-            .add_systems(OnEnter(MenuState::Display), display_enter)
-            .add_systems(OnEnter(MenuState::Sound), sound_enter);
+            .add_plugins(MenuNewGamePlugin);
+        #[cfg(feature = "sqlite")]
+        app.add_plugins(MenuLoadGamePlugin);
+        app.add_systems(
+            Update,
+            (button_highlight, escape_out).run_if(in_state(AppState::Menu)),
+        )
+        .add_systems(OnEnter(MenuState::Main), main_enter)
+        .add_systems(OnEnter(MenuState::Settings), settings_enter)
+        .add_systems(OnEnter(MenuState::Display), display_enter)
+        .add_systems(OnEnter(MenuState::Sound), sound_enter);
     }
 }
 
@@ -50,6 +53,7 @@ pub enum MenuState {
     Sound,
     Controls,
     NewGame,
+    #[cfg(feature = "sqlite")]
     LoadGame,
 }
 
@@ -76,8 +80,9 @@ fn escape_out(
             M::Main
                 // they implement it themselves
                 | M::NewGame
-                | M::Controls
-                | M::LoadGame => {}
+                | M::Controls => {}
+            #[cfg(feature = "sqlite")]
+            M::LoadGame => {}
 
             M::Settings => next_state.set(MenuState::Main),
             M::Sound | M::Display => next_state.set(MenuState::Settings),
@@ -164,6 +169,7 @@ fn main_enter(mut commands: Commands, style: Res<Style>, asset_server: Res<Asset
                             change_state_on_click(PointerButton::Primary, MenuState::NewGame),
                             "New Game",
                         ),
+                        #[cfg(feature = "sqlite")]
                         (
                             change_state_on_click(PointerButton::Primary, MenuState::LoadGame),
                             "Load Game",

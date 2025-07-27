@@ -37,7 +37,7 @@ pub enum LoadGameState {
 }
 
 #[derive(Resource)]
-pub struct SaveGames(pub Vec<SaveGameInfo>);
+pub struct SaveGames(pub Box<[SaveGameInfo]>);
 
 #[derive(Resource)]
 struct PromptTarget(pub GameID);

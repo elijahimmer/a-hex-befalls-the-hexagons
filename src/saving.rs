@@ -1,17 +1,21 @@
 use crate::prelude::*;
 use bevy::prelude::*;
+#[cfg(feature = "sqlite")]
 use chrono::{DateTime, Utc};
 
+/// The rowid of the save game table.
 #[derive(Deref, DerefMut, Clone, Copy)]
-pub struct GameID(pub u32);
+pub struct GameID(pub i64);
 
+/// The global resource for the currently loaded save game.
 #[derive(Resource)]
 pub struct SaveGame {
     pub game_id: GameID,
+    /// The seed used to generate the world
     pub seed: u64,
-    //items: Vec<Item>
 }
 
+#[cfg(feature = "sqlite")]
 impl SaveGame {
     pub fn new(db: &Database, seed: u64) -> Self {
         let query = "INSERT INTO SaveGame(last_saved,world_seed) VALUES(datetime('now'), ?1)";
@@ -19,19 +23,36 @@ impl SaveGame {
             .execute(query, ((seed as i64).to_string(),))
             .unwrap();
 
-        let query = "SELECT MAX(game_id) FROM SaveGame";
-        let game_id = db
-            .connection
-            .query_one(query, (), |row| row.get(0))
-            .unwrap();
+        let game_id = db.connection.last_insert_rowid();
 
         Self {
             game_id: GameID(game_id),
             seed,
         }
     }
+
+    pub fn save(&self, db: &Database) -> DatabaseResult<()> {
+        let query = "UPDATE SaveGame SET last_saved = datetime('now') WHERE game_id = ?1;";
+        db.connection.execute(query, (self.game_id.0,))?;
+        Ok(())
+    }
 }
 
+#[cfg(not(feature = "sqlite"))]
+impl SaveGame {
+    pub fn new(_: &Database, seed: u64) -> Self {
+        Self {
+            game_id: GameID(0),
+            seed,
+        }
+    }
+
+    pub fn save(&self, _: &Database) -> DatabaseResult<()> {
+        Ok(())
+    }
+}
+
+#[cfg(feature = "sqlite")]
 #[derive(Clone)]
 pub struct SaveGameInfo {
     pub id: GameID,
@@ -40,8 +61,9 @@ pub struct SaveGameInfo {
     pub world_seed: u64,
 }
 
+#[cfg(feature = "sqlite")]
 impl SaveGameInfo {
-    pub fn get_all(db: &Database) -> Result<Vec<Self>, DatabaseError> {
+    pub fn get_all(db: &Database) -> Result<Box<[Self]>, DatabaseError> {
         db.connection
             .prepare(
                 "SELECT game_id,created,last_saved,world_seed FROM SaveGame ORDER BY game_id DESC",

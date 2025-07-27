@@ -4,7 +4,8 @@ use thiserror::Error;
 use serde::{Serialize, de::DeserializeOwned};
 
 #[derive(Error, Debug)]
-pub enum DatabaseError {}
+pub enum Error {}
+pub type DatabaseResult<T> = Result<T, DatabaseError>;
 
 #[derive(Resource)]
 pub struct Database;
@@ -14,14 +15,14 @@ impl Database {
         Ok(Self)
     }
 
-    pub fn get_kv<T>(&self, table: &str, key: &str, default: T) -> T
+    pub fn get_kv<T>(&self, _: &str, _: &str, default: T) -> T
     where
         T: Serialize + DeserializeOwned + Clone,
     {
         default
     }
 
-    pub fn set_kv<T: Serialize>(&self, table: &str, key: &str, value: T) -> Result<(), SetKvError> {
+    pub fn set_kv<T: Serialize>(&self, _: &str, _: &str, _: T) -> Result<(), SetKvError> {
         Ok(())
     }
 }
