@@ -5,13 +5,13 @@ use serde::{Serialize, de::DeserializeOwned};
 
 #[derive(Error, Debug)]
 pub enum Error {}
-pub type DatabaseResult<T> = Result<T, DatabaseError>;
+pub type SetKvError = Error;
 
 #[derive(Resource)]
 pub struct Database;
 
 impl Database {
-    pub fn open() -> Result<Self, DatabaseError> {
+    pub fn open() -> Result<Self, Error> {
         Ok(Self)
     }
 
@@ -26,5 +26,3 @@ impl Database {
         Ok(())
     }
 }
-
-pub type SetKvError = DatabaseError;
