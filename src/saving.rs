@@ -47,7 +47,7 @@ impl SaveGame {
         }
     }
 
-    pub fn save(&self, _: &Database) -> DatabaseResult<()> {
+    pub fn save(&self, _: &Database) -> Result<(), DatabaseError> {
         Ok(())
     }
 }
