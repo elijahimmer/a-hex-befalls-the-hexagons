@@ -53,7 +53,7 @@ const ADD_SCHEMA: &str = formatcp!(
       health_curr       INTEGER,
       attack_damage_min INTEGER,
       attack_damage_max INTEGER,
-      hit_chance        INTEGER,
+      hit_chance        INTEGER
     ) STRICT;
 
     COMMIT;
