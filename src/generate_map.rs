@@ -1,5 +1,6 @@
 // TODO: Make this run not limited to the game loop
 
+use crate::menu::new_game::GenerationProgress;
 use crate::menu::new_game::NewGameState;
 use crate::prelude::*;
 use crate::tile::spawn_tile_labels;
@@ -12,7 +13,7 @@ use std::cmp::Ordering;
 
 pub struct GenerateMapPlugin;
 
-pub const ROOM_RADIUS: u32 = 4;
+pub const ROOM_RADIUS: u32 = 3;
 pub const ROOM_SIZE: TilemapSize = TilemapSize {
     x: ROOM_RADIUS * 2 + 1,
     y: ROOM_RADIUS * 2 + 1,
@@ -273,7 +274,7 @@ fn collapse_tile(
     valid_tile_q: Query<&ValidTiles>,
     mut tile_text_q: Query<&mut TileTextureIndex>,
     mut tile_rand: ResMut<GenerationRand>,
-    mut next_state: ResMut<NextState<AppState>>,
+    mut generation_progress: ResMut<GenerationProgress>,
 ) {
     let mut entity_vec: Vec<Entity> = Vec::new();
     let mut lowest = u8::MAX;
@@ -299,7 +300,7 @@ fn collapse_tile(
     }
 
     if entity_vec.len() == 0 {
-        next_state.set(AppState::Game);
+        generation_progress.world_done = true;
         return;
     }
 

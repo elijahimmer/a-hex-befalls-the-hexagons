@@ -14,9 +14,13 @@ impl Plugin for MenuNewGamePlugin {
         app.add_systems(OnEnter(NewGameState::Main), new_game_enter)
             .add_systems(
                 OnEnter(NewGameState::GeneratingWorld),
-                generating_world_enter,
+                (generating_world_enter, setup_party),
             )
-            .add_systems(Update, escape_out.run_if(in_state(MenuState::NewGame)));
+            .add_systems(Update, escape_out.run_if(in_state(MenuState::NewGame)))
+            .add_systems(
+                Update,
+                progress_check.run_if(in_state(NewGameState::GeneratingWorld)),
+            );
     }
 }
 
@@ -29,11 +33,29 @@ pub enum NewGameState {
     GeneratingWorld,
 }
 
+#[derive(Resource, Default)]
+pub struct GenerationProgress {
+    pub world_done: bool,
+    pub characters_done: bool,
+}
+
+impl GenerationProgress {
+    pub fn done(&self) -> bool {
+        self.world_done & self.characters_done
+    }
+}
+
 #[derive(Component)]
 pub struct WorldNameTextBox;
 
 #[derive(Component)]
 pub struct WorldSeedTextBox;
+
+fn progress_check(progress: Res<GenerationProgress>, mut next_state: ResMut<NextState<AppState>>) {
+    if progress.done() {
+        next_state.set(AppState::Game);
+    }
+}
 
 fn escape_out(
     new_game_state: Res<State<NewGameState>>,
@@ -72,6 +94,10 @@ fn cancel_generation(
 
     next_new_game_state.set(NewGameState::Main);
 
+    commands.remove_resource::<GenerationProgress>();
+    commands.remove_resource::<SaveGame>();
+    commands.remove_resource::<GenerationSettings>();
+
     for entity in room_map_q.iter() {
         commands.entity(entity).despawn();
     }
@@ -101,6 +127,7 @@ fn generate_world_click(
         })
         .unwrap_or_else(|| getrandom::u64().unwrap_or(0x5eed_f0e_feee));
 
+    commands.insert_resource(GenerationProgress::default());
     commands.insert_resource(SaveGame::new(&db, seed));
     commands.insert_resource(GenerationSettings { seed: seed });
 
@@ -293,4 +320,21 @@ fn generating_world_enter(mut commands: Commands, style: Res<Style>) {
                         .observe(cancel_generation);
                 });
         });
+}
+
+fn setup_party(
+    mut commands: Commands,
+    mut progress: ResMut<GenerationProgress>,
+    asset_server: Res<AssetServer>,
+) {
+    use ActorName as A;
+    for name in [A::Warrior, A::Priestess, A::Theif] {
+        commands.spawn(Actor::from_name(
+            &asset_server,
+            name,
+            Team::Player,
+            Transform::IDENTITY,
+        ));
+    }
+    progress.characters_done = true;
 }

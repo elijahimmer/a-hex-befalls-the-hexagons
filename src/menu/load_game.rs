@@ -20,10 +20,14 @@ impl Plugin for MenuLoadGamePlugin {
         .add_systems(OnExit(MenuState::LoadGame), remove_resource::<SaveGames>)
         .add_systems(OnEnter(LoadGameState::Prompt), prompt_enter)
         .add_systems(
-            OnExit(LoadGameState::Prompt),
+            OnEnter(LoadGameState::Main),
             remove_resource::<PromptTarget>,
         )
-        .add_systems(Update, escape_out.run_if(in_state(MenuState::LoadGame)));
+        .add_systems(Update, escape_out.run_if(in_state(MenuState::LoadGame)))
+        .add_systems(
+            OnEnter(LoadGameState::Loading),
+            (prep_loading, crate::saving::load_game).chain(),
+        );
     }
 }
 
@@ -34,6 +38,7 @@ pub enum LoadGameState {
     #[default]
     Main,
     Prompt,
+    Loading,
 }
 
 #[derive(Resource)]
@@ -67,7 +72,7 @@ fn escape_out(
         use LoadGameState as L;
         match *controls_state.get() {
             L::Main => next_menu_state.set(MenuState::Main),
-            L::Prompt => next_load_game_state.set(LoadGameState::Main),
+            L::Prompt | L::Loading => next_load_game_state.set(LoadGameState::Main),
         }
     }
 }
@@ -320,7 +325,7 @@ fn prompt_enter(mut commands: Commands, style: Res<Style>) {
                         ))
                         .observe(change_state_on_click(
                             PointerButton::Primary,
-                            LoadGameState::Main,
+                            LoadGameState::Loading,
                         ));
                     builder
                         .spawn((
@@ -343,4 +348,8 @@ fn prompt_enter(mut commands: Commands, style: Res<Style>) {
                         ));
                 });
         });
+}
+
+fn prep_loading(mut commands: Commands, db: NonSend<Database>, target: Res<PromptTarget>) {
+    commands.insert_resource(SaveGame::load(&db, target.0));
 }

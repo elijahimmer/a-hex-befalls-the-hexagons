@@ -16,7 +16,7 @@ pub type Error = rusqlite::Error;
 
 type Version = i64;
 
-const DB_VERSION: Version = 7;
+const DB_VERSION: Version = 8;
 
 const ADD_SCHEMA: &str = formatcp!(
     r#"
@@ -48,16 +48,17 @@ const ADD_SCHEMA: &str = formatcp!(
     CREATE TABLE Actor(
       game_id           INTEGER REFERENCES SaveGame(game_id),
       name              TEXT,
-      party             TEXT,
+      team              TEXT,
       health_max        INTEGER,
       health_curr       INTEGER,
       attack_damage_min INTEGER,
       attack_damage_max INTEGER,
-      hit_chance        INTEGER
+      attack_speed      INTEGER,
+      hit_chance        REAL
     ) STRICT;
 
     COMMIT;
-"#
+    "#
 );
 
 pub struct Database {
@@ -257,7 +258,7 @@ pub enum ValidateSchemaError {
     Error(#[from] Error),
 }
 
-const _: () = assert!(DB_VERSION == 7, "UPDATE VALIDATE SCRIPT");
+const _: () = assert!(DB_VERSION == 8, "UPDATE VALIDATE SCRIPT");
 fn validate_schema(db: &Database) -> Result<(), ValidateSchemaError> {
     db.connection
         .execute_batch("PRAGMA integrity_check; PRAGMA optimize;")?;
@@ -281,12 +282,13 @@ fn validate_schema(db: &Database) -> Result<(), ValidateSchemaError> {
         &[
             ("game_id", "INTEGER"),
             ("name", "TEXT"),
-            ("party", "TEXT"),
+            ("team", "TEXT"),
             ("health_max", "INTEGER"),
             ("health_curr", "INTEGER"),
             ("attack_damage_min", "INTEGER"),
             ("attack_damage_max", "INTEGER"),
-            ("hit_chance", "INTEGER"),
+            ("attack_speed", "INTEGER"),
+            ("hit_chance", "REAL"),
         ],
     )?;
 
@@ -376,7 +378,7 @@ pub enum MigrationError {
 
 const MIN_VERSION_MIGRATEABLE: Version = 3;
 /// Make sure the migrations are set up properly
-const _: () = assert!(DB_VERSION == 7, "UPDATE THE MIGRATION SCRIPT");
+const _: () = assert!(DB_VERSION == 8, "UPDATE THE MIGRATION SCRIPT");
 
 /// MAINTENANCE: UPDATE EVERY DATABASE UPDGRADE
 fn migrate_database(db: &Database, from: Version) -> Result<(), MigrationError> {
@@ -406,7 +408,10 @@ fn migrate_database(db: &Database, from: Version) -> Result<(), MigrationError> 
         from = 7;
     }
 
-    db.connection.execute_batch("COMMIT")?;
+    if from == 7 {
+        db.connection.execute_batch(MIGRATE_FROM_7_TO_8)?;
+        from = 8;
+    }
 
     assert_eq!(
         from, DB_VERSION,
@@ -418,6 +423,8 @@ fn migrate_database(db: &Database, from: Version) -> Result<(), MigrationError> 
         VersionCompatability::Same,
         "Migration script failed to update version"
     );
+
+    db.connection.execute_batch("COMMIT")?;
 
     Ok(())
 }
@@ -486,6 +493,14 @@ const MIGRATE_FROM_6_TO_7: &str = r#"
     ALTER TABLE SaveGame DROP COLUMN last_saved_old;
 
     ALTER TABLE SaveGame ADD COLUMN world_seed INTEGER;
+"#;
+
+const MIGRATE_FROM_7_TO_8: &str = r#"
+    UPDATE Version SET version = 8;
+    ALTER TABLE Actor RENAME COLUMN party TO team;
+    ALTER TABLE Actor DROP COLUMN hit_chance;
+    ALTER TABLE Actor ADD COLUMN hit_chance REAL;
+    ALTER TABLE Actor ADD COLUMN attack_speed INTEGER;
 "#;
 
 #[cfg(test)]

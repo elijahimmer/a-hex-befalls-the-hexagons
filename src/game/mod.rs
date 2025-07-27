@@ -9,8 +9,8 @@ pub struct GamePlugin;
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.add_sub_state::<GameState>()
-            // TODO: Game re-loading and setup should be different
-            .add_systems(OnEnter(AppState::Game), (fixup_room, spawn_theif));
+            .add_systems(OnEnter(AppState::Game), (fixup_room, place_actors));
+        app.add_systems(OnEnter(GameState::Intermission), crate::saving::save_game);
     }
 }
 
@@ -23,6 +23,11 @@ pub enum GameState {
     PlayerTurn,
     EnemyTurn,
 }
+
+/// The default player positons in Axial coordinate space
+
+const PLAYER_POSITIONS: [IVec2; 3] = [IVec2::new(-1, -1), IVec2::new(1, -2), IVec2::new(2, -1)];
+const ENEMY_POSITIONS: [IVec2; 3] = [IVec2::new(1, 1), IVec2::new(-1, 2), IVec2::new(-2, 1)];
 
 fn fixup_room(mut commands: Commands, tilemap: Single<(Entity, &TileStorage), With<RoomTilemap>>) {
     let (entity, tile_storage) = *tilemap;
@@ -38,7 +43,7 @@ fn fixup_room(mut commands: Commands, tilemap: Single<(Entity, &TileStorage), Wi
     }
 }
 
-fn spawn_theif(
+fn place_actors(
     mut commands: Commands,
     tilemap: Single<
         (
@@ -50,25 +55,31 @@ fn spawn_theif(
         ),
         With<RoomTilemap>,
     >,
-    asset_server: Res<AssetServer>,
+    mut actors: Query<(Entity, &mut Transform, &Team)>,
 ) {
     let (map_size, grid_size, tile_size, map_type, map_anchor) = *tilemap;
 
-    let center_tile_pos = TilePos {
-        x: map_size.x / 2 - 1,
+    let center_tile_pos = UVec2 {
+        x: map_size.x / 2,
         y: map_size.y / 2,
     };
 
-    let world_pos =
-        center_tile_pos.center_in_world(map_size, grid_size, tile_size, map_type, map_anchor);
+    let mut player_pos = PLAYER_POSITIONS.into_iter();
+    let mut enemy_pos = ENEMY_POSITIONS.into_iter();
+    for (entity, mut transform, team) in actors.iter_mut() {
+        let pos_offset = match *team {
+            Team::Player => player_pos.next().unwrap(),
+            Team::Enemy => enemy_pos.next().unwrap(),
+        };
 
-    let transform = Transform::from_xyz(world_pos.x, world_pos.y, PLAYER_LAYER);
+        let actor_pos: TilePos = (center_tile_pos.as_ivec2() + pos_offset).as_uvec2().into();
+        let world_pos =
+            actor_pos.center_in_world(map_size, grid_size, tile_size, map_type, map_anchor);
 
-    commands.spawn((
-        Actor::from_name(&asset_server, ActorName::Theif, Team::Player, transform),
-        Pickable::default(),
-        Visibility::Visible,
-    ));
+        *transform = Transform::from_xyz(world_pos.x, world_pos.y, PLAYER_LAYER);
 
-    //.observe(select_player::<Pointer<Click>>);
+        commands
+            .entity(entity)
+            .insert((Pickable::default(), Visibility::Visible));
+    }
 }
