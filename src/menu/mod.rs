@@ -29,8 +29,10 @@ impl Plugin for MenuPlugin {
 
         app.add_plugins(MenuControlsPlugin)
             .add_plugins(MenuNewGamePlugin);
+
         #[cfg(feature = "sqlite")]
         app.add_plugins(MenuLoadGamePlugin);
+
         app.add_systems(
             Update,
             (button_highlight, escape_out).run_if(in_state(AppState::Menu)),

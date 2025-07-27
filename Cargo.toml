@@ -22,8 +22,9 @@ blake3 = { version = "1.8", features = [ "pure" ] }
 chrono = { version = "0.4", features = ["serde"], optional = true}
 bevy_ui_text_input = "0.5"
 radsort = "0.1"
-rusqlite = { version = "0.37.0", features = ["modern_sqlite", "bundled", "rusqlite-macros", "chrono"], optional = true }
+rusqlite = { version = "0.37.0", features = ["modern_sqlite", "bundled", "rusqlite-macros", "chrono", "backup"], optional = true }
 strum = { version = "0.27", features = ["derive", "phf"] }
+log = { version = "0.4", features = ["max_level_debug", "release_max_level_warn"] }
 
 [dependencies.bevy]
 version = "0.16"

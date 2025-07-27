@@ -72,14 +72,14 @@ impl Database {
 
         let exists = path.exists();
         let db = {
-            let connection = match rusqlite::Connection::open(&path) {
+            let connection = match Connection::open(&path) {
                 Ok(conn) => conn,
                 Err(err) => {
                     warn!(
                         "Failed to open database at '{}' with error: {err}",
                         path.display()
                     );
-                    rusqlite::Connection::open_in_memory()?
+                    Connection::open_in_memory()?
                 }
             };
             Self {
@@ -104,7 +104,7 @@ impl Database {
                         "Database version is out dated, but migrateable. Backing up database then attempting migration..."
                     );
 
-                    if let Err(err) = backup_database() {
+                    if let Err(err) = backup_database(&db.connection) {
                         error!("Failed to back up database before migration! {err}");
                         return Err(err.into());
                     }
@@ -191,8 +191,6 @@ impl Database {
 
 #[derive(Error, Debug)]
 pub enum OpenError {
-    #[error("Failed to backup database with {0}!")]
-    BackupFailed(#[from] BackupError),
     #[error("Migration failed with {0}!")]
     MigrationFailed(#[from] MigrationError),
     #[error("Version Incompatable found version `{0}`!")]
@@ -254,7 +252,7 @@ fn check_version(db: &Database) -> Result<VersionCompatability, CheckVersionErro
 
 #[derive(Error, Debug)]
 pub enum ValidateSchemaError {
-    #[error("SQLite table '{0}' failed validation!")]
+    #[error("Failed Database validation with: `{0}`")]
     Invalid(Box<str>),
     #[error("SQLite error occured: `{0}`")]
     DatabaseError(#[from] DatabaseError),
@@ -318,62 +316,51 @@ fn validate_table(
         (rows.next(), contents.next())
     {
         if *name != expected_name {
-            error!(
+            return Err(ValidateSchemaError::Invalid(format!(
                 "SQLite table `{table_name}` found column `{name}` yet expected column `{expected_name}`"
-            );
-            return Err(ValidateSchemaError::Invalid(table_name.into()));
+            ).into()));
         }
         if *ctype != expected_ctype {
-            error!(
+            return Err(ValidateSchemaError::Invalid(format!(
                 "SQLite table `{table_name}` found column `{name}` of type `{ctype}` yet expected the type `{expected_ctype}`"
-            );
-            return Err(ValidateSchemaError::Invalid(table_name.into()));
+            ).into()));
         }
     }
 
     if let Some((expected_name, expected_ctype)) = contents.next() {
-        error!(
+        return Err(ValidateSchemaError::Invalid(format!(
             "SQLite table `{table_name}` is missing column `{expected_name}` of type `{expected_ctype}`"
-        );
-        return Err(ValidateSchemaError::Invalid(table_name.into()));
+        ).into()));
     };
 
     if let Some((name, ctype)) = rows.next() {
         error!("SQLite table `{table_name}` has unexpected column `{name}` of type `{ctype}`");
-        return Err(ValidateSchemaError::Invalid(table_name.into()));
+        return Err(ValidateSchemaError::Invalid(
+            format!("SQLite table `{table_name}` has unexpected column `{name}` of type `{ctype}`")
+                .into(),
+        ));
     };
 
     Ok(())
 }
 
-#[derive(Error, Debug)]
-pub enum BackupError {
-    #[error("Failed to find migration script!")]
-    NoMigrationScript,
-    #[error("Failed to save backup with error: {0}")]
-    FileError(#[from] std::io::Error),
-}
-
 /// Backs up the database to another file in the same directory with a timestamp in the name.
-fn backup_database() -> Result<(), BackupError> {
-    let mut db_path = get_default_db_directory();
-    db_path.push("database.sqlite");
-
+fn backup_database(db: &Connection) -> Result<(), DatabaseError> {
     let mut backup_path = get_default_db_directory();
     backup_path.push(format!(
-        "{}_database.sqlite.backup",
-        chrono::offset::Utc::now().format("%+")
+        "{}-database-backup.sqlite",
+        chrono::offset::Utc::now().format("%c")
     ));
 
-    // While theoretically now bounded, this should be bounded in practice.
+    // While theoretically not bounded, this should be bounded in practice.
     while backup_path.exists() {
         backup_path.set_file_name(format!(
-            "{}-database.sqlite.backup",
-            chrono::offset::Utc::now().format("%+")
+            "{}-database-backup.sqlite",
+            chrono::offset::Utc::now().format("%c")
         ));
     }
 
-    std::fs::copy(db_path, backup_path)?;
+    db.backup("main", backup_path, None)?;
 
     Ok(())
 }
@@ -395,6 +382,8 @@ const _: () = assert!(DB_VERSION == 7, "UPDATE THE MIGRATION SCRIPT");
 /// MAINTENANCE: UPDATE EVERY DATABASE UPDGRADE
 fn migrate_database(db: &Database, from: Version) -> Result<(), MigrationError> {
     assert!((MIN_VERSION_MIGRATEABLE..DB_VERSION).contains(&from));
+
+    db.connection.execute_batch("BEGIN TRANSACTION")?;
 
     let mut from = from;
 
@@ -418,6 +407,8 @@ fn migrate_database(db: &Database, from: Version) -> Result<(), MigrationError> 
         from = 7;
     }
 
+    db.connection.execute_batch("COMMIT")?;
+
     assert_eq!(
         from, DB_VERSION,
         "Failed to find migration script to migrate fully."
@@ -433,8 +424,6 @@ fn migrate_database(db: &Database, from: Version) -> Result<(), MigrationError> 
 }
 
 const MIGRATE_FROM_3_TO_4: &str = r#"
-    BEGIN TRANSACTION;
-
     UPDATE Version SET version = 4;
 
     DROP TABLE Colors;
@@ -443,32 +432,24 @@ const MIGRATE_FROM_3_TO_4: &str = r#"
         key   TEXT PRIMARY KEY,
         value ANY
     ) STRICT;
-
-    COMMIT;
 "#;
 
 const MIGRATE_FROM_4_TO_5: &str = r#"
-    BEGIN TRANSACTION;
-
     UPDATE Version SET version = 5;
 
-    UPDATE Keybinds Set key1 = CONCAT('Some(', key1, ')') WHERE key1 IS NOT NULL;
-    UPDATE Keybinds Set key2 = CONCAT('Some(', key2, ')') WHERE key2 IS NOT NULL;
-    UPDATE Keybinds Set key1 = 'None' WHERE key1 IS NULL;
-    UPDATE Keybinds Set key2 = 'None' WHERE key2 IS NULL;
+    UPDATE Keybinds SET key1 = CONCAT('Some(', key1, ')') WHERE key1 IS NOT NULL;
+    UPDATE Keybinds SET key2 = CONCAT('Some(', key2, ')') WHERE key2 IS NOT NULL;
+    UPDATE Keybinds SET key1 = 'None' WHERE key1 IS NULL;
+    UPDATE Keybinds SET key2 = 'None' WHERE key2 IS NULL;
 
     UPDATE Keybinds SET key1 = CONCAT('(', key1, ',', key2, ')');
 
     ALTER TABLE Keybinds DROP COLUMN key2;
     ALTER TABLE Keybinds RENAME COLUMN key1 TO value;
     ALTER TABLE Keybinds RENAME COLUMN keybind TO key;
-
-    COMMIT;
 "#;
 
 const MIGRATE_FROM_5_TO_6: &str = r#"
-    BEGIN TRANSACTION;
-
     UPDATE Version SET version = 6;
 
     CREATE TABLE SaveGame (
@@ -488,18 +469,77 @@ const MIGRATE_FROM_5_TO_6: &str = r#"
       hit_chance        INTEGER,
       FOREIGN KEY(game_id) REFERENCES SaveGame(game_id)
     ) STRICT;
-
-    COMMIT;
 "#;
 
 const MIGRATE_FROM_6_TO_7: &str = r#"
-    BEGIN TRANSACTION;
-
     UPDATE Version SET version = 7;
 
     DROP TABLE KeyValue;
 
-    ALTER TABLE SaveGame ADD COLUMN world_seed INTEGER;
+    ALTER TABLE SaveGame RENAME COLUMN created TO created_old;
+    ALTER TABLE SaveGame ADD COLUMN created TEXT DEFAULT CURRENT_TIMESTAMP;
+    UPDATE SaveGame SET created = created_old;
+    ALTER TABLE SaveGame DROP COLUMN created_old;
 
-    COMMIT;
+    ALTER TABLE SaveGame RENAME COLUMN last_saved TO last_saved_old;
+    ALTER TABLE SaveGame ADD COLUMN last_saved TEXT;
+    UPDATE SaveGame SET last_saved = last_saved_old;
+    ALTER TABLE SaveGame DROP COLUMN last_saved_old;
+
+    ALTER TABLE SaveGame ADD COLUMN world_seed INTEGER;
 "#;
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    pub fn test_validate() {
+        let db = Database {
+            connection: Connection::open_in_memory().unwrap(),
+        };
+
+        db.connection.execute_batch(ADD_SCHEMA).unwrap();
+
+        validate_schema(&db).unwrap();
+    }
+
+    #[test]
+    pub fn migrate_from_3() {
+        let start = r#"
+            PRAGMA foreign_keys=OFF;
+            BEGIN TRANSACTION;
+
+            CREATE TABLE Version(
+                  version INTEGER PRIMARY KEY
+                ) STRICT;
+            INSERT INTO Version VALUES(3);
+
+            CREATE TABLE Keybinds(
+                    keybind   TEXT PRIMARY KEY,
+                    key1 TEXT,
+                    key2 TEXT
+                ) STRICT;
+
+            CREATE TABLE KeyValue(
+            	key TEXT PRIMARY KEY,
+            	value ANY
+            ) STRICT;
+
+            CREATE TABLE Colors (
+            	name INTERGER PRIMARY KEY
+            );
+            COMMIT;
+        "#;
+
+        let db = Database {
+            connection: Connection::open_in_memory().unwrap(),
+        };
+
+        db.connection.execute_batch(start).unwrap();
+
+        migrate_database(&db, 3).unwrap();
+
+        validate_schema(&db).unwrap();
+    }
+}
