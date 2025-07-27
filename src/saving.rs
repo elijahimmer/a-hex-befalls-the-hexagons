@@ -138,10 +138,12 @@ fn save_game_inner(db: NonSend<Database>, save: Res<SaveGame>) {
 
 // TODO: Have it spawn the world rest of the game
 pub fn load_game(world: &mut World) {
-    world
+    let actors = world
         .run_system_cached(crate::actor::load_actors)
         .unwrap()
         .unwrap();
+
+    world.spawn_batch(actors.into_iter());
 
     world
         .get_resource_mut::<NextState<AppState>>()
