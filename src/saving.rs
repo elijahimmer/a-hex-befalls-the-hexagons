@@ -3,6 +3,24 @@ use bevy::prelude::*;
 #[cfg(feature = "sqlite")]
 use chrono::{DateTime, Utc};
 
+pub struct SavePlugin;
+
+impl Plugin for SavePlugin {
+    fn build(&self, app: &mut App) {
+        app.init_state::<SaveState>()
+            .add_systems(OnEnter(SaveState::Save), save_game)
+            .add_systems(OnEnter(SaveState::Load), load_game);
+    }
+}
+
+#[derive(States, Clone, Copy, Default, Eq, PartialEq, Debug, Hash)]
+pub enum SaveState {
+    #[default]
+    None,
+    Save,
+    Load,
+}
+
 /// The rowid of the save game table.
 #[derive(Deref, DerefMut, Clone, Copy)]
 pub struct GameID(pub i64);
@@ -19,15 +37,27 @@ pub struct SaveGame {
 impl SaveGame {
     pub fn new(db: &Database, seed: u64) -> Self {
         let query = "INSERT INTO SaveGame(last_saved,world_seed) VALUES(datetime('now'), ?1)";
-        db.connection
-            .execute(query, ((seed as i64).to_string(),))
-            .unwrap();
+        db.connection.execute(query, (seed as i64,)).unwrap();
 
         let game_id = db.connection.last_insert_rowid();
 
         Self {
             game_id: GameID(game_id),
             seed,
+        }
+    }
+
+    pub fn load(db: &Database, game_id: GameID) -> Self {
+        let query = "SELECT world_seed FROM SaveGame WHERE SaveGame.game_id = :game_id";
+
+        let world_seed: i64 = db
+            .connection
+            .query_one(query, (game_id.0,), |row| row.get(0))
+            .unwrap();
+
+        Self {
+            game_id,
+            seed: world_seed as u64,
         }
     }
 
@@ -81,3 +111,44 @@ impl SaveGameInfo {
             .collect()
     }
 }
+
+/// Takes the World as this should be the only thing running at the time.
+pub fn save_game(world: &mut World) {
+    {
+        let db = world.get_non_send_resource::<Database>().unwrap();
+        db.connection.execute_batch("BEGIN TRANSACTION;").unwrap();
+    }
+
+    world.run_system_cached(save_game_inner).unwrap();
+
+    world
+        .run_system_cached(crate::actor::save_actors)
+        .unwrap()
+        .unwrap();
+
+    {
+        let db = world.get_non_send_resource::<Database>().unwrap();
+        db.connection.execute_batch("COMMIT;").unwrap();
+    }
+}
+
+fn save_game_inner(db: NonSend<Database>, save: Res<SaveGame>) {
+    save.save(&db).unwrap();
+}
+
+// TODO: Have it spawn the world rest of the game
+pub fn load_game(world: &mut World) {
+    world
+        .run_system_cached(crate::actor::load_actors)
+        .unwrap()
+        .unwrap();
+
+    world
+        .get_resource_mut::<NextState<AppState>>()
+        .unwrap()
+        .set(AppState::Game);
+}
+
+// db: NonSend<Database>,
+// save_game: Res<SaveGame>,
+// asset_server: Res<AssetServer>,

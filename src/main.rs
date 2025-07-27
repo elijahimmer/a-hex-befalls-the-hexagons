@@ -74,7 +74,7 @@ fn main() {
             .set(ImagePlugin::default_nearest())
             .set(WindowPlugin {
                 primary_window: Some(Window {
-                    title: "RaMmYen Game".into(),
+                    title: "A Hex Befalls the Hexagons".into(),
                     fit_canvas_to_parent: true,
                     ..default()
                 }),
