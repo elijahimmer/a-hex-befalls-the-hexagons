@@ -12,8 +12,7 @@ use serde::{Serialize, de::DeserializeOwned};
 use std::cmp::Ordering;
 use thiserror::Error;
 
-pub type DatabaseError = rusqlite::Error;
-pub type DatabaseResult<T> = Result<T, DatabaseError>;
+pub type Error = rusqlite::Error;
 
 type Version = i64;
 
@@ -200,7 +199,7 @@ pub enum OpenError {
     #[error("Schema valdation failed with `{0}`")]
     ValidationFailed(#[from] ValidateSchemaError),
     #[error("SQLite error occured: `{0}`")]
-    DatabaseError(#[from] DatabaseError),
+    Error(#[from] Error),
 }
 
 #[derive(Error, Debug)]
@@ -210,7 +209,7 @@ pub enum CheckVersionError {
     #[error("Version table incompatable! Assuming data is invalid.")]
     IncompatableVersionTable,
     #[error("SQLite error occured: `{0}`")]
-    DatabaseError(#[from] DatabaseError),
+    Error(#[from] Error),
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
@@ -226,7 +225,7 @@ pub enum SetKvError {
     #[error("Failed to serialize value with error `{0}`")]
     SerializeError(#[from] ron::Error),
     #[error("SQLite error occured: `{0}`")]
-    DatabaseError(#[from] DatabaseError),
+    Error(#[from] Error),
 }
 
 fn check_version(db: &Database) -> Result<VersionCompatability, CheckVersionError> {
@@ -255,7 +254,7 @@ pub enum ValidateSchemaError {
     #[error("Failed Database validation with: `{0}`")]
     Invalid(Box<str>),
     #[error("SQLite error occured: `{0}`")]
-    DatabaseError(#[from] DatabaseError),
+    Error(#[from] Error),
 }
 
 const _: () = assert!(DB_VERSION == 7, "UPDATE VALIDATE SCRIPT");
@@ -345,7 +344,7 @@ fn validate_table(
 }
 
 /// Backs up the database to another file in the same directory with a timestamp in the name.
-fn backup_database(db: &Connection) -> Result<(), DatabaseError> {
+fn backup_database(db: &Connection) -> Result<(), Error> {
     let mut backup_path = get_default_db_directory();
     backup_path.push(format!(
         "{}-database-backup.sqlite",
@@ -370,7 +369,7 @@ pub enum MigrationError {
     #[error("Failed to find migration script!")]
     NoMigrationScript,
     #[error("SQLite error occured: `{0}`")]
-    DatabaseError(#[from] DatabaseError),
+    Error(#[from] Error),
     #[error("Migration script failed version update: `{0}`")]
     CheckVersionError(#[from] CheckVersionError),
 }

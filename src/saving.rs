@@ -31,7 +31,7 @@ impl SaveGame {
         }
     }
 
-    pub fn save(&self, db: &Database) -> DatabaseResult<()> {
+    pub fn save(&self, db: &Database) -> Result<(), DatabaseError> {
         let query = "UPDATE SaveGame SET last_saved = datetime('now') WHERE game_id = ?1;";
         db.connection.execute(query, (self.game_id.0,))?;
         Ok(())

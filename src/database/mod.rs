@@ -32,7 +32,7 @@ pub trait FromDatabase {
 }
 
 pub trait ToDatabase {
-    fn to_database(&self, database: &Database) -> Result<(), DatabaseError>;
+    fn to_database(&self, database: &Database) -> Result<(), Error>;
 }
 
 /// Gets the default database path in the user's home directory
