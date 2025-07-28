@@ -1,6 +1,7 @@
 use crate::prelude::*;
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
+use std::collections::VecDeque;
 
 const PLAYER_LAYER: f32 = 1.0;
 
@@ -20,9 +21,61 @@ impl Plugin for GamePlugin {
 pub enum GameState {
     #[default]
     Intermission,
-    PlayerTurn,
-    EnemyTurn,
+    Combat,
 }
+
+/// OnEnter: Set [`TurnOrder`]
+///          Place actors where they should go
+///          Etc.
+#[derive(SubStates, Clone, Copy, Default, Eq, PartialEq, Debug, Hash)]
+#[source(GameState = GameState::Combat)]
+#[states(scoped_entities)]
+pub enum CombatState {
+    /// Everything to set up the turn that is about to come
+    ///
+    /// [`ActingActor`] is front of queue
+    /// Asserts it is not empty
+    ///
+    /// Set [`ActingActor`]
+    #[default]
+    TurnSetup,
+    /// Move the choosen actor to the next state.
+    ///
+    /// Update: Move [`AttackingActor`]
+    MoveToCenter,
+    /// The player is prompted or the monster
+    /// randomizes the attack
+    ///
+    /// OnEnter: if [`ActingActor`] is automated, decide the attack and move on
+    ///          OTHERWISE Show UI
+    /// Update:  User interaction, if user picks action, set it as [`ActingActorAction`]
+    ChooseAction,
+    /// The attacking actor does the attack
+    /// and the attackee gets hurt
+    ///
+    /// Update: Update animation timer
+    ///         When timer done, move on
+    /// OnExit: Deal Damage
+    PerformAction,
+    /// The actor moves back to where they belong
+    /// After, sets next [`CombatState`]
+    ///
+    /// Update: Move [`AttackingActor`]
+    MoveBack,
+    /// Remove all the dead actors for [`TurnOrder`]
+    /// Ends the turn if at most 1 team survives
+    ///
+    /// If both teams are alive, move to [`TurnSetup`]
+    /// Rotate Left [`TurnOrder`]
+    EndOfTurn,
+}
+
+#[derive(Resource)]
+pub struct TurnOrder(pub VecDeque<Entity>);
+#[derive(Resource)]
+pub struct ActingActor(pub Entity);
+#[derive(Resource)]
+pub struct ActingActorActon;
 
 /// The default player positons in Axial coordinate space
 
