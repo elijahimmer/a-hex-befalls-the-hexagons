@@ -26,6 +26,7 @@ pub const ROOM_TILE_LAYER: f32 = 0.0;
 const GENERATION_SCHEDULE_FREQUENCY: f64 = 10000.0;
 const GENERATING_STATE: NewGameState = NewGameState::GeneratingWorld;
 
+/// Plugin to setup map generation
 impl Plugin for GenerateMapPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
@@ -67,6 +68,7 @@ pub struct GenerationSettings {
     pub seed: u64,
 }
 
+/// Seedable Rand Resource
 #[derive(Resource)]
 struct GenerationRand(pub RandomSource);
 
@@ -78,6 +80,7 @@ pub struct RoomTile;
 #[reflect(Component)]
 pub struct RoomTilemap;
 
+/// List of tiles a tile in the tilemap can be next to.
 #[derive(Component, Clone)]
 pub struct ValidTiles {
     gray: bool,
@@ -89,6 +92,8 @@ pub struct ValidTiles {
 }
 
 impl ValidTiles {
+
+    /// Method to get entropy of a tile
     pub fn entropy(&self) -> u8 {
         self.gray as u8
             + self.red as u8
@@ -98,6 +103,7 @@ impl ValidTiles {
             + self.dblue as u8
     }
 
+    /// Method to collapse a tile to a single state
     pub fn collapse(&self, rng: &mut RandomSource) -> Option<Collapsed> {
         let possibilities = [
             (self.gray, Collapsed::Gray),
@@ -132,6 +138,7 @@ impl Default for ValidTiles {
     }
 }
 
+/// Enum to represent all possible collapsed components
 #[derive(Component, Clone, Copy)]
 pub enum Collapsed {
     Gray,
@@ -143,6 +150,7 @@ pub enum Collapsed {
 }
 
 impl Collapsed {
+    /// Method to get enum value of tile state
     pub fn to_texture(&self) -> TileTextureIndex {
         TileTextureIndex(match self {
             Collapsed::Gray => 0,
@@ -155,11 +163,13 @@ impl Collapsed {
     }
 }
 
+/// Setup for Generation settings so generation is seedable
 fn setup(mut commands: Commands, settings: Res<GenerationSettings>) {
     let rng = RandomSource::from_seed(settings.seed.to_ne_bytes());
     commands.insert_resource(GenerationRand(rng));
 }
 
+/// Spawns tilemap
 fn spawn_room(mut commands: Commands, tile_texture: Res<HexTileImage>) {
     let tilemap_entity = commands.spawn_empty().id();
 
@@ -210,6 +220,7 @@ fn spawn_room(mut commands: Commands, tile_texture: Res<HexTileImage>) {
     ));
 }
 
+/// finds the origin of the Map
 fn create_origin(
     mut commands: Commands,
     tilestorage_q: Query<&mut TileStorage, With<RoomTilemap>>,
@@ -223,6 +234,7 @@ fn create_origin(
     }
 }
 
+/// updates the entropy of neighbor tiles that are changed
 fn update_neighbors(
     changed_tile_q: Query<(&Collapsed, &TilePos), Changed<Collapsed>>,
     tilestorage_q: Single<&TileStorage, With<RoomTilemap>>,
@@ -267,6 +279,7 @@ fn update_neighbors(
     }
 }
 
+/// collapses a tile 
 fn collapse_tile(
     mut commands: Commands,
     tile_storage: Single<&TileStorage, With<RoomTilemap>>,
