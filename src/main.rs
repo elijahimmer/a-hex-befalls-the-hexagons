@@ -4,8 +4,9 @@ mod camera;
 mod controls;
 mod database;
 mod game;
-mod generate_map;
+//mod generate_map;
 mod menu;
+mod room;
 mod saving;
 mod sky;
 mod style;
@@ -35,7 +36,8 @@ pub mod prelude {
     pub use crate::camera::{MainCamera, MainCameraMarker};
     pub use crate::controls::{Control, ControlState, Controls, Keybind};
     pub use crate::database::{Database, Error as DatabaseError, FromDatabase, ToDatabase};
-    pub use crate::generate_map::{ROOM_TILE_LAYER, RoomTile, RoomTilemap};
+    pub use crate::room::{RoomInfo, RoomTile, RoomTilemap};
+    //pub use crate::generate_map::{ROOM_TILE_LAYER, RoomTile, RoomTilemap};
     #[cfg(feature = "sqlite")]
     pub use crate::saving::SaveGameInfo;
     pub use crate::saving::{GameID, SaveGame};
@@ -49,7 +51,7 @@ use camera::CameraPlugin;
 use controls::ControlsPlugin;
 use database::DatabasePlugin;
 use game::GamePlugin;
-use generate_map::GenerateMapPlugin;
+//use generate_map::GenerateMapPlugin;
 use menu::MenuPlugin;
 use prelude::*;
 use sky::SkyPlugin;
@@ -115,7 +117,8 @@ fn main() {
         .add_plugins(MenuPlugin)
         .add_plugins(SkyPlugin)
         .add_plugins(CameraPlugin)
-        .add_plugins(GenerateMapPlugin);
+        //.add_plugins(GenerateMapPlugin)
+        ;
 
     app.add_systems(
         Update,
