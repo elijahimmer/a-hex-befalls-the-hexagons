@@ -174,3 +174,13 @@ pub enum ActorName {
     #[strum(to_string = "Unknown Jim")]
     UnknownJim,
 }
+
+#[derive(Component, Debug, Hash, PartialEq, Eq, Clone, Copy, Serialize, Deserialize, Display)]
+pub enum SpecialAction {
+    #[strum(to_string = "Heal")]
+    HealTarget,
+    #[strum(to_string = "Crushing Blow")]
+    CrushingBlow,
+    #[strum(to_string = "Surprise Attack")]
+    SurpriseAttack,
+}

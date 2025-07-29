@@ -4,22 +4,24 @@ use bevy_ecs_tilemap::helpers::hex_grid::axial::AxialPos;
 use bevy_ecs_tilemap::prelude::*;
 use std::ops::Range;
 
-pub struct GenerateRoomPlugin;
-
-pub const ROOM_RADIUS: u32 = 1;
+pub const ROOM_RADIUS: u32 = 3;
 pub const ROOM_SIZE: TilemapSize = TilemapSize {
     x: ROOM_RADIUS * 2 + 1,
     y: ROOM_RADIUS * 2 + 1,
 };
-pub const ROOM_ORIGIN: TilePos = TilePos {
-    x: ROOM_RADIUS,
-    y: ROOM_RADIUS,
-};
 
 pub const ROOM_TILE_LAYER: f32 = 0.0;
 
+#[derive(Component, Debug, Hash, PartialEq, Eq, Clone)]
 /// All of the information about a given room.
 pub enum RoomInfo {
+    /// An empty room with nothing interesting
+    EmptyRoom,
+    /// The entrance room, with nothing interesting
+    Entrance,
+    /// The exit room with nothing interesting,
+    /// until you gather all the stuffs to leave this hell hole
+    Exit,
     /// A room that holds enemies to fight
     Combat {
         /// The enemies that are inside the room
@@ -45,13 +47,17 @@ pub enum RoomInfo {
     },
 }
 
+#[derive(Resource)]
+pub struct CurrentRoom(pub RoomInfo);
+
 #[derive(Component)]
 pub struct RoomTile;
 
 #[derive(Component)]
 pub struct RoomTilemap;
 
-fn spawn_room(mut commands: Commands, tile_texture: &HexTileImage, room: RoomInfo) {
+pub fn spawn_room(mut commands: Commands, tile_texture: Res<HexTileImage>, room: Res<CurrentRoom>) {
+    info!("spawn room");
     let tilemap_entity = commands.spawn_empty().id();
 
     let mut tile_storage = TileStorage::empty(ROOM_SIZE);
@@ -100,7 +106,10 @@ fn spawn_room(mut commands: Commands, tile_texture: &HexTileImage, room: RoomInf
     ));
 
     use RoomInfo as R;
-    match room {
+    match &room.0 {
+        R::EmptyRoom => {}
+        R::Entrance => {}
+        R::Exit => {}
         R::Combat { enemies, visited } => {}
         R::Item { item, taken } => {}
         R::Pit { damage, triggered } => {}

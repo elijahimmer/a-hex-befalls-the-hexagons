@@ -13,16 +13,17 @@ use std::cmp::Ordering;
 
 pub struct GenerateMapPlugin;
 
-pub const ROOM_RADIUS: u32 = 3;
-pub const ROOM_SIZE: TilemapSize = TilemapSize {
-    x: ROOM_RADIUS * 2 + 1,
-    y: ROOM_RADIUS * 2 + 1,
+pub const WORLD_MAP_ORIGIN: Vec2 = Vec2::new(1000.0, 0.0);
+pub const MAP_RADIUS: u32 = 3;
+pub const MAP_SIZE: TilemapSize = TilemapSize {
+    x: MAP_RADIUS * 2 + 1,
+    y: MAP_RADIUS * 2 + 1,
 };
-pub const ROOM_ORIGIN: TilePos = TilePos {
-    x: ROOM_RADIUS,
-    y: ROOM_RADIUS,
+pub const MAP_ORIGIN: TilePos = TilePos {
+    x: MAP_RADIUS,
+    y: MAP_RADIUS,
 };
-pub const ROOM_TILE_LAYER: f32 = 0.0;
+pub const MAP_TILE_LAYER: f32 = 0.0;
 
 const GENERATION_SCHEDULE_FREQUENCY: f64 = 10000.0;
 const GENERATING_STATE: NewGameState = NewGameState::GeneratingWorld;
@@ -37,10 +38,10 @@ impl Plugin for GenerateMapPlugin {
             OnEnter(GENERATING_STATE),
             (
                 setup,
-                spawn_room,
+                spawn_map,
                 (
                     create_origin,
-                    spawn_tile_labels::<With<RoomTilemap>, With<RoomTile>>,
+                    spawn_tile_labels::<With<MapTilemap>, With<MapTile>>,
                 ),
             )
                 .chain(),
@@ -49,7 +50,7 @@ impl Plugin for GenerateMapPlugin {
             OnExit(GENERATING_STATE),
             (
                 restore_fixed_update_time,
-                despawn_tile_labels::<With<RoomTilemap>>,
+                despawn_tile_labels::<With<MapTilemap>>,
             ),
         )
         .add_systems(
@@ -73,11 +74,11 @@ struct GenerationRand(pub RandomSource);
 
 #[derive(Component, Reflect)]
 #[reflect(Component)]
-pub struct RoomTile;
+pub struct MapTile;
 
 #[derive(Component, Reflect)]
 #[reflect(Component)]
-pub struct RoomTilemap;
+pub struct MapTilemap;
 
 #[derive(Component, Clone)]
 pub struct ValidTiles {
@@ -161,18 +162,18 @@ fn setup(mut commands: Commands, settings: Res<GenerationSettings>) {
     commands.insert_resource(GenerationRand(rng));
 }
 
-fn spawn_room(mut commands: Commands, tile_texture: Res<HexTileImage>) {
+fn spawn_map(mut commands: Commands, tile_texture: Res<HexTileImage>) {
     let tilemap_entity = commands.spawn_empty().id();
 
-    let mut tile_storage = TileStorage::empty(ROOM_SIZE);
+    let mut tile_storage = TileStorage::empty(MAP_SIZE);
     let origin = TilePos {
-        x: ROOM_SIZE.x / 2,
-        y: ROOM_SIZE.y / 2,
+        x: MAP_SIZE.x / 2,
+        y: MAP_SIZE.y / 2,
     };
 
     let tile_positions = generate_hexagon(
         AxialPos::from_tile_pos_given_coord_system(&origin, HEX_COORD_SYSTEM),
-        ROOM_RADIUS,
+        MAP_RADIUS,
     )
     .into_iter()
     .map(|axial_pos| axial_pos.as_tile_pos_given_coord_system(HEX_COORD_SYSTEM));
@@ -181,7 +182,7 @@ fn spawn_room(mut commands: Commands, tile_texture: Res<HexTileImage>) {
         for tile_pos in tile_positions {
             let id = parent
                 .spawn((
-                    RoomTile,
+                    MapTile,
                     ValidTiles::default(),
                     TileBundle {
                         position: tile_pos,
@@ -196,28 +197,25 @@ fn spawn_room(mut commands: Commands, tile_texture: Res<HexTileImage>) {
     });
 
     commands.entity(tilemap_entity).insert((
-        RoomTilemap,
+        MapTilemap,
         TilemapBundle {
             grid_size: TILE_SIZE.into(),
             map_type: TilemapType::Hexagon(HexCoordSystem::Row),
-            size: ROOM_SIZE,
+            size: MAP_SIZE,
             storage: tile_storage,
             texture: TilemapTexture::Single(tile_texture.image.clone()),
             tile_size: TILE_SIZE,
             anchor: TilemapAnchor::Center,
-            transform: Transform::from_xyz(0., 0., ROOM_TILE_LAYER),
+            transform: Transform::from_translation(WORLD_MAP_ORIGIN.extend(MAP_TILE_LAYER)),
             ..Default::default()
         },
     ));
 }
 
-fn create_origin(
-    mut commands: Commands,
-    tilestorage_q: Query<&mut TileStorage, With<RoomTilemap>>,
-) {
+fn create_origin(mut commands: Commands, tilestorage_q: Query<&mut TileStorage, With<MapTilemap>>) {
     for tile_storage in &tilestorage_q {
         let tile = tile_storage
-            .get(&ROOM_ORIGIN)
+            .get(&MAP_ORIGIN)
             .expect("The origin should exist, as we just made it...");
 
         commands.entity(tile).insert(Collapsed::Red);
@@ -226,13 +224,13 @@ fn create_origin(
 
 fn update_neighbors(
     changed_tile_q: Query<(&Collapsed, &TilePos), Changed<Collapsed>>,
-    tilestorage_q: Single<&TileStorage, With<RoomTilemap>>,
+    tilestorage_q: Single<&TileStorage, With<MapTilemap>>,
     mut valid_tile_q: Query<&mut ValidTiles>,
 ) {
     let tile_storage = *tilestorage_q;
     for (collapsed, tile_pos) in changed_tile_q {
         let neighbors =
-            HexNeighbors::<TilePos>::get_neighboring_positions_standard(&tile_pos, &ROOM_SIZE);
+            HexNeighbors::<TilePos>::get_neighboring_positions_standard(&tile_pos, &MAP_SIZE);
         for loc in neighbors.iter() {
             if let Some(entity) = tile_storage.checked_get(&loc) {
                 let Ok(mut valid_tile) = valid_tile_q.get_mut(entity) else {
@@ -270,7 +268,7 @@ fn update_neighbors(
 
 fn collapse_tile(
     mut commands: Commands,
-    tile_storage: Single<&TileStorage, With<RoomTilemap>>,
+    tile_storage: Single<&TileStorage, With<MapTilemap>>,
     valid_tile_q: Query<&ValidTiles>,
     mut tile_text_q: Query<&mut TileTextureIndex>,
     mut tile_rand: ResMut<GenerationRand>,
