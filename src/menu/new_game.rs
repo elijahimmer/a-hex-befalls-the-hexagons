@@ -1,5 +1,5 @@
 use super::MenuState;
-//use crate::generate_map::GenerationSettings;
+use crate::generate_map::GenerationSettings;
 use crate::prelude::*;
 use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
@@ -86,6 +86,7 @@ fn cancel_generation(
     mut click: Trigger<Pointer<Click>>,
     mut commands: Commands,
     room_map_q: Query<Entity, With<RoomTilemap>>,
+    party: Query<Entity, With<ActorName>>,
     mut next_new_game_state: ResMut<NextState<NewGameState>>,
 ) {
     let PointerButton::Primary = click.button else {
@@ -96,9 +97,13 @@ fn cancel_generation(
 
     commands.remove_resource::<GenerationProgress>();
     commands.remove_resource::<SaveGame>();
-    //commands.remove_resource::<GenerationSettings>();
+    commands.remove_resource::<GenerationSettings>();
 
     for entity in room_map_q.iter() {
+        commands.entity(entity).despawn();
+    }
+
+    for entity in party.iter() {
         commands.entity(entity).despawn();
     }
 
@@ -129,7 +134,7 @@ fn generate_world_click(
 
     commands.insert_resource(GenerationProgress::default());
     commands.insert_resource(SaveGame::new(&db, seed));
-    //commands.insert_resource(GenerationSettings { seed: seed });
+    commands.insert_resource(GenerationSettings { seed: seed });
 
     next_new_game_state.set(NewGameState::GeneratingWorld);
 
@@ -329,11 +334,9 @@ fn setup_party(
 ) {
     use ActorName as A;
     for name in [A::Warrior, A::Priestess, A::Theif] {
-        commands.spawn(Actor::from_name(
-            &asset_server,
-            name,
-            Team::Player,
-            Transform::IDENTITY,
+        commands.spawn((
+            Actor::from_name(&asset_server, name, Team::Player, Transform::IDENTITY),
+            Visibility::Hidden,
         ));
     }
     progress.characters_done = true;

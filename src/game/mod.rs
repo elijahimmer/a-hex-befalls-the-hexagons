@@ -1,4 +1,5 @@
 use crate::prelude::*;
+use crate::room::{CurrentRoom, spawn_room};
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 use std::collections::VecDeque;
@@ -9,9 +10,11 @@ pub struct GamePlugin;
 
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
-        app.add_sub_state::<GameState>()
-            .add_systems(OnEnter(AppState::Game), (fixup_room, place_actors));
-        app.add_systems(OnEnter(GameState::Intermission), crate::saving::save_game);
+        app.add_sub_state::<GameState>().add_systems(
+            OnEnter(AppState::Game),
+            (setup_current_room, spawn_room, place_actors).chain(),
+        );
+        app.add_systems(OnEnter(GameState::Navigation), crate::saving::save_game);
     }
 }
 
@@ -19,14 +22,37 @@ impl Plugin for GamePlugin {
 #[source(AppState = AppState::Game)]
 #[states(scoped_entities)]
 pub enum GameState {
+    /// The initial state in the GameState loop that
+    /// displays the room.
+    /// This will delete the old room's content, and spawn
+    /// the new room's contents.
+    ///
+    /// OnEnter: Deletes old room contents (if any)
+    ///          Spawns new room contents
+    ///          Sets game state to `Combat` if there are enemies alive.
+    ///          Otherwise set game state to `Navigation`
     #[default]
-    Intermission,
+    EnterRoom,
+    /// The combat state. See [`CombatState`]
     Combat,
+    /// The UI for navigation pops up,
+    /// and any things in the room are there.
+    /// i.e. Item chests and spike traps
+    Navigation,
+    /// Show game over screen.
+    /// This happens when all of your party members die.
+    GameOver,
+    /// Shows victory screen and concludes the game.
+    Victory,
 }
+
+// Whenever we change rooms,
+// despawn all that are in the old room.
 
 /// OnEnter: Set [`TurnOrder`]
 ///          Place actors where they should go
 ///          Etc.
+/// OnExit:  Removes [`TurnOrder`]
 #[derive(SubStates, Clone, Copy, Default, Eq, PartialEq, Debug, Hash)]
 #[source(GameState = GameState::Combat)]
 #[states(scoped_entities)]
@@ -56,6 +82,10 @@ pub enum CombatState {
     /// Update: Update animation timer
     ///         When timer done, move on
     /// OnExit: Deal Damage
+    ///         Removes [`ActingActorAction`]
+    ///
+    /// If an actor gets an additional turn,
+    /// go back to `ChooseAction`
     PerformAction,
     /// The actor moves back to where they belong
     /// After, sets next [`CombatState`]
@@ -70,30 +100,58 @@ pub enum CombatState {
     EndOfTurn,
 }
 
+/// The combat queue of actors
 #[derive(Resource)]
-pub struct TurnOrder(pub VecDeque<Entity>);
-#[derive(Resource)]
-pub struct ActingActor(pub Entity);
-#[derive(Resource)]
-pub struct ActingActorActon;
+pub struct TurnOrder {
+    queue: VecDeque<Entity>,
+}
+
+impl TurnOrder {
+    pub fn new(actors: &[Entity]) -> Self {
+        Self {
+            queue: Vec::from(actors).into(),
+        }
+    }
+
+    /// asserts that the queue isn't empty
+    pub fn first(&self) -> Entity {
+        *self.queue.front().unwrap()
+    }
+
+    pub fn queue(&self) -> &VecDeque<Entity> {
+        &self.queue
+    }
+}
+
+/// The action being taken by the acting actor
+#[derive(Resource, Deref, DerefMut)]
+pub struct ActingActorActon(pub Action);
+
+/// The action the [`ActingActor`] is taking
+pub enum Action {
+    /// The actor does damage to the `target`
+    Attack {
+        target: Entity,
+    },
+    // TBD
+    SpecialAction {
+        target: Entity,
+    },
+    /// The actor does damage to the `target`
+    UseItem {
+        item: (),
+        target: Entity,
+    },
+    SkipTurn,
+}
 
 /// The default player positons in Axial coordinate space
 
 const PLAYER_POSITIONS: [IVec2; 3] = [IVec2::new(-1, -1), IVec2::new(1, -2), IVec2::new(2, -1)];
 const ENEMY_POSITIONS: [IVec2; 3] = [IVec2::new(1, 1), IVec2::new(-1, 2), IVec2::new(-2, 1)];
 
-fn fixup_room(mut commands: Commands, tilemap: Single<(Entity, &TileStorage), With<RoomTilemap>>) {
-    let (entity, tile_storage) = *tilemap;
-
-    commands.entity(entity).insert(Pickable::default());
-
-    for tile in tile_storage.iter().filter_map(|t| *t) {
-        commands
-            .entity(tile)
-            .insert((Pickable::default(), Visibility::Visible));
-        //.observe(tile_hover_indicator)
-        //.observe(tile_hover_indicator_remove);
-    }
+fn setup_current_room(mut commands: Commands) {
+    commands.insert_resource(CurrentRoom(RoomInfo::Entrance));
 }
 
 fn place_actors(
