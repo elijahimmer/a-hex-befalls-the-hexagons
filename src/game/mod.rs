@@ -104,7 +104,9 @@ const PLAYER_POSITIONS: [IVec2; 3] = [IVec2::new(-1, -1), IVec2::new(1, -2), IVe
 
 /// TODO: Remove this and set it in new game or load game
 fn setup_current_room(mut commands: Commands) {
-    commands.insert_resource(CurrentRoom(RoomInfo::from_type(RoomType::Entrance)));
+    commands.insert_resource(CurrentRoom(RoomInfo::from_type(RoomType::Combat(
+        Box::new([ActorName::Ogre, ActorName::Goblin, ActorName::Skeleton]),
+    ))));
 }
 
 fn place_player_actors(
@@ -119,7 +121,7 @@ fn place_player_actors(
         ),
         With<RoomTilemap>,
     >,
-    mut actors: Query<(Entity, &mut Transform)>,
+    mut actors: Query<(Entity, &mut Transform), With<ActorName>>,
 ) {
     let (map_size, grid_size, tile_size, map_type, map_anchor) = *tilemap;
 
@@ -169,13 +171,13 @@ fn display_trigger_or_skip(
 
         commands.spawn((
             Node {
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
+                align_self: AlignSelf::Center,
+                justify_self: JustifySelf::Center,
                 ..default()
             },
             Text::new(event_text),
             StateScoped(GameState::TriggerEvent),
-            style.font(65.0),
+            style.font(100.0),
             TextColor(style.text_color),
         ));
         // Display event text
@@ -183,6 +185,7 @@ fn display_trigger_or_skip(
 }
 
 /// Waits for a time so the player can see the event, then do the event.
+/// TODO: Let users skip over this by pressing space or something.
 fn wait_for_trigger(
     mut commands: Commands,
     mut timer: ResMut<TriggerEventTimer>,

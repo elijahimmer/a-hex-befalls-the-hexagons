@@ -7,7 +7,8 @@ pub struct CombatPlugin;
 impl Plugin for CombatPlugin {
     fn build(&self, app: &mut App) {
         app.add_sub_state::<CombatState>()
-            .add_systems(OnEnter(GameState::Combat), prep_turn_order);
+            .add_systems(OnEnter(GameState::Combat), setup_turn_order)
+            .add_systems(OnEnter(CombatState::TurnSetup), prep_turn_order);
     }
 }
 
@@ -65,13 +66,9 @@ pub struct TurnOrder {
     queue: VecDeque<Entity>,
 }
 
-/// The action being taken by the acting actor
-#[derive(Resource, Deref, DerefMut)]
-pub struct ActingActorActon(pub Action);
-
 impl TurnOrder {
-    pub fn new(actors: &[Entity], speed_q: Query<&AttackSpeed>) -> Self {
-        let mut queue = VecDeque::from(Vec::from(actors));
+    pub fn new(actor_q: Query<Entity, With<ActorName>>, speed_q: Query<&AttackSpeed>) -> Self {
+        let mut queue = actor_q.iter().collect::<VecDeque<_>>();
 
         queue.shrink_to_fit();
         queue
@@ -118,6 +115,10 @@ impl TurnOrder {
     }
 }
 
+/// The action being taken by the acting actor
+#[derive(Resource, Deref, DerefMut)]
+pub struct ActingActorActon(pub Action);
+
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum TeamAlive {
     Both,
@@ -156,6 +157,14 @@ pub enum Action {
         target: Entity,
     },
     SkipTurn,
+}
+
+fn setup_turn_order(
+    mut commands: Commands,
+    actor_q: Query<Entity, With<ActorName>>,
+    speed_q: Query<&AttackSpeed>,
+) {
+    commands.insert_resource(TurnOrder::new(actor_q, speed_q));
 }
 
 fn prep_turn_order(

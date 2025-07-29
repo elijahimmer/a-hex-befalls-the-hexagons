@@ -9,7 +9,12 @@ pub struct AnimationPlugin;
 
 impl Plugin for AnimationPlugin {
     fn build(&self, app: &mut App) {
+        embed_asset!(app, "assets/sprites/Warrior.png");
+        embed_asset!(app, "assets/sprites/Priestess.png");
         embed_asset!(app, "assets/sprites/Theif.png");
+        embed_asset!(app, "assets/sprites/Ogre.png");
+        embed_asset!(app, "assets/sprites/Goblin.png");
+        embed_asset!(app, "assets/sprites/Skeleton.png");
         embed_asset!(app, "assets/sprites/Unknown Jim.png");
         app.init_resource::<AnimationFrameTimer>()
             .add_systems(Update, execute_animations);
@@ -175,7 +180,7 @@ pub fn name_to_sprite_size(name: ActorName) -> UVec2 {
     match name {
         A::Warrior => UVec2::new(32, 60),
         A::Priestess => UVec2::new(32, 60),
-        A::Theif => UVec2::new(32, 60),
+        A::Theif => UVec2::new(34, 60),
         A::Ogre => UVec2::new(32, 60),
         A::Goblin => UVec2::new(32, 60),
         A::Skeleton => UVec2::new(32, 60),
