@@ -9,35 +9,29 @@ use std::ops::Range;
 pub struct Attack {
     /// The range of damage they can do.
     pub(super) damage: Range<u32>,
-    /// Determines the order of turns in combat. Higher numbers means they will go sooner.
-    pub(super) speed: u32,
     /// The chance the actor has to hit when they attack.
     /// Should be between 0.0 and 1.0
     pub(super) hit_chance: f32,
 }
 
 impl Attack {
-    pub fn new(damage: Range<u32>, speed: u32, hit_chance: f32) -> Self {
-        Self {
-            damage,
-            speed,
-            hit_chance,
-        }
+    pub fn new(damage: Range<u32>, hit_chance: f32) -> Self {
+        Self { damage, hit_chance }
     }
 
     pub fn from_name(name: ActorName) -> Self {
         use ActorName as A;
-        let (damage, speed, hit_chance) = match name {
-            A::Warrior => (35..61, 4, 0.8),
-            A::Priestess => (25..46, 5, 0.7),
-            A::Theif => (20..41, 6, 0.8),
-            A::Ogre => (30..61, 2, 0.6),
-            A::Goblin => (15..31, 5, 0.8),
-            A::Skeleton => (30..51, 3, 0.8),
-            A::UnknownJim => (0..1, 1, 0.0),
+        let (damage, hit_chance) = match name {
+            A::Warrior => (35..61, 0.8),
+            A::Priestess => (25..46, 0.7),
+            A::Theif => (20..41, 0.8),
+            A::Ogre => (30..61, 0.6),
+            A::Goblin => (15..31, 0.8),
+            A::Skeleton => (30..51, 0.8),
+            A::UnknownJim => (0..1, 0.0),
         };
 
-        Self::new(damage, speed, hit_chance)
+        Self::new(damage, hit_chance)
     }
 
     /// Simulates an attack using the rng and returns the
@@ -63,3 +57,26 @@ pub enum AttackDamage {
 #[derive(Component, Deref, DerefMut, Clone, Copy, Serialize, Deserialize)]
 #[repr(transparent)]
 pub struct BlockChance(pub f32);
+
+/// Determines the order of turns in combat. Higher numbers means they will go sooner.
+#[derive(Component, Deref, DerefMut, Clone, Copy, Serialize, Deserialize)]
+pub struct AttackSpeed(pub u32);
+
+impl AttackSpeed {
+    pub fn new(speed: u32) -> Self {
+        Self(speed)
+    }
+
+    pub fn from_name(name: ActorName) -> Self {
+        use ActorName as A;
+        Self(match name {
+            A::Warrior => 4,
+            A::Priestess => 5,
+            A::Theif => 6,
+            A::Ogre => 2,
+            A::Goblin => 5,
+            A::Skeleton => 3,
+            A::UnknownJim => 1,
+        })
+    }
+}

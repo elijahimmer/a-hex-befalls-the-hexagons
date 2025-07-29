@@ -92,9 +92,6 @@ pub enum CombatState {
     ///
     /// Update: Move [`AttackingActor`]
     MoveBack,
-    /// Remove all the dead actors for [`TurnOrder`]
-    /// Ends the turn if at most 1 team survives
-    ///
     /// If both teams are alive, move to [`TurnSetup`]
     /// Rotate Left [`TurnOrder`]
     EndOfTurn,
@@ -107,19 +104,73 @@ pub struct TurnOrder {
 }
 
 impl TurnOrder {
-    pub fn new(actors: &[Entity]) -> Self {
-        Self {
-            queue: Vec::from(actors).into(),
-        }
+    pub fn new(actors: &[Entity], speed_q: Query<&AttackSpeed>) -> Self {
+        let mut queue = VecDeque::from(Vec::from(actors));
+
+        queue.shrink_to_fit();
+        queue
+            .make_contiguous()
+            .sort_by_cached_key(|entity| speed_q.get(*entity).unwrap().0);
+
+        Self { queue }
     }
 
+    /// Gets the active actor.
     /// asserts that the queue isn't empty
-    pub fn first(&self) -> Entity {
+    pub fn active(&self) -> Entity {
         *self.queue.front().unwrap()
+    }
+
+    /// Should be called at end of turn to set the first actor in the
+    /// queue as the first elegible actor to take a turn (i.e. skipping over dead actors)
+    ///
+    /// Asserts at least 1 actor is left alive.
+    pub fn skip_to_next(&mut self, health_q: Query<&Health>) {
+        let idx = self
+            .queue
+            .iter()
+            // skip the one that was alive last round
+            .skip(1)
+            .filter_map(|entity| health_q.get(*entity).ok())
+            .enumerate()
+            .find_map(|(idx, health)| health.is_alive().then_some(idx))
+            .unwrap();
+
+        self.queue.rotate_left(idx + 1);
+    }
+
+    pub fn teams_alive(&mut self, actor_q: Query<(&Health, &Team)>) -> TeamAlive {
+        self.queue
+            .iter()
+            .map(|e| actor_q.get(*e).unwrap())
+            .filter_map(|(health, team)| health.is_alive().then_some(team))
+            .fold(TeamAlive::Neither, |acc, elm| acc.found(*elm))
     }
 
     pub fn queue(&self) -> &VecDeque<Entity> {
         &self.queue
+    }
+}
+
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub enum TeamAlive {
+    Both,
+    Player,
+    Enemy,
+    Neither,
+}
+
+impl TeamAlive {
+    pub fn found(&self, team: Team) -> Self {
+        match (team, *self) {
+            (_, Self::Both) => Self::Both,
+            (Team::Player, Self::Player) => Self::Player,
+            (Team::Enemy, Self::Enemy) => Self::Enemy,
+            (Team::Enemy, Self::Player) => Self::Both,
+            (Team::Player, Self::Enemy) => Self::Both,
+            (Team::Player, Self::Neither) => Self::Player,
+            (Team::Enemy, Self::Neither) => Self::Enemy,
+        }
     }
 }
 
@@ -149,6 +200,19 @@ pub enum Action {
 
 const PLAYER_POSITIONS: [IVec2; 3] = [IVec2::new(-1, -1), IVec2::new(1, -2), IVec2::new(2, -1)];
 const ENEMY_POSITIONS: [IVec2; 3] = [IVec2::new(1, 1), IVec2::new(-1, 2), IVec2::new(-2, 1)];
+
+fn prep_turn_order(
+    mut queue: ResMut<TurnOrder>,
+    actor_q: Query<(&Health, &Team)>,
+    health_q: Query<&Health>,
+) {
+    match queue.teams_alive(actor_q) {
+        TeamAlive::Both => {}
+        // End the turn in this case (likely another function)
+        TeamAlive::Player | TeamAlive::Enemy | TeamAlive::Neither => {}
+    }
+    queue.skip_to_next(health_q);
+}
 
 fn setup_current_room(mut commands: Commands) {
     commands.insert_resource(CurrentRoom(RoomInfo::Entrance));

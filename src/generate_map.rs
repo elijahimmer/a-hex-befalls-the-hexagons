@@ -171,7 +171,7 @@ fn setup(mut commands: Commands, settings: Res<GenerationSettings>) {
 }
 
 /// Spawns tilemap
-fn spawn_room(mut commands: Commands, tile_texture: Res<HexTileImage>) {
+fn spawn_map(mut commands: Commands, tile_texture: Res<HexTileImage>) {
     let tilemap_entity = commands.spawn_empty().id();
 
     let mut tile_storage = TileStorage::empty(MAP_SIZE);
@@ -222,10 +222,7 @@ fn spawn_room(mut commands: Commands, tile_texture: Res<HexTileImage>) {
 }
 
 /// finds the origin of the Map
-fn create_origin(
-    mut commands: Commands,
-    tilestorage_q: Query<&mut TileStorage, With<RoomTilemap>>,
-) {
+fn create_origin(mut commands: Commands, tilestorage_q: Query<&mut TileStorage, With<MapTilemap>>) {
     for tile_storage in &tilestorage_q {
         let tile = tile_storage
             .get(&MAP_ORIGIN)

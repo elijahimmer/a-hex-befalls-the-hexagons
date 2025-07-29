@@ -19,6 +19,7 @@ pub struct Actor {
     pub team: Team,
     pub health: HealthBundle,
     pub attack: Attack,
+    pub speed: AttackSpeed,
     pub transform: Transform,
     pub animation: AnimationBundle,
 }
@@ -35,6 +36,7 @@ impl Actor {
             team,
             health: HealthBundle::from_name(name),
             attack: Attack::from_name(name),
+            speed: AttackSpeed::from_name(name),
             transform,
             animation: AnimationBundle::from_name(asset_server, name),
         }
@@ -43,12 +45,12 @@ impl Actor {
 
 #[cfg(feature = "sqlite")]
 pub fn save_actors(
-    components: Query<(&ActorName, &Team, &Health, &Attack)>,
+    components: Query<(&ActorName, &Team, &Health, &Attack, &AttackSpeed)>,
     save_info: Res<SaveGame>,
     db: NonSend<Database>,
 ) -> Result<(), DatabaseError> {
     let game_id = save_info.game_id;
-    for (name, team, health, attack) in components {
+    for (name, team, health, attack, speed) in components {
         let query = r#"
             INSERT INTO Actor(
                 name,
@@ -58,8 +60,8 @@ pub fn save_actors(
                 health_curr,
                 attack_damage_min,
                 attack_damage_max,
-                attack_speed,
                 hit_chance
+                attack_speed,
             )
             VALUES(
                 :name,
@@ -69,8 +71,8 @@ pub fn save_actors(
                 :health_curr,
                 :attack_damage_min,
                 :attack_damage_max,
-                :attack_speed,
                 :hit_chance
+                :attack_speed,
             );
         "#;
 
@@ -84,8 +86,8 @@ pub fn save_actors(
                 health.current(),
                 attack.damage.start,
                 attack.damage.end,
-                attack.speed,
                 attack.hit_chance,
+                speed.0,
             ),
         )?;
     }
@@ -128,9 +130,9 @@ pub fn load_actors(
             );
             let attack = Attack::new(
                 row.get("attack_damage_min")?..row.get("attack_damage_max")?,
-                row.get("attack_speed")?,
                 row.get("hit_chance")?,
             );
+            let speed = AttackSpeed::new(row.get("attack_speed")?);
             // the actor will be placed after this
             let transform = Transform::IDENTITY;
             let animation = AnimationBundle::from_name(&asset_server, name);
@@ -140,6 +142,7 @@ pub fn load_actors(
                 team,
                 health,
                 attack,
+                speed,
                 transform,
                 animation,
             })
