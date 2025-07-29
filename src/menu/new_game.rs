@@ -51,8 +51,13 @@ pub struct WorldNameTextBox;
 #[derive(Component)]
 pub struct WorldSeedTextBox;
 
-fn progress_check(progress: Res<GenerationProgress>, mut next_state: ResMut<NextState<AppState>>) {
+fn progress_check(
+    mut commands: Commands,
+    progress: Res<GenerationProgress>,
+    mut next_state: ResMut<NextState<AppState>>,
+) {
     if progress.done() {
+        commands.run_system_cached(crate::saving::save_game);
         next_state.set(AppState::Game);
     }
 }

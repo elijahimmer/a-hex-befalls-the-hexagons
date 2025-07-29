@@ -150,7 +150,3 @@ pub fn load_game(world: &mut World) {
         .unwrap()
         .set(AppState::Game);
 }
-
-// db: NonSend<Database>,
-// save_game: Res<SaveGame>,
-// asset_server: Res<AssetServer>,
