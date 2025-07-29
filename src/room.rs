@@ -10,11 +10,26 @@ pub const ROOM_SIZE: TilemapSize = TilemapSize {
     y: ROOM_RADIUS * 2 + 1,
 };
 
-pub const ROOM_TILE_LAYER: f32 = 0.0;
+pub const ROOM_TILE_LAYER: f32 = -1.0;
 
-#[derive(Component, Debug, Hash, PartialEq, Eq, Clone)]
+#[derive(Component, Debug, Clone)]
+pub struct RoomInfo {
+    pub cleared: bool,
+    pub r_type: RoomType,
+}
+
+impl RoomInfo {
+    pub fn from_type(r_type: RoomType) -> Self {
+        Self {
+            cleared: false,
+            r_type,
+        }
+    }
+}
+
+#[derive(Debug, Hash, PartialEq, Eq, Clone)]
 /// All of the information about a given room.
-pub enum RoomInfo {
+pub enum RoomType {
     /// An empty room with nothing interesting
     EmptyRoom,
     /// The entrance room, with nothing interesting
@@ -23,41 +38,45 @@ pub enum RoomInfo {
     /// until you gather all the stuffs to leave this hell hole
     Exit,
     /// A room that holds enemies to fight
-    Combat {
-        /// The enemies that are inside the room
-        /// Any room visited should have this list emptied
-        enemies: Box<[ActorName]>,
-        visited: bool,
-    },
+    /// Stores the enemies that are inside the room
+    /// When cleared, all of the given actors should be spawned dead.
+    /// Otherwise they are alive.
+    Combat(Box<[ActorName]>),
     /// A room that deals damage upon entry
-    Pit {
-        /// The range of damage that can be
-        /// done by the spike pit
-        damage: Range<u32>,
-        /// Whether or not the trap has
-        /// been triggered already or not.
-        triggered: bool,
-    },
+    /// Stores the range of damage that can be
+    /// done by the spike pit
+    /// When cleared, the pit is trigged, otherwise it
+    /// will trigger on entrance
+    Pit(Range<u32>),
     /// A room that grants an item upone entry.
-    Item {
-        /// The item that is inside the room,
-        /// zero
-        item: (), //Item,
-        taken: bool,
-    },
+    /// Stores the item that is inside the room,
+    /// zero
+    ///
+    /// When cleared, the item is automatically collected
+    /// thus later visits will not grant the item again.
+    ///
+    /// TODO: Replace the `()` with the `Item` type when
+    /// that is created.
+    Item(()),
 }
 
-#[derive(Resource)]
+#[derive(Resource, Deref, DerefMut)]
 pub struct CurrentRoom(pub RoomInfo);
 
+/// Marker to indicate whether an entity should despawn
+/// when the room it was spawned in is exited.
+#[derive(Component)]
+pub struct InRoom;
+
+/// Marker to indicate the room hex tiles
 #[derive(Component)]
 pub struct RoomTile;
 
+/// Marker to indicate the room tile map
 #[derive(Component)]
 pub struct RoomTilemap;
 
-pub fn spawn_room(mut commands: Commands, tile_texture: Res<HexTileImage>, room: Res<CurrentRoom>) {
-    info!("spawn room");
+pub fn spawn_room(mut commands: Commands, tile_texture: Res<HexTileImage>) {
     let tilemap_entity = commands.spawn_empty().id();
 
     let mut tile_storage = TileStorage::empty(ROOM_SIZE);
@@ -104,14 +123,66 @@ pub fn spawn_room(mut commands: Commands, tile_texture: Res<HexTileImage>, room:
             ..Default::default()
         },
     ));
+}
 
-    use RoomInfo as R;
-    match &room.0 {
+pub const ENEMY_POSITIONS: [IVec2; 3] = [IVec2::new(1, 1), IVec2::new(-1, 2), IVec2::new(-2, 1)];
+
+pub fn spawn_room_entities(
+    mut commands: Commands,
+    room: Res<CurrentRoom>,
+    asset_server: Res<AssetServer>,
+    tilemap: Single<
+        (
+            &TilemapSize,
+            &TilemapGridSize,
+            &TilemapTileSize,
+            &TilemapType,
+            &TilemapAnchor,
+        ),
+        With<RoomTilemap>,
+    >,
+) {
+    let (map_size, grid_size, tile_size, map_type, map_anchor) = *tilemap;
+
+    let center_tile_pos = UVec2 {
+        x: map_size.x / 2,
+        y: map_size.y / 2,
+    };
+
+    use RoomType as R;
+    let cleared = room.cleared;
+    match &room.r_type {
         R::EmptyRoom => {}
         R::Entrance => {}
         R::Exit => {}
-        R::Combat { enemies, visited } => {}
-        R::Item { item, taken } => {}
-        R::Pit { damage, triggered } => {}
+        R::Combat(enemies) => {
+            for (name, pos_offset) in enemies.iter().zip(ENEMY_POSITIONS.into_iter()) {
+                let actor_pos: TilePos =
+                    (center_tile_pos.as_ivec2() + pos_offset).as_uvec2().into();
+
+                let world_pos =
+                    actor_pos.center_in_world(map_size, grid_size, tile_size, map_type, map_anchor);
+
+                let transform = Transform::from_xyz(world_pos.x, world_pos.y, ACTOR_LAYER);
+
+                commands.spawn((
+                    InRoom,
+                    Actor::from_name(&asset_server, *name, Team::Enemy, transform, !cleared),
+                    Pickable::default(),
+                    Visibility::Visible,
+                ));
+            }
+        }
+        R::Item(item) => {
+            // Spawn item chest
+        }
+        R::Pit(damage) => {
+            // Spawn spike pit
+        }
     }
+}
+
+/// Should be run after the room
+pub fn mark_room_cleared(mut room: ResMut<CurrentRoom>) {
+    room.cleared = true;
 }

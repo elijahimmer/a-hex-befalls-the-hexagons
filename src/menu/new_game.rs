@@ -335,7 +335,7 @@ fn setup_party(
     use ActorName as A;
     for name in [A::Warrior, A::Priestess, A::Theif] {
         commands.spawn((
-            Actor::from_name(&asset_server, name, Team::Player, Transform::IDENTITY),
+            Actor::from_name(&asset_server, name, Team::Player, Transform::IDENTITY, true),
             Visibility::Hidden,
         ));
     }

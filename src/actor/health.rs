@@ -176,6 +176,12 @@ impl Health {
 
         debug_assert!(self.current.is_none_or(|curr| curr <= self.max));
     }
+
+    /// Kill the actor nomatter what
+    #[inline]
+    pub fn kill(&mut self) {
+        self.current = None;
+    }
 }
 
 /// The health of the actor before the latest round of [`kill_heal_revive`]

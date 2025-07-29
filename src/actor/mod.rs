@@ -12,6 +12,8 @@ use std::fmt::Debug;
 use std::num::NonZero;
 use strum::{Display, EnumIter};
 
+pub const ACTOR_LAYER: f32 = 1.0;
+
 /// The typical components for any given actor.
 #[derive(Bundle)]
 pub struct Actor {
@@ -30,11 +32,18 @@ impl Actor {
         name: ActorName,
         team: Team,
         transform: Transform,
+        alive: bool,
     ) -> Self {
+        let mut health = HealthBundle::from_name(name);
+
+        if !alive {
+            health.health.kill();
+        }
+
         Self {
             name,
             team,
-            health: HealthBundle::from_name(name),
+            health,
             attack: Attack::from_name(name),
             speed: AttackSpeed::from_name(name),
             transform,
@@ -60,8 +69,8 @@ pub fn save_actors(
                 health_curr,
                 attack_damage_min,
                 attack_damage_max,
-                hit_chance
-                attack_speed,
+                hit_chance,
+                attack_speed
             )
             VALUES(
                 :name,
@@ -71,8 +80,8 @@ pub fn save_actors(
                 :health_curr,
                 :attack_damage_min,
                 :attack_damage_max,
-                :hit_chance
-                :attack_speed,
+                :hit_chance,
+                :attack_speed
             );
         "#;
 

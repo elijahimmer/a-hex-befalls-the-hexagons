@@ -5,12 +5,12 @@ use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 use rand::{Rng, SeedableRng};
 
-const SKY_MAP_SIZE: TilemapSize = TilemapSize { x: 175, y: 100 };
+const SKY_MAP_SIZE: TilemapSize = TilemapSize { x: 80, y: 50 };
 const SKY_TILE_SIZE_LOOP_THRESHOLD: Vec2 = Vec2 {
     x: TILE_SIZE.x,
     y: TILE_SIZE.y * 1.5,
 };
-const SKY_TILE_LAYER: f32 = -1.;
+const SKY_TILE_LAYER: f32 = -2.0;
 const AXIAL_TRANSLATION_MATRIX: Mat2 =
     Mat2::from_cols_array(&[SQRT_3_2, 1.0 / 3.0, 0.0, 2.0 / 3.0]);
 

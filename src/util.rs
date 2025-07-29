@@ -75,6 +75,12 @@ pub fn change_state_on_click<State: FreelyMutableState + Clone>(
     }
 }
 
+pub fn change_state<State: FreelyMutableState + Clone>(
+    state: State,
+) -> ScheduleConfigs<ScheduleSystem> {
+    (move |mut next_state: ResMut<NextState<State>>| next_state.set(state.clone())).into_configs()
+}
+
 pub fn log_event<T: Event>(_event: Trigger<T>) {
     let name = core::any::type_name::<T>();
     info!("Event {name} sent!");
