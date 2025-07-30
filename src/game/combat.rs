@@ -1,14 +1,16 @@
 use super::*;
 use crate::prelude::*;
 use bevy::{prelude::*, state::commands};
+use std::collections::HashMap;
 
 pub struct CombatPlugin;
 
 impl Plugin for CombatPlugin {
     fn build(&self, app: &mut App) {
         app.add_sub_state::<CombatState>()
-            .add_systems(OnEnter(GameState::Combat), setup_turn_order)
-            .add_systems(OnEnter(CombatState::TurnSetup), prep_turn_order);
+            .add_systems(OnEnter(GameState::Combat), (setup_turn_order, store_actor_positions))
+            .add_systems(OnEnter(CombatState::TurnSetup), prep_turn_order)
+            .add_systems(OnExit(GameState::Combat), cleanup_positions);
     }
 }
 
@@ -145,6 +147,31 @@ impl TeamAlive {
     }
 }
 
+
+#[derive(Resource)]
+pub struct ActorOriginalPositions {
+    positions: HashMap<Entity, Vec3>,
+}
+
+impl ActorOriginalPositions {
+    pub fn new() -> Self {
+        Self {
+            positions: HashMap::new(),
+        }
+    }
+    pub fn store_position(&mut self, entity: Entity, position: Vec3) {
+        self.positions.insert(entity, position);
+    }
+    pub fn get_position(&self, entity: Entity) -> Option<Vec3> {
+        self.positions.get(&entity).copied()
+    }
+}
+
+
+
+
+
+
 /// The action the [`ActingActor`] is taking
 pub enum Action {
     /// The actor does damage to the `target`
@@ -169,6 +196,22 @@ fn setup_turn_order(
     speed_q: Query<&AttackSpeed>,
 ) {
     commands.insert_resource(TurnOrder::new(actor_q, speed_q));
+}
+
+fn store_actor_positions(
+    mut commands: Commands,
+    actors_q: Query<(Entity, &Transform), With<ActorName>>,
+) {
+    let mut positions = ActorOriginalPositions::new();
+    
+    for (entity, transform) in actors_q.iter() {
+        positions.store_position(entity, transform.translation);
+        }
+    commands.insert_resource(positions);
+}
+
+fn cleanup_positions(mut commands: Commands) {
+    commands.remove_resource::<ActorOriginalPositions>();
 }
 
 fn prep_turn_order(
