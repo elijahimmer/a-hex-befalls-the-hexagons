@@ -63,8 +63,8 @@ pub enum RoomType {
     Item(()),
 }
 
-#[derive(Resource, Deref, DerefMut)]
-pub struct CurrentRoom(pub Entity);
+#[derive(Component)]
+pub struct CurrentRoom;
 
 /// Marker to indicate whether an entity should despawn
 /// when the room it was spawned in is exited.
@@ -132,8 +132,7 @@ pub const ENEMY_POSITIONS: [IVec2; 3] = [IVec2::new(1, 1), IVec2::new(-1, 2), IV
 
 pub fn spawn_room_entities(
     mut commands: Commands,
-    room: Res<CurrentRoom>,
-    info_q: Query<&RoomInfo>,
+    info: Single<&RoomInfo, With<CurrentRoom>>,
     asset_server: Res<AssetServer>,
     tilemap: Single<
         (
@@ -153,11 +152,11 @@ pub fn spawn_room_entities(
         y: map_size.y / 2,
     };
 
-    use RoomType as R;
     let RoomInfo {
         cleared, r_type, ..
-    } = info_q.get(room.0).unwrap();
+    } = *info;
 
+    use RoomType as R;
     match &r_type {
         R::EmptyRoom => {}
         R::Entrance => {}
@@ -190,6 +189,6 @@ pub fn spawn_room_entities(
 }
 
 /// Should be run after the room
-pub fn mark_room_cleared(room: Res<CurrentRoom>, mut info_q: Query<&mut RoomInfo>) {
-    info_q.get_mut(room.0).unwrap().cleared = true;
+pub fn mark_room_cleared(mut info: Single<&mut RoomInfo, With<CurrentRoom>>) {
+    info.cleared = true;
 }

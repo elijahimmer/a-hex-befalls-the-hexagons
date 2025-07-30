@@ -71,7 +71,7 @@ fn progress_check(
             )
             .unwrap();
 
-        commands.insert_resource(CurrentRoom(current_room));
+        commands.entity(current_room).insert(CurrentRoom);
 
         #[cfg(feature = "sqlite")]
         commands.run_system_cached(crate::saving::save_game);

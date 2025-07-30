@@ -24,12 +24,7 @@ impl Plugin for GamePlugin {
             OnEnter(AppState::Game),
             (init_room_rng, spawn_room, place_player_actors).chain(),
         )
-        .add_systems(
-            Update,
-            set_room_rng
-                .run_if(resource_exists_and_changed::<CurrentRoom>)
-                .run_if(in_state(AppState::Game)),
-        )
+        .add_systems(Update, set_room_rng.run_if(in_state(AppState::Game)))
         .add_systems(
             OnEnter(GameState::EnterRoom),
             (
@@ -155,14 +150,15 @@ fn place_player_actors(
     }
 }
 
-fn init_room_rng(mut commands: Commands, room: Res<CurrentRoom>, info_q: Query<&RoomInfo>) {
-    commands.insert_resource(EventRng(RandomSource::seed_from_u64(
-        info_q.get(room.0).unwrap().rng_seed,
-    )));
+fn init_room_rng(mut commands: Commands, info: Single<&RoomInfo, With<CurrentRoom>>) {
+    commands.insert_resource(EventRng(RandomSource::seed_from_u64(info.rng_seed)));
 }
 
-fn set_room_rng(room: Res<CurrentRoom>, info_q: Query<&RoomInfo>, mut rng: ResMut<EventRng>) {
-    rng.0 = RandomSource::seed_from_u64(info_q.get(room.0).unwrap().rng_seed);
+fn set_room_rng(
+    info: Single<&RoomInfo, (With<CurrentRoom>, Added<CurrentRoom>)>,
+    mut rng: ResMut<EventRng>,
+) {
+    rng.0 = RandomSource::seed_from_u64(info.rng_seed);
 }
 
 /// Shows a text box with the event happening,
@@ -170,14 +166,13 @@ fn set_room_rng(room: Res<CurrentRoom>, info_q: Query<&RoomInfo>, mut rng: ResMu
 /// Skip to the navigation state.
 fn display_trigger_or_skip(
     mut commands: Commands,
-    room: Res<CurrentRoom>,
-    info_q: Query<&RoomInfo>,
+    info: Single<&RoomInfo, With<CurrentRoom>>,
     mut game_state: ResMut<NextState<GameState>>,
     style: Res<Style>,
 ) {
     let RoomInfo {
         cleared, r_type, ..
-    } = info_q.get(room.0).unwrap();
+    } = *info;
 
     if *cleared
         || *r_type == RoomType::EmptyRoom
@@ -217,10 +212,9 @@ fn wait_for_trigger(
     mut timer: ResMut<TriggerEventTimer>,
     time: Res<Time>,
     mut game_state: ResMut<NextState<GameState>>,
-    room: Res<CurrentRoom>,
-    info_q: Query<&RoomInfo>,
+    info: Single<&RoomInfo, With<CurrentRoom>>,
 ) {
-    let RoomInfo { r_type, .. } = info_q.get(room.0).unwrap();
+    let RoomInfo { r_type, .. } = *info;
 
     let trigger = &mut timer.trigger_timer;
     if !trigger.finished() {
@@ -242,14 +236,13 @@ fn wait_for_trigger(
 }
 
 fn trigger_event(
-    room: Res<CurrentRoom>,
-    info_q: Query<&RoomInfo>,
+    info: Single<&RoomInfo, With<CurrentRoom>>,
     mut actor_q: Query<&mut Health>,
     mut event_rng: ResMut<EventRng>,
 ) {
     let RoomInfo {
         cleared, r_type, ..
-    } = info_q.get(room.0).unwrap();
+    } = *info;
     assert!(!*cleared);
     use RoomType as R;
     match r_type {

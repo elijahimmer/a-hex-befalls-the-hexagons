@@ -154,11 +154,9 @@ pub fn save_game(world: &mut World) {
 fn save_game_inner(
     db: NonSend<Database>,
     save: Res<SaveGame>,
-    current_room: Res<CurrentRoom>,
-    pos_q: Query<&TilePos>,
+    pos: Single<&TilePos, With<CurrentRoom>>,
 ) {
-    let pos = pos_q.get(current_room.0).unwrap();
-    save.save(&db, pos).unwrap();
+    save.save(&db, *pos).unwrap();
 }
 
 pub fn load_game(world: &mut World) {
@@ -205,5 +203,5 @@ fn load_game_inner(
 
     let entity = storage.get(&pos).unwrap();
 
-    commands.insert_resource(CurrentRoom(entity));
+    commands.entity(entity).insert(CurrentRoom);
 }

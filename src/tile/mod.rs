@@ -1,5 +1,3 @@
-mod picking_backend;
-
 use crate::embed_asset;
 use bevy::ecs::query::QueryFilter;
 use bevy::prelude::*;
@@ -7,9 +5,6 @@ use bevy_ecs_tilemap::prelude::HexCoordSystem;
 use bevy_ecs_tilemap::prelude::TilemapTileSize;
 use bevy_ecs_tilemap::prelude::*;
 use std::ops::Range;
-
-#[cfg(feature = "debug")]
-use bevy::dev_tools::picking_debug::{DebugPickingMode, DebugPickingPlugin};
 
 pub const TILE_SIZE: TilemapTileSize = TilemapTileSize { x: 48.0, y: 52.0 };
 pub const TILE_SIZE_VEC: UVec2 = UVec2 { x: 48, y: 52 };
@@ -24,23 +19,9 @@ pub struct TilePlugin;
 
 impl Plugin for TilePlugin {
     fn build(&self, app: &mut App) {
-        #[cfg(feature = "debug")]
-        app.add_plugins(DebugPickingPlugin).add_systems(
-            PreUpdate,
-            (|mut mode: ResMut<DebugPickingMode>| {
-                *mode = match *mode {
-                    DebugPickingMode::Disabled => DebugPickingMode::Normal,
-                    _ => DebugPickingMode::Disabled,
-                };
-            })
-            .run_if(bevy::input::common_conditions::input_just_pressed(
-                KeyCode::F3,
-            )),
-        );
         // Embed the sprite assets.
         embed_asset!(app, "assets/sprites/basic_sheet.png");
-        app.add_plugins(picking_backend::TilemapBackend)
-            .add_systems(PreStartup, setup_hex_tile_image);
+        app.add_systems(PreStartup, setup_hex_tile_image);
     }
 }
 
