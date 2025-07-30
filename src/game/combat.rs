@@ -8,7 +8,7 @@ pub struct CombatPlugin;
 impl Plugin for CombatPlugin {
     fn build(&self, app: &mut App) {
         app.add_sub_state::<CombatState>()
-            .add_systems(OnEnter(GameState::Combat), (setup_turn_order, store_actor_positions))
+            .add_systems(OnEnter(GameState::Combat), setup_turn_order)
             .add_systems(OnEnter(CombatState::TurnSetup), prep_turn_order)
             .add_systems(OnExit(GameState::Combat), cleanup_positions);
     }
@@ -179,16 +179,17 @@ fn setup_turn_order(
 
 fn store_actor_positions(
     mut commands: Commands,
-    actors_q: Query<(Entity, &Transform), With<ActorName>>,
+    mut queue: ResMut<TurnOrder>,
+    actors_q: Query<(Entity, &Transform), With<Actor>>,
 ) {
     for (entity, transform) in actors_q.iter() {
         ///insert the actors current position into each actor component
+        commands.entity(entity).insert(ActorOriginalPositon(transform.translation.xy()));
         }
-    commands.insert_resource(positions);
 }
 
 fn cleanup_positions(mut commands: Commands) {
-    commands.remove_resource::<ActorOriginalPositions>();
+    commands.remove::<ActorOriginalPositions>();
 }
 
 fn prep_turn_order(
