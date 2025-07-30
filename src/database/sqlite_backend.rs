@@ -16,7 +16,7 @@ pub type Error = rusqlite::Error;
 
 type Version = i64;
 
-const DB_VERSION: Version = 8;
+const DB_VERSION: Version = 9;
 
 const ADD_SCHEMA: &str = formatcp!(
     r#"
@@ -45,16 +45,16 @@ const ADD_SCHEMA: &str = formatcp!(
         world_seed  INTEGER
     ) STRICT;
 
-    CREATE TABLE Actor(
+    CREATE TABLE PlayerActor(
       game_id           INTEGER REFERENCES SaveGame(game_id),
       name              TEXT,
-      team              TEXT,
       health_max        INTEGER,
       health_curr       INTEGER,
       attack_damage_min INTEGER,
       attack_damage_max INTEGER,
       attack_speed      INTEGER,
-      hit_chance        REAL
+      hit_chance        REAL,
+      PRIMARY KEY(game_id, name)
     ) STRICT;
 
     COMMIT;
@@ -258,7 +258,7 @@ pub enum ValidateSchemaError {
     Error(#[from] Error),
 }
 
-const _: () = assert!(DB_VERSION == 8, "UPDATE VALIDATE SCRIPT");
+const _: () = assert!(DB_VERSION == 9, "UPDATE VALIDATE SCRIPT");
 fn validate_schema(db: &Database) -> Result<(), ValidateSchemaError> {
     db.connection
         .execute_batch("PRAGMA integrity_check; PRAGMA optimize;")?;
@@ -278,11 +278,10 @@ fn validate_schema(db: &Database) -> Result<(), ValidateSchemaError> {
     )?;
     validate_table(
         db,
-        "Actor",
+        "PlayerActor",
         &[
             ("game_id", "INTEGER"),
             ("name", "TEXT"),
-            ("team", "TEXT"),
             ("health_max", "INTEGER"),
             ("health_curr", "INTEGER"),
             ("attack_damage_min", "INTEGER"),
@@ -376,9 +375,9 @@ pub enum MigrationError {
     CheckVersionError(#[from] CheckVersionError),
 }
 
-const MIN_VERSION_MIGRATEABLE: Version = 3;
+const MIN_VERSION_MIGRATEABLE: Version = 9;
 /// Make sure the migrations are set up properly
-const _: () = assert!(DB_VERSION == 8, "UPDATE THE MIGRATION SCRIPT");
+const _: () = assert!(DB_VERSION == 9, "UPDATE THE MIGRATION SCRIPT");
 
 /// MAINTENANCE: UPDATE EVERY DATABASE UPDGRADE
 fn migrate_database(db: &Database, from: Version) -> Result<(), MigrationError> {
@@ -386,32 +385,12 @@ fn migrate_database(db: &Database, from: Version) -> Result<(), MigrationError> 
 
     db.connection.execute_batch("BEGIN TRANSACTION")?;
 
-    let mut from = from;
+    // let mut from = from;
 
-    if from == 3 {
-        db.connection.execute_batch(MIGRATE_FROM_3_TO_4)?;
-        from = 4;
-    }
-
-    if from == 4 {
-        db.connection.execute_batch(MIGRATE_FROM_4_TO_5)?;
-        from = 5;
-    }
-
-    if from == 5 {
-        db.connection.execute_batch(MIGRATE_FROM_5_TO_6)?;
-        from = 6;
-    }
-
-    if from == 6 {
-        db.connection.execute_batch(MIGRATE_FROM_6_TO_7)?;
-        from = 7;
-    }
-
-    if from == 7 {
-        db.connection.execute_batch(MIGRATE_FROM_7_TO_8)?;
-        from = 8;
-    }
+    // if from == 9 {
+    //     db.connection.execute_batch(MIGRATE_FROM_9_TO_10)?;
+    //     from = 10;
+    // }
 
     assert_eq!(
         from, DB_VERSION,
@@ -429,83 +408,50 @@ fn migrate_database(db: &Database, from: Version) -> Result<(), MigrationError> 
     Ok(())
 }
 
-const MIGRATE_FROM_3_TO_4: &str = r#"
-    UPDATE Version SET version = 4;
-
-    DROP TABLE Colors;
-
-    CREATE TABLE Style(
-        key   TEXT PRIMARY KEY,
-        value ANY
-    ) STRICT;
-"#;
-
-const MIGRATE_FROM_4_TO_5: &str = r#"
-    UPDATE Version SET version = 5;
-
-    UPDATE Keybinds SET key1 = CONCAT('Some(', key1, ')') WHERE key1 IS NOT NULL;
-    UPDATE Keybinds SET key2 = CONCAT('Some(', key2, ')') WHERE key2 IS NOT NULL;
-    UPDATE Keybinds SET key1 = 'None' WHERE key1 IS NULL;
-    UPDATE Keybinds SET key2 = 'None' WHERE key2 IS NULL;
-
-    UPDATE Keybinds SET key1 = CONCAT('(', key1, ',', key2, ')');
-
-    ALTER TABLE Keybinds DROP COLUMN key2;
-    ALTER TABLE Keybinds RENAME COLUMN key1 TO value;
-    ALTER TABLE Keybinds RENAME COLUMN keybind TO key;
-"#;
-
-const MIGRATE_FROM_5_TO_6: &str = r#"
-    UPDATE Version SET version = 6;
-
-    CREATE TABLE SaveGame (
-        game_id     INTEGER PRIMARY KEY AUTOINCREMENT,
-        created     DATETIME DEFAULT CURRENT_TIMESTAMP,
-        last_saved  DATETIME
-    );
-
-    CREATE TABLE Actor (
-      game_id           INTEGER,
-      name              TEXT,
-      party             TEXT,
-      health_max        INTEGER,
-      health_curr       INTEGER,
-      attack_damage_min INTEGER,
-      attack_damage_max INTEGER,
-      hit_chance        INTEGER,
-      FOREIGN KEY(game_id) REFERENCES SaveGame(game_id)
-    ) STRICT;
-"#;
-
-const MIGRATE_FROM_6_TO_7: &str = r#"
-    UPDATE Version SET version = 7;
-
-    DROP TABLE KeyValue;
-
-    ALTER TABLE SaveGame RENAME COLUMN created TO created_old;
-    ALTER TABLE SaveGame ADD COLUMN created TEXT DEFAULT CURRENT_TIMESTAMP;
-    UPDATE SaveGame SET created = created_old;
-    ALTER TABLE SaveGame DROP COLUMN created_old;
-
-    ALTER TABLE SaveGame RENAME COLUMN last_saved TO last_saved_old;
-    ALTER TABLE SaveGame ADD COLUMN last_saved TEXT;
-    UPDATE SaveGame SET last_saved = last_saved_old;
-    ALTER TABLE SaveGame DROP COLUMN last_saved_old;
-
-    ALTER TABLE SaveGame ADD COLUMN world_seed INTEGER;
-"#;
-
-const MIGRATE_FROM_7_TO_8: &str = r#"
-    UPDATE Version SET version = 8;
-    ALTER TABLE Actor RENAME COLUMN party TO team;
-    ALTER TABLE Actor DROP COLUMN hit_chance;
-    ALTER TABLE Actor ADD COLUMN hit_chance REAL;
-    ALTER TABLE Actor ADD COLUMN attack_speed INTEGER;
-"#;
-
 #[cfg(test)]
 mod test {
     use super::*;
+
+    const VERSION_9_SCHEMA: &str = r#"
+        BEGIN TRANSACTION;
+
+        CREATE TABLE Version(
+          version INTEGER PRIMARY KEY
+        ) STRICT;
+
+        INSERT INTO Version VALUES(9);
+
+        CREATE TABLE Keybinds(
+            key   TEXT PRIMARY KEY,
+            value TEXT
+        ) STRICT;
+
+        CREATE TABLE Style(
+            key   TEXT PRIMARY KEY,
+            value ANY
+        ) STRICT;
+
+        CREATE TABLE SaveGame(
+            game_id     INTEGER PRIMARY KEY AUTOINCREMENT,
+            created     TEXT DEFAULT CURRENT_TIMESTAMP,
+            last_saved  TEXT,
+            world_seed  INTEGER
+        ) STRICT;
+
+        CREATE TABLE PlayerActor(
+          game_id           INTEGER REFERENCES SaveGame(game_id),
+          name              TEXT,
+          health_max        INTEGER,
+          health_curr       INTEGER,
+          attack_damage_min INTEGER,
+          attack_damage_max INTEGER,
+          attack_speed      INTEGER,
+          hit_chance        REAL,
+          PRIMARY KEY(game_id, name)
+        ) STRICT;
+
+        COMMIT;
+    "#;
 
     #[test]
     pub fn test_validate() {
@@ -518,42 +464,17 @@ mod test {
         validate_schema(&db).unwrap();
     }
 
-    #[test]
-    pub fn migrate_from_3() {
-        let start = r#"
-            PRAGMA foreign_keys=OFF;
-            BEGIN TRANSACTION;
+    // TODO: Enable once we get another version to migrate from
+    // #[test]
+    // pub fn migrate_from_9() {
+    //     let db = Database {
+    //         connection: Connection::open_in_memory().unwrap(),
+    //     };
 
-            CREATE TABLE Version(
-                  version INTEGER PRIMARY KEY
-                ) STRICT;
-            INSERT INTO Version VALUES(3);
+    //     db.connection.execute_batch(VERSION_9_SCHEMA).unwrap();
 
-            CREATE TABLE Keybinds(
-                    keybind   TEXT PRIMARY KEY,
-                    key1 TEXT,
-                    key2 TEXT
-                ) STRICT;
+    //     migrate_database(&db, 9).unwrap();
 
-            CREATE TABLE KeyValue(
-            	key TEXT PRIMARY KEY,
-            	value ANY
-            ) STRICT;
-
-            CREATE TABLE Colors (
-            	name INTERGER PRIMARY KEY
-            );
-            COMMIT;
-        "#;
-
-        let db = Database {
-            connection: Connection::open_in_memory().unwrap(),
-        };
-
-        db.connection.execute_batch(start).unwrap();
-
-        migrate_database(&db, 3).unwrap();
-
-        validate_schema(&db).unwrap();
-    }
+    //     validate_schema(&db).unwrap();
+    // }
 }

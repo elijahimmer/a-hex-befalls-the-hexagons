@@ -114,6 +114,7 @@ impl SaveGameInfo {
 
 /// Takes the World as this should be the only thing running at the time.
 pub fn save_game(world: &mut World) {
+    info!("Saving Game");
     {
         let db = world.get_non_send_resource::<Database>().unwrap();
         db.connection.execute_batch("BEGIN TRANSACTION;").unwrap();
@@ -130,6 +131,8 @@ pub fn save_game(world: &mut World) {
         let db = world.get_non_send_resource::<Database>().unwrap();
         db.connection.execute_batch("COMMIT;").unwrap();
     }
+
+    info!("Game Save Successful");
 }
 
 fn save_game_inner(db: NonSend<Database>, save: Res<SaveGame>) {
@@ -138,6 +141,7 @@ fn save_game_inner(db: NonSend<Database>, save: Res<SaveGame>) {
 
 // TODO: Have it spawn the world rest of the game
 pub fn load_game(world: &mut World) {
+    info!("Loading Game");
     let actors = world
         .run_system_cached(crate::actor::load_actors)
         .unwrap()
@@ -149,4 +153,5 @@ pub fn load_game(world: &mut World) {
         .get_resource_mut::<NextState<AppState>>()
         .unwrap()
         .set(AppState::Game);
+    info!("Game Load Successful")
 }

@@ -61,7 +61,7 @@ pub fn save_actors(
     let game_id = save_info.game_id;
     for (name, team, health, attack, speed) in components {
         let query = r#"
-            INSERT INTO Actor(
+            INSERT OR REPLACE INTO Actor(
                 name,
                 game_id,
                 team,

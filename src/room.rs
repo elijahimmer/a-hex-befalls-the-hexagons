@@ -16,13 +16,15 @@ pub const ROOM_TILE_LAYER: f32 = -1.0;
 pub struct RoomInfo {
     pub cleared: bool,
     pub r_type: RoomType,
+    pub rng_seed: u64,
 }
 
 impl RoomInfo {
-    pub fn from_type(r_type: RoomType) -> Self {
+    pub fn from_type(r_type: RoomType, rng_seed: u64) -> Self {
         Self {
             cleared: false,
             r_type,
+            rng_seed,
         }
     }
 }

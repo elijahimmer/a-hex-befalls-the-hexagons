@@ -7,6 +7,7 @@ use crate::room::{CurrentRoom, InRoom, mark_room_cleared, spawn_room, spawn_room
 use crate::saving::save_game;
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
+use rand::{Rng, SeedableRng};
 use std::collections::VecDeque;
 
 pub struct GamePlugin;
@@ -20,7 +21,11 @@ impl Plugin for GamePlugin {
 
         app.add_systems(
             OnEnter(AppState::Game),
-            (setup_current_room, spawn_room, place_player_actors).chain(),
+            (game_enter, spawn_room, place_player_actors).chain(),
+        )
+        .add_systems(
+            Update,
+            set_room_rng.run_if(resource_exists_and_changed::<CurrentRoom>),
         )
         .add_systems(
             OnEnter(GameState::EnterRoom),
@@ -35,7 +40,7 @@ impl Plugin for GamePlugin {
         )
         .add_systems(
             Update,
-            (wait_for_trigger).run_if(in_state(GameState::TriggerEvent)),
+            wait_for_trigger.run_if(in_state(GameState::TriggerEvent)),
         )
         .add_systems(
             OnExit(GameState::TriggerEvent),
@@ -95,6 +100,9 @@ impl Default for TriggerEventTimer {
     }
 }
 
+#[derive(Resource, Deref, DerefMut)]
+pub struct EventRng(pub RandomSource);
+
 // Whenever we change rooms,
 // despawn all that are in the old room.
 
@@ -103,10 +111,14 @@ impl Default for TriggerEventTimer {
 const PLAYER_POSITIONS: [IVec2; 3] = [IVec2::new(-1, -1), IVec2::new(1, -2), IVec2::new(2, -1)];
 
 /// TODO: Remove this and set it in new game or load game
-fn setup_current_room(mut commands: Commands) {
-    commands.insert_resource(CurrentRoom(RoomInfo::from_type(RoomType::Combat(
-        Box::new([ActorName::Ogre, ActorName::Goblin, ActorName::Skeleton]),
-    ))));
+fn game_enter(mut commands: Commands) {
+    commands.insert_resource(CurrentRoom(RoomInfo::from_type(
+        RoomType::Pit(10..20),
+        0xDEADBEEF_C0DEFACE,
+    )));
+
+    // Should be overriden immeditely.
+    commands.insert_resource(EventRng(RandomSource::seed_from_u64(0)));
 }
 
 fn place_player_actors(
@@ -142,6 +154,10 @@ fn place_player_actors(
             .entity(entity)
             .insert((Pickable::default(), Visibility::Visible));
     }
+}
+
+fn set_room_rng(room: Res<CurrentRoom>, mut rng: ResMut<EventRng>) {
+    rng.0 = RandomSource::seed_from_u64(room.rng_seed);
 }
 
 /// Shows a text box with the event happening,
@@ -212,14 +228,32 @@ fn wait_for_trigger(
     }
 }
 
-fn trigger_event(room: Res<CurrentRoom>) {
+fn trigger_event(
+    room: Res<CurrentRoom>,
+    mut actor_q: Query<&mut Health>,
+    mut event_rng: ResMut<EventRng>,
+) {
     assert!(!room.cleared);
     use RoomType as R;
     match &room.r_type {
         R::EmptyRoom | R::Entrance => unreachable!(),
         R::Combat(_) => {}
         R::Exit => {}
-        R::Pit(damage) => {}
+        R::Pit(damage_range) => {
+            let actor_count = actor_q.iter().filter(|h| h.is_alive()).count();
+            assert!(actor_count > 0);
+
+            let actor_damaged = event_rng.random_range(0..actor_count);
+            let damage = event_rng.random_range(damage_range.clone());
+
+            actor_q
+                .iter_mut()
+                .filter(|h| h.is_alive())
+                .skip(actor_damaged)
+                .next()
+                .unwrap()
+                .damage_no_one_shot(damage);
+        }
         R::Item(item) => {}
     }
 }

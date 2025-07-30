@@ -123,14 +123,13 @@ impl Health {
             return;
         };
 
-        match self.current {
-            Some(ref mut curr) => {
-                *curr = curr.saturating_add(amount.get()).min(self.max);
-            }
-            Option::None => {
-                self.current = Some(amount.min(self.max));
-            }
-        }
+        self.current = NonZero::new(
+            self.current
+                .map(|c| c.get())
+                .unwrap_or(0)
+                .saturating_add(amount.get())
+                .min(self.max.get()),
+        );
 
         debug_assert!(self.current.is_none_or(|curr| curr <= self.max));
     }
@@ -173,6 +172,25 @@ impl Health {
             NonZero::new(curr.get().saturating_sub(amount.get()))
                 .unwrap_or(NonZero::new(1u32).unwrap())
         });
+
+        debug_assert!(self.current.is_none_or(|curr| curr <= self.max));
+    }
+
+    /// Damage the actor but only kill them if they were already at 1 health.
+    #[inline]
+    pub fn damage_no_one_shot(&mut self, amount: u32) {
+        let (Some(curr), Some(amount)) = (self.current, NonZero::<u32>::new(amount)) else {
+            return;
+        };
+
+        self.current = (curr == self.max)
+            .then(|| {
+                Some(
+                    NonZero::new(curr.get().saturating_sub(amount.get()))
+                        .unwrap_or(NonZero::new(1u32).unwrap()),
+                )
+            })
+            .unwrap_or_else(|| NonZero::new(curr.get().saturating_sub(amount.get())));
 
         debug_assert!(self.current.is_none_or(|curr| curr <= self.max));
     }
