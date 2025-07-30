@@ -240,6 +240,7 @@ fn trigger_event(
         cleared, r_type, ..
     } = *info;
     assert!(!*cleared);
+
     use RoomType as R;
     match r_type {
         R::EmptyRoom | R::Entrance => unreachable!(),

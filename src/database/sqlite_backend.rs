@@ -39,10 +39,10 @@ const ADD_SCHEMA: &str = formatcp!(
     ) STRICT;
 
     CREATE TABLE SaveGame(
-        game_id      INTEGER PRIMARY KEY AUTOINCREMENT,
-        created      TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        last_saved   TEXT NOT NULL,
-        world_seed   INTEGER NOT NULL,
+        game_id        INTEGER PRIMARY KEY AUTOINCREMENT,
+        created        TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        last_saved     TEXT NOT NULL,
+        world_seed     INTEGER NOT NULL,
         current_room_x INTEGER DEFAULT NULL,
         current_room_y INTEGER DEFAULT NULL,
         FOREIGN KEY(game_id, current_room_x, current_room_y)
@@ -276,7 +276,7 @@ pub enum ValidateSchemaError {
 const _: () = assert!(DB_VERSION == 10, "UPDATE VALIDATE SCRIPT");
 fn validate_schema(db: &Database) -> Result<(), ValidateSchemaError> {
     db.connection
-        .execute_batch("PRAGMA integrity_check; PRAGMA optimize;")?;
+        .execute_batch("PRAGMA integrity_check; PRAGMA optimize; PRAGMA journal_mode=WAL;")?;
 
     validate_table(db, "Version", &[("version", "INTEGER")])?;
     validate_table(db, "Keybinds", &[("key", "TEXT"), ("value", "TEXT")])?;

@@ -63,6 +63,8 @@ pub enum RoomType {
     Item(()),
 }
 
+/// Marker to indicate the current room the player
+/// is in
 #[derive(Component)]
 pub struct CurrentRoom;
 
