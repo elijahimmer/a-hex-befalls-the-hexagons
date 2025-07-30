@@ -1,6 +1,7 @@
 use super::MenuState;
 use crate::generate_map::GenerationSettings;
 use crate::prelude::*;
+use crate::room::CurrentRoom;
 use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
 use bevy_ui_text_input::{TextInputContents, TextInputFilter, TextInputMode, TextInputNode};
@@ -55,8 +56,23 @@ fn progress_check(
     mut commands: Commands,
     progress: Res<GenerationProgress>,
     mut next_state: ResMut<NextState<AppState>>,
+    info_q: Query<(Entity, &RoomInfo)>,
 ) {
     if progress.done() {
+        let current_room = info_q
+            .iter()
+            .find_map(
+                |(
+                    entity,
+                    RoomInfo {
+                        r_type: room_type, ..
+                    },
+                )| (*room_type == RoomType::Entrance).then_some(entity),
+            )
+            .unwrap();
+
+        commands.insert_resource(CurrentRoom(current_room));
+
         #[cfg(feature = "sqlite")]
         commands.run_system_cached(crate::saving::save_game);
         next_state.set(AppState::Game);

@@ -1,6 +1,8 @@
-use crate::generate_map::MAP_ORIGIN;
+use crate::generate_map::MapTilemap;
 use crate::prelude::*;
+use crate::room::CurrentRoom;
 use bevy::prelude::*;
+use bevy_ecs_tilemap::prelude::*;
 
 #[cfg(feature = "sqlite")]
 use chrono::{DateTime, Utc};
@@ -63,9 +65,16 @@ impl SaveGame {
         }
     }
 
-    pub fn save(&self, db: &Database) -> Result<(), DatabaseError> {
-        let query = "UPDATE SaveGame SET last_saved = datetime('now') WHERE game_id = ?1;";
-        db.connection.execute(query, (self.game_id.0,))?;
+    /// Updates the [`SaveGame`] database entry with the new save time and current room
+    pub fn save(&self, db: &Database, current_room: &TilePos) -> Result<(), DatabaseError> {
+        let query = "
+        UPDATE SaveGame
+            SET last_saved = datetime('now'),
+                current_room_x = :current_room_x,
+                current_room_y = :current_room_y
+            WHERE game_id = :game_id";
+        db.connection
+            .execute(query, (current_room.x, current_room.y, self.game_id.0))?;
         Ok(())
     }
 }
@@ -129,6 +138,11 @@ pub fn save_game(world: &mut World) {
         .unwrap()
         .unwrap();
 
+    world
+        .run_system_cached(crate::spawn_map::save_map)
+        .unwrap()
+        .unwrap();
+
     {
         let db = world.get_non_send_resource::<Database>().unwrap();
         db.connection.execute_batch("COMMIT;").unwrap();
@@ -137,23 +151,59 @@ pub fn save_game(world: &mut World) {
     info!("Game Save Successful");
 }
 
-fn save_game_inner(db: NonSend<Database>, save: Res<SaveGame>) {
-    save.save(&db).unwrap();
+fn save_game_inner(
+    db: NonSend<Database>,
+    save: Res<SaveGame>,
+    current_room: Res<CurrentRoom>,
+    pos_q: Query<&TilePos>,
+) {
+    let pos = pos_q.get(current_room.0).unwrap();
+    save.save(&db, pos).unwrap();
 }
 
-// TODO: Have it spawn the world rest of the game
 pub fn load_game(world: &mut World) {
     info!("Loading Game");
-    let actors = world
+
+    world
         .run_system_cached(crate::actor::load_actors)
         .unwrap()
         .unwrap();
 
-    world.spawn_batch(actors.into_iter());
+    world
+        .run_system_cached(crate::spawn_map::load_map)
+        .unwrap()
+        .unwrap();
+
+    world.run_system_cached(load_game_inner).unwrap();
 
     world
         .get_resource_mut::<NextState<AppState>>()
         .unwrap()
         .set(AppState::Game);
+
     info!("Game Load Successful")
+}
+
+fn load_game_inner(
+    mut commands: Commands,
+    db: NonSend<Database>,
+    save: Res<SaveGame>,
+    storage: Single<&TileStorage, With<MapTilemap>>,
+) {
+    let query =
+        "SELECT current_room_x,current_room_y FROM SaveGame WHERE SaveGame.game_id = :game_id";
+
+    let pos = db
+        .connection
+        .query_one(query, (save.game_id.0,), |row| {
+            Ok(TilePos {
+                x: row.get(0)?,
+                y: row.get(1)?,
+            })
+        })
+        .unwrap();
+
+    let entity = storage.get(&pos).unwrap();
+
+    commands.insert_resource(CurrentRoom(entity));
 }

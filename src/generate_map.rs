@@ -13,7 +13,7 @@ use std::cmp::Ordering;
 
 pub struct GenerateMapPlugin;
 
-pub const WORLD_MAP_ORIGIN: Vec2 = Vec2::new(1000.0, 0.0);
+pub const WORLD_MAP_ORIGIN: Vec3 = Vec3::new(1000.0, 0.0, MAP_TILE_LAYER);
 pub const MAP_RADIUS: u32 = 3;
 pub const MAP_SIZE: TilemapSize = TilemapSize {
     x: MAP_RADIUS * 2 + 1,
@@ -52,6 +52,7 @@ impl Plugin for GenerateMapPlugin {
             (
                 restore_fixed_update_time,
                 despawn_tile_labels::<With<MapTilemap>>,
+                remove_component::<Collapsed>,
             ),
         )
         .add_systems(
@@ -166,7 +167,7 @@ impl Collapsed {
 
 /// Setup for Generation settings so generation is seedable
 fn setup(mut commands: Commands, settings: Res<GenerationSettings>) {
-    let rng = RandomSource::from_seed(settings.seed.to_ne_bytes());
+    let rng = RandomSource::seed_from_u64(settings.seed);
     commands.insert_resource(GenerationRand(rng));
 }
 
@@ -215,7 +216,7 @@ fn spawn_map(mut commands: Commands, tile_texture: Res<HexTileImage>) {
             texture: TilemapTexture::Single(tile_texture.image.clone()),
             tile_size: TILE_SIZE,
             anchor: TilemapAnchor::Center,
-            transform: Transform::from_translation(WORLD_MAP_ORIGIN.extend(MAP_TILE_LAYER)),
+            transform: Transform::from_translation(WORLD_MAP_ORIGIN),
             ..Default::default()
         },
     ));
@@ -228,7 +229,10 @@ fn create_origin(mut commands: Commands, tilestorage_q: Query<&mut TileStorage, 
             .get(&MAP_ORIGIN)
             .expect("The origin should exist, as we just made it...");
 
-        commands.entity(tile).insert(Collapsed::Red);
+        commands.entity(tile).insert((
+            Collapsed::Red,
+            RoomInfo::from_type(RoomType::Entrance, 0xDeadBeef),
+        ));
     }
 }
 

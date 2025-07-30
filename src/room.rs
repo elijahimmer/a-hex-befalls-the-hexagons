@@ -2,6 +2,7 @@ use crate::prelude::*;
 use bevy::prelude::*;
 use bevy_ecs_tilemap::helpers::hex_grid::axial::AxialPos;
 use bevy_ecs_tilemap::prelude::*;
+use serde::{Deserialize, Serialize};
 use std::ops::Range;
 
 pub const ROOM_RADIUS: u32 = 3;
@@ -12,7 +13,7 @@ pub const ROOM_SIZE: TilemapSize = TilemapSize {
 
 pub const ROOM_TILE_LAYER: f32 = -1.0;
 
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Debug, Clone, Serialize, Deserialize)]
 pub struct RoomInfo {
     pub cleared: bool,
     pub r_type: RoomType,
@@ -29,7 +30,7 @@ impl RoomInfo {
     }
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Serialize, Deserialize)]
 /// All of the information about a given room.
 pub enum RoomType {
     /// An empty room with nothing interesting
@@ -63,7 +64,7 @@ pub enum RoomType {
 }
 
 #[derive(Resource, Deref, DerefMut)]
-pub struct CurrentRoom(pub RoomInfo);
+pub struct CurrentRoom(pub Entity);
 
 /// Marker to indicate whether an entity should despawn
 /// when the room it was spawned in is exited.
@@ -132,6 +133,7 @@ pub const ENEMY_POSITIONS: [IVec2; 3] = [IVec2::new(1, 1), IVec2::new(-1, 2), IV
 pub fn spawn_room_entities(
     mut commands: Commands,
     room: Res<CurrentRoom>,
+    info_q: Query<&RoomInfo>,
     asset_server: Res<AssetServer>,
     tilemap: Single<
         (
@@ -152,8 +154,11 @@ pub fn spawn_room_entities(
     };
 
     use RoomType as R;
-    let cleared = room.cleared;
-    match &room.r_type {
+    let RoomInfo {
+        cleared, r_type, ..
+    } = info_q.get(room.0).unwrap();
+
+    match &r_type {
         R::EmptyRoom => {}
         R::Entrance => {}
         R::Exit => {}
@@ -185,6 +190,6 @@ pub fn spawn_room_entities(
 }
 
 /// Should be run after the room
-pub fn mark_room_cleared(mut room: ResMut<CurrentRoom>) {
-    room.cleared = true;
+pub fn mark_room_cleared(room: Res<CurrentRoom>, mut info_q: Query<&mut RoomInfo>) {
+    info_q.get_mut(room.0).unwrap().cleared = true;
 }

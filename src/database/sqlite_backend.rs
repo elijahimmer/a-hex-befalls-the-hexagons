@@ -47,10 +47,11 @@ const ADD_SCHEMA: &str = formatcp!(
         current_room_y INTEGER DEFAULT NULL,
         FOREIGN KEY(game_id, current_room_x, current_room_y)
             REFERENCES RoomInfo(game_id, position_x, position_y)
+            DEFERRABLE INITIALLY DEFERRED
     ) STRICT;
 
     CREATE TABLE PlayerActor(
-        game_id           INTEGER NOT NULL REFERENCES SaveGame(game_id),
+        game_id           INTEGER NOT NULL REFERENCES SaveGame(game_id) DEFERRABLE INITIALLY DEFERRED,
         name              TEXT NOT NULL,
         health_max        INTEGER NOT NULL,
         health_curr       INTEGER,
@@ -62,7 +63,7 @@ const ADD_SCHEMA: &str = formatcp!(
     ) STRICT;
 
     CREATE TABLE RoomInfo(
-        game_id    INTEGER NOT NULL REFERENCES SaveGame(game_id),
+        game_id    INTEGER NOT NULL REFERENCES SaveGame(game_id) DEFERRABLE INITIALLY DEFERRED,
         position_x INTEGER NOT NULL,
         position_y INTEGER NOT NULL,
         cleared    INTEGER NOT NULL,
@@ -467,10 +468,11 @@ mod test {
         current_room_y INTEGER DEFAULT NULL,
         FOREIGN KEY(game_id, current_room_x, current_room_y)
             REFERENCES RoomInfo(game_id, position_x, position_y)
+            DEFERRABLE INITIALLY DEFERRED
     ) STRICT;
 
     CREATE TABLE PlayerActor(
-        game_id           INTEGER NOT NULL REFERENCES SaveGame(game_id),
+        game_id           INTEGER NOT NULL REFERENCES SaveGame(game_id) DEFERRABLE INITIALLY DEFERRED,
         name              TEXT NOT NULL,
         health_max        INTEGER NOT NULL,
         health_curr       INTEGER,
@@ -482,7 +484,7 @@ mod test {
     ) STRICT;
 
     CREATE TABLE RoomInfo(
-        game_id    INTEGER NOT NULL REFERENCES SaveGame(game_id),
+        game_id    INTEGER NOT NULL REFERENCES SaveGame(game_id) DEFERRABLE INITIALLY DEFERRED,
         position_x INTEGER NOT NULL,
         position_y INTEGER NOT NULL,
         cleared    INTEGER NOT NULL,
@@ -493,7 +495,6 @@ mod test {
 
     COMMIT;
     ";
-
     #[test]
     pub fn test_validate() {
         let db = Database {

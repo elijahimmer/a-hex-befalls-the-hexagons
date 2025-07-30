@@ -106,10 +106,11 @@ pub fn save_actors(
 
 #[cfg(feature = "sqlite")]
 pub fn load_actors(
+    mut commands: Commands,
     db: NonSend<Database>,
     save_game: Res<SaveGame>,
     asset_server: Res<AssetServer>,
-) -> Result<Box<[Actor]>, DatabaseError> {
+) -> Result<(), DatabaseError> {
     let game_id = save_game.game_id;
     let query = r#"
             SELECT
@@ -152,7 +153,11 @@ pub fn load_actors(
                 animation,
             })
         })?
-        .collect()
+        .for_each(|actor| {
+            commands.spawn(actor.unwrap());
+        });
+
+    Ok(())
 }
 
 /// The team the actor is in for combat.

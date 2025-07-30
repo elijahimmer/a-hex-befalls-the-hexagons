@@ -22,11 +22,13 @@ impl Plugin for GamePlugin {
 
         app.add_systems(
             OnEnter(AppState::Game),
-            (game_enter, spawn_room, place_player_actors).chain(),
+            (init_room_rng, spawn_room, place_player_actors).chain(),
         )
         .add_systems(
             Update,
-            set_room_rng.run_if(resource_exists_and_changed::<CurrentRoom>),
+            set_room_rng
+                .run_if(resource_exists_and_changed::<CurrentRoom>)
+                .run_if(in_state(AppState::Game)),
         )
         .add_systems(
             OnEnter(GameState::EnterRoom),
@@ -111,24 +113,12 @@ impl Default for TriggerEventTimer {
 
 #[derive(Resource, Deref, DerefMut)]
 pub struct EventRng(pub RandomSource);
-
 // Whenever we change rooms,
 // despawn all that are in the old room.
 
 /// The default player positons in Axial coordinate space
 
 const PLAYER_POSITIONS: [IVec2; 3] = [IVec2::new(-1, -1), IVec2::new(1, -2), IVec2::new(2, -1)];
-
-/// TODO: Remove this and set it in new game or load game
-fn game_enter(mut commands: Commands) {
-    commands.insert_resource(CurrentRoom(RoomInfo::from_type(
-        RoomType::Pit(10..20),
-        0xDEADBEEF_C0DEFACE,
-    )));
-
-    // Should be overriden immeditely.
-    commands.insert_resource(EventRng(RandomSource::seed_from_u64(0)));
-}
 
 fn place_player_actors(
     mut commands: Commands,
@@ -165,8 +155,14 @@ fn place_player_actors(
     }
 }
 
-fn set_room_rng(room: Res<CurrentRoom>, mut rng: ResMut<EventRng>) {
-    rng.0 = RandomSource::seed_from_u64(room.rng_seed);
+fn init_room_rng(mut commands: Commands, room: Res<CurrentRoom>, info_q: Query<&RoomInfo>) {
+    commands.insert_resource(EventRng(RandomSource::seed_from_u64(
+        info_q.get(room.0).unwrap().rng_seed,
+    )));
+}
+
+fn set_room_rng(room: Res<CurrentRoom>, info_q: Query<&RoomInfo>, mut rng: ResMut<EventRng>) {
+    rng.0 = RandomSource::seed_from_u64(info_q.get(room.0).unwrap().rng_seed);
 }
 
 /// Shows a text box with the event happening,
@@ -175,18 +171,23 @@ fn set_room_rng(room: Res<CurrentRoom>, mut rng: ResMut<EventRng>) {
 fn display_trigger_or_skip(
     mut commands: Commands,
     room: Res<CurrentRoom>,
+    info_q: Query<&RoomInfo>,
     mut game_state: ResMut<NextState<GameState>>,
     style: Res<Style>,
 ) {
-    if room.cleared
-        || room.r_type == RoomType::EmptyRoom
-        || room.r_type == RoomType::Entrance
-        || room.r_type == RoomType::Exit
+    let RoomInfo {
+        cleared, r_type, ..
+    } = info_q.get(room.0).unwrap();
+
+    if *cleared
+        || *r_type == RoomType::EmptyRoom
+        || *r_type == RoomType::Entrance
+        || *r_type == RoomType::Exit
     {
         game_state.set(GameState::Navigation);
     } else {
         use RoomType as R;
-        let event_text = match &room.r_type {
+        let event_text = match r_type {
             R::EmptyRoom | R::Entrance | R::Exit => unreachable!(),
             R::Combat(_) => format!("Monsters attack!"),
             R::Pit(_) => format!("You fell in a Pit O' Doom!"),
@@ -217,7 +218,10 @@ fn wait_for_trigger(
     time: Res<Time>,
     mut game_state: ResMut<NextState<GameState>>,
     room: Res<CurrentRoom>,
+    info_q: Query<&RoomInfo>,
 ) {
+    let RoomInfo { r_type, .. } = info_q.get(room.0).unwrap();
+
     let trigger = &mut timer.trigger_timer;
     if !trigger.finished() {
         trigger.tick(time.delta());
@@ -228,7 +232,7 @@ fn wait_for_trigger(
         let pause = &mut timer.pause_timer;
         pause.tick(time.delta());
         if pause.just_finished() {
-            if let RoomType::Combat(_) = room.r_type {
+            if let RoomType::Combat(_) = &r_type {
                 game_state.set(GameState::Combat);
             } else {
                 game_state.set(GameState::Navigation)
@@ -239,12 +243,16 @@ fn wait_for_trigger(
 
 fn trigger_event(
     room: Res<CurrentRoom>,
+    info_q: Query<&RoomInfo>,
     mut actor_q: Query<&mut Health>,
     mut event_rng: ResMut<EventRng>,
 ) {
-    assert!(!room.cleared);
+    let RoomInfo {
+        cleared, r_type, ..
+    } = info_q.get(room.0).unwrap();
+    assert!(!*cleared);
     use RoomType as R;
-    match &room.r_type {
+    match r_type {
         R::EmptyRoom | R::Entrance => unreachable!(),
         R::Combat(_) => {}
         R::Exit => {}

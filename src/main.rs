@@ -10,6 +10,7 @@ mod room;
 #[cfg(feature = "sqlite")]
 mod saving;
 mod sky;
+mod spawn_map;
 mod style;
 mod tile;
 mod util;

@@ -43,6 +43,12 @@ pub fn despawn_filtered<T: QueryFilter>(mut commands: Commands, to_despawn: Quer
     }
 }
 
+pub fn remove_component<T: Component>(mut commands: Commands, to_despawn: Query<Entity, With<T>>) {
+    for entity in &to_despawn {
+        commands.entity(entity).remove::<T>();
+    }
+}
+
 pub fn remove_resource<T: Resource>(mut commands: Commands) {
     commands.remove_resource::<T>();
 }
