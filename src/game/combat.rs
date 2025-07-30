@@ -1,6 +1,6 @@
 use super::*;
 use crate::prelude::*;
-use bevy::prelude::*;
+use bevy::{prelude::*, state::commands};
 
 pub struct CombatPlugin;
 
@@ -59,6 +59,9 @@ pub enum CombatState {
     /// Rotate Left [`TurnOrder`]
     EndOfTurn,
 }
+//The current acting actor
+#[derive(Resource, Deref, DerefMut)]
+pub struct ActingActor(pub Entity);
 
 /// The combat queue of actors
 #[derive(Resource)]
@@ -169,14 +172,23 @@ fn setup_turn_order(
 }
 
 fn prep_turn_order(
+    mut commands: Commands,
     mut queue: ResMut<TurnOrder>,
+    mut next_state: ResMut<NextState<CombatState>>,
     actor_q: Query<(&Health, &Team)>,
     health_q: Query<&Health>,
 ) {
     match queue.teams_alive(actor_q) {
-        TeamAlive::Both => {}
+        TeamAlive::Both => {
+            queue.skip_to_next(health_q);
+            assert!(!queue.queue().is_empty(), "The queu is empty");
+
+            commands.insert_resource(ActingActor(queue.active()));
+            next_state.set(CombatState::MoveToCenter);
+        }
         // End the turn in this case (likely another function)
-        TeamAlive::Player | TeamAlive::Enemy | TeamAlive::Neither => {}
+        TeamAlive::Player | TeamAlive::Enemy | TeamAlive::Neither => {
+            commands.remove_resource::<ActingActor>();
+        }
     }
-    queue.skip_to_next(health_q);
 }
