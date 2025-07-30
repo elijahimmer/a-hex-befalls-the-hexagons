@@ -16,10 +16,10 @@ pub type Error = rusqlite::Error;
 
 type Version = i64;
 
-const DB_VERSION: Version = 9;
+const DB_VERSION: Version = 10;
 
 const ADD_SCHEMA: &str = formatcp!(
-    r#"
+    "
     BEGIN TRANSACTION;
 
     CREATE TABLE Version(
@@ -30,35 +30,49 @@ const ADD_SCHEMA: &str = formatcp!(
 
     CREATE TABLE Keybinds(
         key   TEXT PRIMARY KEY,
-        value TEXT
+        value TEXT NOT NULL
     ) STRICT;
 
     CREATE TABLE Style(
         key   TEXT PRIMARY KEY,
-        value ANY
+        value ANY NOT NULL
     ) STRICT;
 
     CREATE TABLE SaveGame(
-        game_id     INTEGER PRIMARY KEY AUTOINCREMENT,
-        created     TEXT DEFAULT CURRENT_TIMESTAMP,
-        last_saved  TEXT,
-        world_seed  INTEGER
+        game_id      INTEGER PRIMARY KEY AUTOINCREMENT,
+        created      TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        last_saved   TEXT NOT NULL,
+        world_seed   INTEGER NOT NULL,
+        current_room_x INTEGER DEFAULT NULL,
+        current_room_y INTEGER DEFAULT NULL,
+        FOREIGN KEY(game_id, current_room_x, current_room_y)
+            REFERENCES RoomInfo(game_id, position_x, position_y)
     ) STRICT;
 
     CREATE TABLE PlayerActor(
-      game_id           INTEGER REFERENCES SaveGame(game_id),
-      name              TEXT,
-      health_max        INTEGER,
-      health_curr       INTEGER,
-      attack_damage_min INTEGER,
-      attack_damage_max INTEGER,
-      attack_speed      INTEGER,
-      hit_chance        REAL,
-      PRIMARY KEY(game_id, name)
+        game_id           INTEGER NOT NULL REFERENCES SaveGame(game_id),
+        name              TEXT NOT NULL,
+        health_max        INTEGER NOT NULL,
+        health_curr       INTEGER,
+        attack_damage_min INTEGER NOT NULL,
+        attack_damage_max INTEGER NOT NULL,
+        attack_speed      INTEGER NOT NULL,
+        hit_chance        REAL NOT NULL,
+        PRIMARY KEY(game_id, name)
+    ) STRICT;
+
+    CREATE TABLE RoomInfo(
+        game_id    INTEGER NOT NULL REFERENCES SaveGame(game_id),
+        position_x INTEGER NOT NULL,
+        position_y INTEGER NOT NULL,
+        cleared    INTEGER NOT NULL,
+        r_type     TEXT NOT NULL,
+        rng_seed   INTEGER NOT NULL,
+        PRIMARY KEY(game_id, position_x, position_y)
     ) STRICT;
 
     COMMIT;
-    "#
+    "
 );
 
 pub struct Database {
@@ -166,7 +180,7 @@ impl Database {
             }
             Ok(Err(err)) => {
                 warn!(
-                    "Error {err} when settings '{key}' in table '{table}' (this is expected first launch or after an update)."
+                    "Error {err} while getting setting '{key}' in table '{table}' (this is expected first launch or after an update)."
                 );
                 if let Err(err) = self.set_kv(table, key, default.clone()) {
                     warn!(
@@ -258,7 +272,7 @@ pub enum ValidateSchemaError {
     Error(#[from] Error),
 }
 
-const _: () = assert!(DB_VERSION == 9, "UPDATE VALIDATE SCRIPT");
+const _: () = assert!(DB_VERSION == 10, "UPDATE VALIDATE SCRIPT");
 fn validate_schema(db: &Database) -> Result<(), ValidateSchemaError> {
     db.connection
         .execute_batch("PRAGMA integrity_check; PRAGMA optimize;")?;
@@ -274,6 +288,8 @@ fn validate_schema(db: &Database) -> Result<(), ValidateSchemaError> {
             ("created", "TEXT"),
             ("last_saved", "TEXT"),
             ("world_seed", "INTEGER"),
+            ("current_room_x", "INTEGER"),
+            ("current_room_y", "INTEGER"),
         ],
     )?;
     validate_table(
@@ -290,6 +306,18 @@ fn validate_schema(db: &Database) -> Result<(), ValidateSchemaError> {
             ("hit_chance", "REAL"),
         ],
     )?;
+    validate_table(
+        db,
+        "RoomInfo",
+        &[
+            ("game_id", "INTEGER"),
+            ("position_x", "INTEGER"),
+            ("position_y", "INTEGER"),
+            ("cleared", "INTEGER"),
+            ("r_type", "TEXT"),
+            ("rng_seed", "INTEGER"),
+        ],
+    )?;
 
     Ok(())
 }
@@ -301,11 +329,11 @@ fn validate_table(
 ) -> Result<(), ValidateSchemaError> {
     // SAFETY: Use `format` here as it has to be the exact table name with no quotes.
     //         This name should also not be user input in any way.
-    let query = format!("PRAGMA table_info({table_name});");
+    let query = "SELECT * FROM pragma_table_info(:table_name);";
 
     let mut statement = db.connection.prepare(&query)?;
     let mut rows = statement
-        .query_map([], |row| {
+        .query_map([table_name], |row| {
             Ok((row.get::<_, String>(1)?, row.get::<_, String>(2)?))
         })?
         .filter_map(|row| row.ok());
@@ -334,7 +362,6 @@ fn validate_table(
     };
 
     if let Some((name, ctype)) = rows.next() {
-        error!("SQLite table `{table_name}` has unexpected column `{name}` of type `{ctype}`");
         return Err(ValidateSchemaError::Invalid(
             format!("SQLite table `{table_name}` has unexpected column `{name}` of type `{ctype}`")
                 .into(),
@@ -375,9 +402,9 @@ pub enum MigrationError {
     CheckVersionError(#[from] CheckVersionError),
 }
 
-const MIN_VERSION_MIGRATEABLE: Version = 9;
+const MIN_VERSION_MIGRATEABLE: Version = 10;
 /// Make sure the migrations are set up properly
-const _: () = assert!(DB_VERSION == 9, "UPDATE THE MIGRATION SCRIPT");
+const _: () = assert!(DB_VERSION == 10, "UPDATE THE MIGRATION SCRIPT");
 
 /// MAINTENANCE: UPDATE EVERY DATABASE UPDGRADE
 fn migrate_database(db: &Database, from: Version) -> Result<(), MigrationError> {
@@ -387,9 +414,9 @@ fn migrate_database(db: &Database, from: Version) -> Result<(), MigrationError> 
 
     // let mut from = from;
 
-    // if from == 9 {
-    //     db.connection.execute_batch(MIGRATE_FROM_9_TO_10)?;
-    //     from = 10;
+    // if from == 10 {
+    //     db.connection.execute_batch(MIGRATE_FROM_10_TO_11)?;
+    //     from = 11;
     // }
 
     assert_eq!(
@@ -412,46 +439,60 @@ fn migrate_database(db: &Database, from: Version) -> Result<(), MigrationError> 
 mod test {
     use super::*;
 
-    const VERSION_9_SCHEMA: &str = r#"
-        BEGIN TRANSACTION;
+    const VERSION_10_SCHEMA: &str = "
+    BEGIN TRANSACTION;
 
-        CREATE TABLE Version(
-          version INTEGER PRIMARY KEY
-        ) STRICT;
+    CREATE TABLE Version(
+      version INTEGER PRIMARY KEY
+    ) STRICT;
 
-        INSERT INTO Version VALUES(9);
+    INSERT INTO Version VALUES({DB_VERSION});
 
-        CREATE TABLE Keybinds(
-            key   TEXT PRIMARY KEY,
-            value TEXT
-        ) STRICT;
+    CREATE TABLE Keybinds(
+        key   TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+    ) STRICT;
 
-        CREATE TABLE Style(
-            key   TEXT PRIMARY KEY,
-            value ANY
-        ) STRICT;
+    CREATE TABLE Style(
+        key   TEXT PRIMARY KEY,
+        value ANY NOT NULL
+    ) STRICT;
 
-        CREATE TABLE SaveGame(
-            game_id     INTEGER PRIMARY KEY AUTOINCREMENT,
-            created     TEXT DEFAULT CURRENT_TIMESTAMP,
-            last_saved  TEXT,
-            world_seed  INTEGER
-        ) STRICT;
+    CREATE TABLE SaveGame(
+        game_id      INTEGER PRIMARY KEY AUTOINCREMENT,
+        created      TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        last_saved   TEXT NOT NULL,
+        world_seed   INTEGER NOT NULL,
+        current_room_x INTEGER DEFAULT NULL,
+        current_room_y INTEGER DEFAULT NULL,
+        FOREIGN KEY(game_id, current_room_x, current_room_y)
+            REFERENCES RoomInfo(game_id, position_x, position_y)
+    ) STRICT;
 
-        CREATE TABLE PlayerActor(
-          game_id           INTEGER REFERENCES SaveGame(game_id),
-          name              TEXT,
-          health_max        INTEGER,
-          health_curr       INTEGER,
-          attack_damage_min INTEGER,
-          attack_damage_max INTEGER,
-          attack_speed      INTEGER,
-          hit_chance        REAL,
-          PRIMARY KEY(game_id, name)
-        ) STRICT;
+    CREATE TABLE PlayerActor(
+        game_id           INTEGER NOT NULL REFERENCES SaveGame(game_id),
+        name              TEXT NOT NULL,
+        health_max        INTEGER NOT NULL,
+        health_curr       INTEGER,
+        attack_damage_min INTEGER NOT NULL,
+        attack_damage_max INTEGER NOT NULL,
+        attack_speed      INTEGER NOT NULL,
+        hit_chance        REAL NOT NULL,
+        PRIMARY KEY(game_id, name)
+    ) STRICT;
 
-        COMMIT;
-    "#;
+    CREATE TABLE RoomInfo(
+        game_id    INTEGER NOT NULL REFERENCES SaveGame(game_id),
+        position_x INTEGER NOT NULL,
+        position_y INTEGER NOT NULL,
+        cleared    INTEGER NOT NULL,
+        r_type     TEXT NOT NULL,
+        rng_seed   INTEGER NOT NULL,
+        PRIMARY KEY(game_id, position_x, position_y)
+    ) STRICT;
+
+    COMMIT;
+    ";
 
     #[test]
     pub fn test_validate() {
@@ -466,14 +507,14 @@ mod test {
 
     // TODO: Enable once we get another version to migrate from
     // #[test]
-    // pub fn migrate_from_9() {
+    // pub fn migrate_from_10() {
     //     let db = Database {
     //         connection: Connection::open_in_memory().unwrap(),
     //     };
 
-    //     db.connection.execute_batch(VERSION_9_SCHEMA).unwrap();
+    //     db.connection.execute_batch(VERSION_10_SCHEMA).unwrap();
 
-    //     migrate_database(&db, 9).unwrap();
+    //     migrate_database(&db, 10).unwrap();
 
     //     validate_schema(&db).unwrap();
     // }

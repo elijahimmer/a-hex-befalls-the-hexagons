@@ -60,11 +60,13 @@ pub fn save_actors(
 ) -> Result<(), DatabaseError> {
     let game_id = save_info.game_id;
     for (name, team, health, attack, speed) in components {
+        let Team::Player = team else {
+            continue;
+        };
         let query = r#"
-            INSERT OR REPLACE INTO Actor(
+            INSERT OR REPLACE INTO PlayerActor(
                 name,
                 game_id,
-                team,
                 health_max,
                 health_curr,
                 attack_damage_min,
@@ -75,7 +77,6 @@ pub fn save_actors(
             VALUES(
                 :name,
                 :game,
-                :team,
                 :health_max,
                 :health_curr,
                 :attack_damage_min,
@@ -90,7 +91,6 @@ pub fn save_actors(
             (
                 name.to_string(),
                 *game_id,
-                team.to_string(),
                 health.max(),
                 health.current(),
                 attack.damage.start,
@@ -114,14 +114,13 @@ pub fn load_actors(
     let query = r#"
             SELECT
                 name,
-                team,
                 health_curr,
                 health_max,
                 attack_damage_max,
                 attack_damage_min,
                 attack_speed,
                 hit_chance
-            FROM Actor WHERE Actor.game_id = :game;
+            FROM PlayerActor WHERE PlayerActor.game_id = :game;
         "#;
 
     db.connection
@@ -129,9 +128,6 @@ pub fn load_actors(
         .query_map((game_id.0,), |row| {
             let name = row.get::<_, String>("name")?;
             let name = ron::from_str(&name).unwrap_or(ActorName::UnknownJim);
-
-            let team = row.get::<_, String>("team")?;
-            let team = ron::from_str(&team).unwrap_or(Team::Enemy);
 
             let health = HealthBundle::with_current(
                 row.get("health_curr")?,
@@ -148,7 +144,7 @@ pub fn load_actors(
 
             Ok(Actor {
                 name,
-                team,
+                team: Team::Player,
                 health,
                 attack,
                 speed,

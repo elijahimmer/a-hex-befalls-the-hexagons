@@ -1,5 +1,7 @@
+use crate::generate_map::MAP_ORIGIN;
 use crate::prelude::*;
 use bevy::prelude::*;
+
 #[cfg(feature = "sqlite")]
 use chrono::{DateTime, Utc};
 
