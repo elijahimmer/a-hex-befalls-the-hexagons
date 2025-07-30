@@ -36,10 +36,10 @@ pub enum RoomType {
     /// An empty room with nothing interesting
     EmptyRoom,
     /// The entrance room, with nothing interesting
+    ///
+    /// Also acts as the exit once you have collected all
+    /// nessesary parts
     Entrance,
-    /// The exit room with nothing interesting,
-    /// until you gather all the stuffs to leave this hell hole
-    Exit,
     /// A room that holds enemies to fight
     /// Stores the enemies that are inside the room
     /// When cleared, all of the given actors should be spawned dead.
@@ -160,7 +160,6 @@ pub fn spawn_room_entities(
     match &r_type {
         R::EmptyRoom => {}
         R::Entrance => {}
-        R::Exit => {}
         R::Combat(enemies) => {
             for (name, pos_offset) in enemies.iter().zip(ENEMY_POSITIONS.into_iter()) {
                 let actor_pos: TilePos =

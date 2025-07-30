@@ -127,7 +127,7 @@ fn place_player_actors(
         ),
         With<RoomTilemap>,
     >,
-    mut actors: Query<(Entity, &mut Transform), With<ActorName>>,
+    mut actors: Query<(Entity, &mut Transform), With<Actor>>,
 ) {
     let (map_size, grid_size, tile_size, map_type, map_anchor) = *tilemap;
 
@@ -174,16 +174,12 @@ fn display_trigger_or_skip(
         cleared, r_type, ..
     } = *info;
 
-    if *cleared
-        || *r_type == RoomType::EmptyRoom
-        || *r_type == RoomType::Entrance
-        || *r_type == RoomType::Exit
-    {
+    if *cleared || *r_type == RoomType::EmptyRoom || *r_type == RoomType::Entrance {
         game_state.set(GameState::Navigation);
     } else {
         use RoomType as R;
         let event_text = match r_type {
-            R::EmptyRoom | R::Entrance | R::Exit => unreachable!(),
+            R::EmptyRoom | R::Entrance => unreachable!(),
             R::Combat(_) => format!("Monsters attack!"),
             R::Pit(_) => format!("You fell in a Pit O' Doom!"),
             // TODO: Display item name when we can
@@ -248,7 +244,6 @@ fn trigger_event(
     match r_type {
         R::EmptyRoom | R::Entrance => unreachable!(),
         R::Combat(_) => {}
-        R::Exit => {}
         R::Pit(damage_range) => {
             let actor_count = actor_q.iter().filter(|h| h.is_alive()).count();
             assert!(actor_count > 0);
