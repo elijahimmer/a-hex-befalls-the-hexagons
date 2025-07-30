@@ -4,6 +4,7 @@ pub use combat::*;
 
 use crate::prelude::*;
 use crate::room::{CurrentRoom, InRoom, mark_room_cleared, spawn_room, spawn_room_entities};
+#[cfg(feature = "sqlite")]
 use crate::saving::save_game;
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
@@ -48,7 +49,15 @@ impl Plugin for GamePlugin {
         )
         .add_systems(
             OnEnter(GameState::Navigation),
-            ((mark_room_cleared, save_game).chain(), navigation_enter),
+            (
+                (
+                    mark_room_cleared,
+                    #[cfg(feature = "sqlite")]
+                    save_game,
+                )
+                    .chain(),
+                navigation_enter,
+            ),
         )
         .add_plugins(CombatPlugin);
     }

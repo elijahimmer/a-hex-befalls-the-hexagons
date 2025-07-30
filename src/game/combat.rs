@@ -99,6 +99,7 @@ impl TurnOrder {
             .find_map(|(idx, health)| health.is_alive().then_some(idx))
             .unwrap();
 
+        // + 1 because we skipped one
         self.queue.rotate_left(idx + 1);
     }
 

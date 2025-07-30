@@ -57,6 +57,7 @@ fn progress_check(
     mut next_state: ResMut<NextState<AppState>>,
 ) {
     if progress.done() {
+        #[cfg(feature = "sqlite")]
         commands.run_system_cached(crate::saving::save_game);
         next_state.set(AppState::Game);
     }
@@ -101,6 +102,7 @@ fn cancel_generation(
     next_new_game_state.set(NewGameState::Main);
 
     commands.remove_resource::<GenerationProgress>();
+    #[cfg(feature = "sqlite")]
     commands.remove_resource::<SaveGame>();
     commands.remove_resource::<GenerationSettings>();
 
@@ -138,6 +140,7 @@ fn generate_world_click(
         .unwrap_or_else(|| getrandom::u64().unwrap_or(0x5eed_f0e_feee));
 
     commands.insert_resource(GenerationProgress::default());
+    #[cfg(feature = "sqlite")]
     commands.insert_resource(SaveGame::new(&db, seed));
     commands.insert_resource(GenerationSettings { seed: seed });
 

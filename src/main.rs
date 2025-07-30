@@ -7,6 +7,7 @@ mod game;
 mod generate_map;
 mod menu;
 mod room;
+#[cfg(feature = "sqlite")]
 mod saving;
 mod sky;
 mod style;
@@ -38,8 +39,7 @@ pub mod prelude {
     pub use crate::database::{Database, Error as DatabaseError, FromDatabase, ToDatabase};
     pub use crate::room::{RoomInfo, RoomTile, RoomTilemap, RoomType};
     #[cfg(feature = "sqlite")]
-    pub use crate::saving::SaveGameInfo;
-    pub use crate::saving::{GameID, SaveGame};
+    pub use crate::saving::{GameID, SaveGame, SaveGameInfo};
     pub use crate::style::{Icons, Style};
     pub use crate::tile::*;
     pub use crate::util::*;
