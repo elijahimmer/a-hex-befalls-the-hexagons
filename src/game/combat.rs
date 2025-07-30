@@ -67,7 +67,7 @@ pub struct TurnOrder {
 }
 
 impl TurnOrder {
-    pub fn new(actor_q: Query<Entity, With<ActorName>>, speed_q: Query<&AttackSpeed>) -> Self {
+    pub fn new(actor_q: Query<Entity, With<Actor>>, speed_q: Query<&AttackSpeed>) -> Self {
         let mut queue = actor_q.iter().collect::<VecDeque<_>>();
 
         queue.shrink_to_fit();
@@ -162,7 +162,7 @@ pub enum Action {
 
 fn setup_turn_order(
     mut commands: Commands,
-    actor_q: Query<Entity, With<ActorName>>,
+    actor_q: Query<Entity, With<Actor>>,
     speed_q: Query<&AttackSpeed>,
 ) {
     commands.insert_resource(TurnOrder::new(actor_q, speed_q));

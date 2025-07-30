@@ -16,7 +16,8 @@ pub const ACTOR_LAYER: f32 = 1.0;
 
 /// The typical components for any given actor.
 #[derive(Bundle)]
-pub struct Actor {
+pub struct ActorBundle {
+    pub actor: Actor,
     pub name: ActorName,
     pub team: Team,
     pub health: HealthBundle,
@@ -26,7 +27,7 @@ pub struct Actor {
     pub animation: AnimationBundle,
 }
 
-impl Actor {
+impl ActorBundle {
     pub fn from_name(
         asset_server: &AssetServer,
         name: ActorName,
@@ -41,6 +42,7 @@ impl Actor {
         }
 
         Self {
+            actor: Actor,
             name,
             team,
             health,
@@ -51,6 +53,9 @@ impl Actor {
         }
     }
 }
+
+#[derive(Component)]
+pub struct Actor;
 
 #[cfg(feature = "sqlite")]
 pub fn save_actors(
@@ -143,7 +148,8 @@ pub fn load_actors(
             let transform = Transform::IDENTITY;
             let animation = AnimationBundle::from_name(&asset_server, name);
 
-            Ok(Actor {
+            Ok(ActorBundle {
+                actor: Actor,
                 name,
                 team: Team::Player,
                 health,

@@ -108,7 +108,7 @@ fn cancel_generation(
     mut click: Trigger<Pointer<Click>>,
     mut commands: Commands,
     room_map_q: Query<Entity, With<RoomTilemap>>,
-    party: Query<Entity, With<ActorName>>,
+    party: Query<Entity, With<Actor>>,
     mut next_new_game_state: ResMut<NextState<NewGameState>>,
 ) {
     let PointerButton::Primary = click.button else {
@@ -359,7 +359,7 @@ fn setup_party(
     use ActorName as A;
     for name in [A::Warrior, A::Priestess, A::Theif] {
         commands.spawn((
-            Actor::from_name(&asset_server, name, Team::Player, Transform::IDENTITY, true),
+            ActorBundle::from_name(&asset_server, name, Team::Player, Transform::IDENTITY, true),
             Visibility::Hidden,
         ));
     }

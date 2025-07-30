@@ -173,7 +173,7 @@ pub fn spawn_room_entities(
 
                 commands.spawn((
                     InRoom,
-                    Actor::from_name(&asset_server, *name, Team::Enemy, transform, !cleared),
+                    ActorBundle::from_name(&asset_server, *name, Team::Enemy, transform, !cleared),
                     Pickable::default(),
                     Visibility::Visible,
                 ));
