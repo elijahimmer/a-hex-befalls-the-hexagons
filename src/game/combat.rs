@@ -147,29 +147,8 @@ impl TeamAlive {
     }
 }
 
-
-#[derive(Resource)]
-pub struct ActorOriginalPositions {
-    positions: HashMap<Entity, Vec3>,
-}
-
-impl ActorOriginalPositions {
-    pub fn new() -> Self {
-        Self {
-            positions: HashMap::new(),
-        }
-    }
-    pub fn store_position(&mut self, entity: Entity, position: Vec3) {
-        self.positions.insert(entity, position);
-    }
-    pub fn get_position(&self, entity: Entity) -> Option<Vec3> {
-        self.positions.get(&entity).copied()
-    }
-}
-
-
-
-
+#[derive(Component, Deref, DerefMut)]
+pub struct ActorOriginalPosition(pub Vec2);
 
 
 /// The action the [`ActingActor`] is taking
@@ -202,10 +181,8 @@ fn store_actor_positions(
     mut commands: Commands,
     actors_q: Query<(Entity, &Transform), With<ActorName>>,
 ) {
-    let mut positions = ActorOriginalPositions::new();
-    
     for (entity, transform) in actors_q.iter() {
-        positions.store_position(entity, transform.translation);
+        ///insert the actors current position into each actor component
         }
     commands.insert_resource(positions);
 }
@@ -235,3 +212,9 @@ fn prep_turn_order(
         }
     }
 }
+
+
+
+//sytems that recieves moves a target to target position
+//will take the transform of the Acting actor and the target postion
+//
