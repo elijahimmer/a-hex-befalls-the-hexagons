@@ -62,8 +62,8 @@ pub enum CombatState {
     EndOfTurn,
 }
 //The current acting actor
-#[derive(Resource, Deref, DerefMut)]
-pub struct ActingActor(pub Entity);
+#[derive(Component)]
+pub struct ActingActor;
 
 /// The combat queue of actors
 #[derive(Resource)]
@@ -150,6 +150,8 @@ impl TeamAlive {
 #[derive(Component, Deref, DerefMut)]
 pub struct ActorOriginalPosition(pub Vec2);
 
+#[derive(Component, Deref, DerefMut)]
+pub struct ActorTargetPosition(pub Vec2); 
 
 /// The action the [`ActingActor`] is taking
 pub enum Action {
@@ -184,8 +186,10 @@ fn store_actor_positions(
 ) {
     for (entity, transform) in actors_q.iter() {
         ///insert the actors current position into each actor component
-        commands.entity(entity).insert(ActorOriginalPositon(transform.translation.xy()));
-        }
+        commands
+            .entity(entity)
+            .insert(ActorOriginalPositon(transform.translation.xy()));
+    }
 }
 
 fn cleanup_positions(mut commands: Commands) {
@@ -201,10 +205,9 @@ fn prep_turn_order(
 ) {
     match queue.teams_alive(actor_q) {
         TeamAlive::Both => {
+            commands.entity(queue.active()).remove::<ActingActor>();
             queue.skip_to_next(health_q);
-            assert!(!queue.queue().is_empty(), "The queu is empty");
-
-            commands.insert_resource(ActingActor(queue.active()));
+            commands.entity(queue.active()).insert(ActingActor);
             next_state.set(CombatState::MoveToCenter);
         }
         // End the turn in this case (likely another function)
@@ -214,8 +217,34 @@ fn prep_turn_order(
     }
 }
 
-
-
 //sytems that recieves moves a target to target position
 //will take the transform of the Acting actor and the target postion
 //
+fn move_to_center(
+    mut commands: Commands,
+    mut next_state: ResMut<NextState<CombatState>>,
+    active_actor: Single<Entity, With<ActingActor>>,
+) {
+    //Set a recource with the target position
+    commands.entity(active_actor).insert()
+
+}
+
+fn move_to_center_check(){
+        //Encapsulate the set state in a check that checks if transform equals target position
+    next_state.set(CombatState::ChooseAction);
+}
+fn move_back(
+    mut commands: Commands,
+    mut next_state: ResMut<NextState<CombatState>>,
+    active_actor: Single<(&Transform, &ActorOriginalPositon), With<ActingActor>>,
+    ){
+ 
+    //Encapsulate the set state in a check that checks if transform equals target position
+    next_state.set(Combat::EndOfTurn);
+}
+
+//Moves the ActingActor to target position and then removes target position
+fn move_to_target(
+    ){
+}
