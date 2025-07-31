@@ -28,7 +28,6 @@ pub const MAP_TILE_LAYER: f32 = 0.0;
 const GENERATION_SCHEDULE_FREQUENCY: f64 = 10000.0;
 const GENERATING_STATE: NewGameState = NewGameState::GeneratingWorld;
 
-/// Plugin to setup map generation
 impl Plugin for GenerateMapPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
@@ -94,6 +93,8 @@ pub struct ValidTiles {
     dblue: bool,
 }
 
+
+
 impl ValidTiles {
     /// Method to get entropy of a tile
     pub fn entropy(&self) -> u8 {
@@ -127,6 +128,7 @@ impl ValidTiles {
     }
 }
 
+
 impl Default for ValidTiles {
     fn default() -> Self {
         Self {
@@ -141,6 +143,8 @@ impl Default for ValidTiles {
 }
 
 /// Enum to represent all possible collapsed components
+
+
 #[derive(Component, Clone, Copy)]
 pub enum Collapsed {
     Gray,
@@ -150,6 +154,8 @@ pub enum Collapsed {
     LBlue,
     DBlue,
 }
+
+
 
 impl Collapsed {
     /// Method to get enum value of tile state
@@ -164,6 +170,7 @@ impl Collapsed {
         })
     }
 }
+
 
 /// Setup for Generation settings so generation is seedable
 fn setup(mut commands: Commands, settings: Res<GenerationSettings>) {

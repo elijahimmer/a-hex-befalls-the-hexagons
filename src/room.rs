@@ -189,10 +189,6 @@ pub fn spawn_room_entities(
     }
 }
 
-pub fn spawn_room() {
-    println!("Test push");
-}
-
 /// Should be run after the room
 pub fn mark_room_cleared(mut info: Single<&mut RoomInfo, With<CurrentRoom>>) {
     info.cleared = true;
