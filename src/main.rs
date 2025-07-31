@@ -5,6 +5,7 @@ mod controls;
 mod database;
 mod game;
 mod generate_map;
+mod items;
 mod menu;
 mod room;
 #[cfg(feature = "sqlite")]
@@ -16,7 +17,7 @@ mod tile;
 mod util;
 
 pub mod prelude {
-    use bevy::prelude::*;
+    pub use bevy::prelude::*;
 
     #[cfg(feature = "debug")]
     pub use bevy::dev_tools::states::log_transitions;
@@ -38,6 +39,7 @@ pub mod prelude {
     pub use crate::camera::{MainCamera, MainCameraMarker};
     pub use crate::controls::{Control, ControlState, Controls, Keybind};
     pub use crate::database::{Database, Error as DatabaseError, FromDatabase, ToDatabase};
+    pub use crate::items::{Item, Items};
     pub use crate::room::{RoomInfo, RoomTile, RoomTilemap, RoomType};
     #[cfg(feature = "sqlite")]
     pub use crate::saving::{GameID, SaveGame, SaveGameInfo};
@@ -64,7 +66,6 @@ use bevy::{
     text::FontSmoothing,
 };
 
-use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 use bevy_ui_text_input::TextInputPlugin;
 

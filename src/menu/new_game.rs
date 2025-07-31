@@ -363,5 +363,7 @@ fn setup_party(
             Visibility::Hidden,
         ));
     }
+
+    commands.init_resource::<Items>();
     progress.characters_done = true;
 }

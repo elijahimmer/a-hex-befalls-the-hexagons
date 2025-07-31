@@ -16,7 +16,7 @@ pub type Error = rusqlite::Error;
 
 type Version = i64;
 
-const DB_VERSION: Version = 10;
+const DB_VERSION: Version = 11;
 
 const ADD_SCHEMA: &str = formatcp!(
     "
@@ -58,8 +58,7 @@ const ADD_SCHEMA: &str = formatcp!(
         attack_damage_min INTEGER NOT NULL,
         attack_damage_max INTEGER NOT NULL,
         attack_speed      INTEGER NOT NULL,
-        hit_chance        REAL NOT NULL,
-        PRIMARY KEY(game_id, name)
+        hit_chance        REAL NOT NULL
     ) STRICT;
 
     CREATE TABLE RoomInfo(
@@ -67,9 +66,14 @@ const ADD_SCHEMA: &str = formatcp!(
         position_x INTEGER NOT NULL,
         position_y INTEGER NOT NULL,
         cleared    INTEGER NOT NULL,
-        r_type     TEXT NOT NULL,
+        r_type     TEXT    NOT NULL,
         rng_seed   INTEGER NOT NULL,
         PRIMARY KEY(game_id, position_x, position_y)
+    ) STRICT;
+
+    CREATE TABLE Item(
+        game_id INTEGER NOT NULL REFERENCES SaveGame(game_id) DEFERRABLE INITIALLY DEFERRED,
+        type    Text    NOT NULL
     ) STRICT;
 
     COMMIT;
@@ -273,10 +277,12 @@ pub enum ValidateSchemaError {
     Error(#[from] Error),
 }
 
-const _: () = assert!(DB_VERSION == 10, "UPDATE VALIDATE SCRIPT");
+const _: () = assert!(DB_VERSION == 11, "UPDATE VALIDATE SCRIPT");
 fn validate_schema(db: &Database) -> Result<(), ValidateSchemaError> {
     db.connection
         .execute_batch("PRAGMA integrity_check; PRAGMA optimize; PRAGMA journal_mode=WAL;")?;
+
+    let game_id = ("game_id", "INTEGER");
 
     validate_table(db, "Version", &[("version", "INTEGER")])?;
     validate_table(db, "Keybinds", &[("key", "TEXT"), ("value", "TEXT")])?;
@@ -285,7 +291,7 @@ fn validate_schema(db: &Database) -> Result<(), ValidateSchemaError> {
         db,
         "SaveGame",
         &[
-            ("game_id", "INTEGER"),
+            game_id,
             ("created", "TEXT"),
             ("last_saved", "TEXT"),
             ("world_seed", "INTEGER"),
@@ -297,7 +303,7 @@ fn validate_schema(db: &Database) -> Result<(), ValidateSchemaError> {
         db,
         "PlayerActor",
         &[
-            ("game_id", "INTEGER"),
+            game_id,
             ("name", "TEXT"),
             ("health_max", "INTEGER"),
             ("health_curr", "INTEGER"),
@@ -311,7 +317,7 @@ fn validate_schema(db: &Database) -> Result<(), ValidateSchemaError> {
         db,
         "RoomInfo",
         &[
-            ("game_id", "INTEGER"),
+            game_id,
             ("position_x", "INTEGER"),
             ("position_y", "INTEGER"),
             ("cleared", "INTEGER"),
@@ -319,6 +325,7 @@ fn validate_schema(db: &Database) -> Result<(), ValidateSchemaError> {
             ("rng_seed", "INTEGER"),
         ],
     )?;
+    validate_table(db, "Item", &[game_id, ("type", "TEXT")])?;
 
     Ok(())
 }
@@ -403,9 +410,9 @@ pub enum MigrationError {
     CheckVersionError(#[from] CheckVersionError),
 }
 
-const MIN_VERSION_MIGRATEABLE: Version = 10;
+const MIN_VERSION_MIGRATEABLE: Version = 11;
 /// Make sure the migrations are set up properly
-const _: () = assert!(DB_VERSION == 10, "UPDATE THE MIGRATION SCRIPT");
+const _: () = assert!(DB_VERSION == 11, "UPDATE THE MIGRATION SCRIPT");
 
 /// MAINTENANCE: UPDATE EVERY DATABASE UPDGRADE
 fn migrate_database(db: &Database, from: Version) -> Result<(), MigrationError> {
@@ -440,7 +447,7 @@ fn migrate_database(db: &Database, from: Version) -> Result<(), MigrationError> 
 mod test {
     use super::*;
 
-    const VERSION_10_SCHEMA: &str = "
+    const VERSION_11_SCHEMA: &str = "
     BEGIN TRANSACTION;
 
     CREATE TABLE Version(
@@ -460,10 +467,10 @@ mod test {
     ) STRICT;
 
     CREATE TABLE SaveGame(
-        game_id      INTEGER PRIMARY KEY AUTOINCREMENT,
-        created      TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        last_saved   TEXT NOT NULL,
-        world_seed   INTEGER NOT NULL,
+        game_id        INTEGER PRIMARY KEY AUTOINCREMENT,
+        created        TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        last_saved     TEXT NOT NULL,
+        world_seed     INTEGER NOT NULL,
         current_room_x INTEGER DEFAULT NULL,
         current_room_y INTEGER DEFAULT NULL,
         FOREIGN KEY(game_id, current_room_x, current_room_y)
@@ -473,14 +480,13 @@ mod test {
 
     CREATE TABLE PlayerActor(
         game_id           INTEGER NOT NULL REFERENCES SaveGame(game_id) DEFERRABLE INITIALLY DEFERRED,
-        name              TEXT NOT NULL,
+        name              TEXT    NOT NULL,
         health_max        INTEGER NOT NULL,
         health_curr       INTEGER,
         attack_damage_min INTEGER NOT NULL,
         attack_damage_max INTEGER NOT NULL,
         attack_speed      INTEGER NOT NULL,
-        hit_chance        REAL NOT NULL,
-        PRIMARY KEY(game_id, name)
+        hit_chance        REAL NOT NULL
     ) STRICT;
 
     CREATE TABLE RoomInfo(
@@ -488,13 +494,19 @@ mod test {
         position_x INTEGER NOT NULL,
         position_y INTEGER NOT NULL,
         cleared    INTEGER NOT NULL,
-        r_type     TEXT NOT NULL,
+        r_type     TEXT    NOT NULL,
         rng_seed   INTEGER NOT NULL,
         PRIMARY KEY(game_id, position_x, position_y)
     ) STRICT;
 
+    CREATE TABLE Item(
+        game_id INTEGER NOT NULL REFERENCES SaveGame(game_id) DEFERRABLE INITIALLY DEFERRED,
+        type    Text    NOT NULL
+    ) STRICT;
+
     COMMIT;
     ";
+
     #[test]
     pub fn test_validate() {
         let db = Database {

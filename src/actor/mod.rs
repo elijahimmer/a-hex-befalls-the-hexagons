@@ -64,46 +64,50 @@ pub fn save_actors(
     db: NonSend<Database>,
 ) -> Result<(), DatabaseError> {
     let game_id = save_info.game_id;
+
+    db.connection.execute(
+        "DELETE FROM PlayerActor WHERE game_id = :game_id",
+        (game_id.0,),
+    )?;
+
+    let query = r#"
+        INSERT INTO PlayerActor(
+            name,
+            game_id,
+            health_max,
+            health_curr,
+            attack_damage_min,
+            attack_damage_max,
+            hit_chance,
+            attack_speed
+        )
+        VALUES(
+            :name,
+            :game,
+            :health_max,
+            :health_curr,
+            :attack_damage_min,
+            :attack_damage_max,
+            :hit_chance,
+            :attack_speed
+        );
+    "#;
+    let mut statement = db.connection.prepare(query)?;
+
     for (name, team, health, attack, speed) in components {
         let Team::Player = team else {
             continue;
         };
-        let query = r#"
-            INSERT OR REPLACE INTO PlayerActor(
-                name,
-                game_id,
-                health_max,
-                health_curr,
-                attack_damage_min,
-                attack_damage_max,
-                hit_chance,
-                attack_speed
-            )
-            VALUES(
-                :name,
-                :game,
-                :health_max,
-                :health_curr,
-                :attack_damage_min,
-                :attack_damage_max,
-                :hit_chance,
-                :attack_speed
-            );
-        "#;
-
-        db.connection.execute(
-            query,
-            (
-                name.to_string(),
-                *game_id,
-                health.max(),
-                health.current(),
-                attack.damage.start,
-                attack.damage.end,
-                attack.hit_chance,
-                speed.0,
-            ),
-        )?;
+        statement.execute((
+            name.to_string(),
+            *game_id,
+            health.max(),
+            health.current(),
+            attack.damage.start,
+            attack.damage.end,
+            attack.hit_chance,
+            speed.0,
+        ))?;
     }
 
     Ok(())

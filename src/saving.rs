@@ -143,6 +143,11 @@ pub fn save_game(world: &mut World) {
         .unwrap()
         .unwrap();
 
+    world
+        .run_system_cached(crate::items::save_items)
+        .unwrap()
+        .unwrap();
+
     {
         let db = world.get_non_send_resource::<Database>().unwrap();
         db.connection.execute_batch("COMMIT;").unwrap();
@@ -169,6 +174,11 @@ pub fn load_game(world: &mut World) {
 
     world
         .run_system_cached(crate::spawn_map::load_map)
+        .unwrap()
+        .unwrap();
+
+    world
+        .run_system_cached(crate::items::load_items)
         .unwrap()
         .unwrap();
 
