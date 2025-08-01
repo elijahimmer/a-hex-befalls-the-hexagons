@@ -1,15 +1,29 @@
 use super::*;
 use crate::prelude::*;
-use bevy::{prelude::*, state::commands};
-use std::collections::HashMap;
+use crate::room::ROOM_SIZE;
+use bevy::prelude::*;
 
 pub struct CombatPlugin;
 
 impl Plugin for CombatPlugin {
     fn build(&self, app: &mut App) {
         app.add_sub_state::<CombatState>()
-            .add_systems(OnEnter(GameState::Combat), setup_turn_order)
+            .add_systems(
+                OnEnter(GameState::Combat),
+                (setup_turn_order, store_actor_positions),
+            )
             .add_systems(OnEnter(CombatState::TurnSetup), prep_turn_order)
+            .add_systems(OnEnter(CombatState::MoveToCenter), move_to_center)
+            .add_systems(OnEnter(CombatState::MoveBack), move_back)
+            .add_systems(
+                Update,
+                (
+                    move_to_target.run_if(in_state(CombatState::MoveToCenter)),
+                    move_to_center_check.run_if(in_state(CombatState::MoveToCenter)),
+                    move_to_target.run_if(in_state(CombatState::MoveBack)),
+                    move_back_check.run_if(in_state(CombatState::MoveBack)),
+                ),
+            )
             .add_systems(OnExit(GameState::Combat), cleanup_positions);
     }
 }
@@ -151,7 +165,7 @@ impl TeamAlive {
 pub struct ActorOriginalPosition(pub Vec2);
 
 #[derive(Component, Deref, DerefMut)]
-pub struct ActorTargetPosition(pub Vec2); 
+pub struct ActorTargetPosition(pub Vec2);
 
 /// The action the [`ActingActor`] is taking
 pub enum Action {
@@ -171,6 +185,7 @@ pub enum Action {
     SkipTurn,
 }
 
+//sets up the turn queue
 fn setup_turn_order(
     mut commands: Commands,
     actor_q: Query<Entity, With<Actor>>,
@@ -179,23 +194,27 @@ fn setup_turn_order(
     commands.insert_resource(TurnOrder::new(actor_q, speed_q));
 }
 
+//stores the actors original positions
 fn store_actor_positions(
     mut commands: Commands,
-    mut queue: ResMut<TurnOrder>,
     actors_q: Query<(Entity, &Transform), With<Actor>>,
 ) {
     for (entity, transform) in actors_q.iter() {
-        ///insert the actors current position into each actor component
         commands
             .entity(entity)
-            .insert(ActorOriginalPositon(transform.translation.xy()));
+            .insert(ActorOriginalPosition(transform.translation.xy()));
     }
 }
 
-fn cleanup_positions(mut commands: Commands) {
-    commands.remove::<ActorOriginalPositions>();
+//removes the actors original positions
+fn cleanup_positions(mut commands: Commands, queue: ResMut<TurnOrder>) {
+    commands
+        .entity(queue.active())
+        .remove::<ActorOriginalPosition>()
+        .remove::<ActorTargetPosition>();
 }
 
+//sets the active actor and insert the composnent
 fn prep_turn_order(
     mut commands: Commands,
     mut queue: ResMut<TurnOrder>,
@@ -212,39 +231,83 @@ fn prep_turn_order(
         }
         // End the turn in this case (likely another function)
         TeamAlive::Player | TeamAlive::Enemy | TeamAlive::Neither => {
-            commands.remove_resource::<ActingActor>();
+            commands.entity(queue.active()).remove::<ActingActor>();
         }
     }
 }
 
-//sytems that recieves moves a target to target position
-//will take the transform of the Acting actor and the target postion
-//
-fn move_to_center(
+//sets target postion to be center
+fn move_to_center(mut commands: Commands, active_actor: Single<Entity, With<ActingActor>>) {
+    //set the center_world_pos
+    let center_tile_pos = TilePos {
+        x: ROOM_SIZE.x / 2,
+        y: ROOM_SIZE.y / 2,
+    };
+
+    let center_world_pos = center_tile_pos.center_in_world(
+        &ROOM_SIZE,
+        &TilemapGridSize {
+            x: TILE_SIZE.x,
+            y: TILE_SIZE.y,
+        },
+        &TILE_SIZE,
+        &TilemapType::Hexagon(HexCoordSystem::Row),
+        &TilemapAnchor::Center,
+    );
+    //Set a component with the target position
+    commands
+        .entity(*active_actor)
+        .insert(ActorTargetPosition(center_world_pos));
+}
+
+//checks if actor is in center and then sets the state
+fn move_to_center_check(
     mut commands: Commands,
     mut next_state: ResMut<NextState<CombatState>>,
-    active_actor: Single<Entity, With<ActingActor>>,
+    active_actor: Single<(Entity, &Transform, &ActorTargetPosition), With<ActingActor>>,
 ) {
-    //Set a recource with the target position
-    commands.entity(active_actor).insert()
-
+    //Encapsulate the set state in a check that checks if transform equals target position
+    let (entity, transform, target) = active_actor.into_inner();
+    if transform.translation.xy() == target.0 {
+        commands.entity(entity).remove::<ActorTargetPosition>();
+        next_state.set(CombatState::ChooseAction);
+    }
 }
 
-fn move_to_center_check(){
-        //Encapsulate the set state in a check that checks if transform equals target position
-    next_state.set(CombatState::ChooseAction);
-}
+//sets the target position to the actors original position
 fn move_back(
     mut commands: Commands,
+    active_actor: Single<(Entity, &ActorOriginalPosition), With<ActingActor>>,
+) {
+    let (entity, origin) = active_actor.into_inner();
+    commands
+        .entity(entity)
+        .insert(ActorTargetPosition(origin.0));
+}
+
+//checks if actor is in original positions and then sets the state
+fn move_back_check(
+    mut commands: Commands,
     mut next_state: ResMut<NextState<CombatState>>,
-    active_actor: Single<(&Transform, &ActorOriginalPositon), With<ActingActor>>,
-    ){
- 
+    active_actor: Single<(Entity, &Transform, &ActorTargetPosition), With<ActingActor>>,
+) {
     //Encapsulate the set state in a check that checks if transform equals target position
-    next_state.set(Combat::EndOfTurn);
+    let (entity, transform, target) = active_actor.into_inner();
+    if transform.translation.xy() == target.0 {
+        commands.entity(entity).remove::<ActorTargetPosition>();
+        next_state.set(CombatState::EndOfTurn);
+    }
 }
 
 //Moves the ActingActor to target position and then removes target position
 fn move_to_target(
-    ){
+    mut active_actor: Single<(Entity, &mut Transform, &ActorTargetPosition), With<ActingActor>>,
+    time: Res<Time>,
+) {
+    let (entity, mut transform, target_pos) = active_actor.into_inner();
+
+    let direction = target_pos.0 - transform.translation.xy();
+    let distance = direction.length();
+    let movement = direction.normalize_or_zero() * (300.0 * time.delta_secs()).clamp(0.0, distance);
+    transform.translation += movement.extend(0.0);
 }
