@@ -179,11 +179,12 @@ fn display_trigger_or_skip(
     } else {
         use RoomType as R;
         let event_text = match r_type {
-            R::EmptyRoom | R::Entrance => unreachable!(),
+            R::EmptyRoom | R::Entrance | R::Pillar => unreachable!(),
             R::Combat(_) => format!("Monsters attack!"),
             R::Pit(_) => format!("You fell in a Pit O' Doom!"),
             // TODO: Display item name when we can
             R::Item(item) => format!("Found item: None"),
+            
         };
 
         commands.spawn((
@@ -261,6 +262,7 @@ fn trigger_event(
                 .damage_no_one_shot(damage);
         }
         R::Item(item) => {}
+        R::Pillar => {}
     }
 }
 

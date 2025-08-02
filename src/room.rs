@@ -2,8 +2,7 @@ use crate::prelude::*;
 use bevy::prelude::*;
 use bevy_ecs_tilemap::helpers::hex_grid::axial::AxialPos;
 use bevy_ecs_tilemap::prelude::*;
-use serde::{Deserialize, Serialize};
-use std::ops::Range;
+use serde::{Deserialize, Serialize}; use std::ops::Range;
 
 pub const ROOM_RADIUS: u32 = 3;
 pub const ROOM_SIZE: TilemapSize = TilemapSize {
@@ -60,7 +59,8 @@ pub enum RoomType {
     ///
     /// TODO: Replace the `()` with the `Item` type when
     /// that is created.
-    Item(()),
+    Item(Item),
+    Pillar,
 }
 
 /// Marker to indicate the current room the player
@@ -131,6 +131,7 @@ pub fn spawn_room(mut commands: Commands, tile_texture: Res<HexTileImage>) {
 }
 
 pub const ENEMY_POSITIONS: [IVec2; 3] = [IVec2::new(1, 1), IVec2::new(-1, 2), IVec2::new(-2, 1)];
+pub const ITEM_POSITION: IVec2 = IVec2::new(1, 1);
 
 pub fn spawn_room_entities(
     mut commands: Commands,
@@ -181,11 +182,20 @@ pub fn spawn_room_entities(
             }
         }
         R::Item(item) => {
-            // Spawn item chest
+            match item {
+                Item::HealingPotion => {
+                    
+                }
+
+                Item::VisionPotion => {
+                
+                }
+            }
         }
         R::Pit(damage) => {
             // Spawn spike pit
         }
+        R::Pillar => {}
     }
 }
 

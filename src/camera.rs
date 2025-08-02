@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-pub const CAMERA_DEFAULT_SCALE: f32 = 0.35;
+pub const CAMERA_DEFAULT_SCALE: f32 = 2.00;
 
 /// The plugin to enable the camera
 pub struct CameraPlugin;
@@ -8,13 +8,15 @@ pub struct CameraPlugin;
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, camera_setup);
-        //.add_systems(
-        //    PostUpdate,
-        //    (pause_game, (camera_movement, camera_zoom))
-        //        .chain()
-        //        .run_if(in_state(GameState::Game))
-        //        .after(bevy::render::camera::camera_system),
-        //);
+        /*
+        .add_systems(
+            PostUpdate,
+            (pause_game, (camera_movement, camera_zoom))
+                .chain()
+                .run_if(in_state(GameState::Game))
+                .after(bevy::render::camera::camera_system),
+        );
+        */
     }
 }
 

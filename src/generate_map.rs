@@ -14,7 +14,7 @@ use std::cmp::Ordering;
 pub struct GenerateMapPlugin;
 
 pub const WORLD_MAP_ORIGIN: Vec3 = Vec3::new(1000.0, 0.0, MAP_TILE_LAYER);
-pub const MAP_RADIUS: u32 = 3;
+pub const MAP_RADIUS: u32 = 5;
 pub const MAP_SIZE: TilemapSize = TilemapSize {
     x: MAP_RADIUS * 2 + 1,
     y: MAP_RADIUS * 2 + 1,
@@ -41,7 +41,7 @@ impl Plugin for GenerateMapPlugin {
                 setup,
                 spawn_map,
                 (
-                    create_origin,
+                    create_origin_and_pillars,
                     spawn_tile_labels::<With<MapTilemap>, With<MapTile>>,
                 ),
             )
@@ -51,16 +51,18 @@ impl Plugin for GenerateMapPlugin {
             OnExit(GENERATING_STATE),
             (
                 restore_fixed_update_time,
-                despawn_tile_labels::<With<MapTilemap>>,
+                //despawn_tile_labels::<With<MapTilemap>>,
                 remove_component::<Collapsed>,
             ),
-        )
+        );
+        /*
         .add_systems(
             FixedUpdate,
             (update_neighbors, collapse_tile)
                 .chain()
                 .run_if(in_state(GENERATING_STATE)),
         );
+        */
     }
 }
 
@@ -223,16 +225,97 @@ fn spawn_map(mut commands: Commands, tile_texture: Res<HexTileImage>) {
 }
 
 /// finds the origin of the Map
-fn create_origin(mut commands: Commands, tilestorage_q: Query<&mut TileStorage, With<MapTilemap>>) {
+fn create_origin_and_pillars(
+    mut commands: Commands, 
+    tilestorage_q: Query<&mut TileStorage, With<MapTilemap>>,
+    valid_tile_q: Query<&ValidTiles>,
+    mut tile_rand: ResMut<GenerationRand>,
+    mut tile_text_q: Query<&mut TileTextureIndex>,
+) {
+    let north_tile_pos: TilePos = TilePos {
+        x: tile_rand.0.random_range(2..=5),
+        y: tile_rand.0.random_range(8..=10),
+    }; 
+
+    println!("x: {} y: {}", north_tile_pos.x,north_tile_pos.y);
+
+    let east_tile_pos: TilePos = TilePos {
+        x: tile_rand.0.random_range(1..=3),
+        y: tile_rand.0.random_range(4..=6),
+    }; 
+
+
+    println!("x: {} y: {}", east_tile_pos.x,east_tile_pos.y);
+
+    let south_tile_pos: TilePos = TilePos {
+        x: tile_rand.0.random_range(5..=8),
+        y: tile_rand.0.random_range(0..=2),
+    }; 
+
+    println!("x: {} y: {}", south_tile_pos.x,south_tile_pos.y);
+
+    let west_tile_pos: TilePos = TilePos {
+        x: tile_rand.0.random_range(7..=9),
+        y: tile_rand.0.random_range(4..=6),
+    }; 
+
+    println!("x: {} y: {}", west_tile_pos.x,west_tile_pos.y);
+
     for tile_storage in &tilestorage_q {
         let tile = tile_storage
             .get(&MAP_ORIGIN)
             .expect("The origin should exist, as we just made it...");
+        let north = tile_storage
+            .get(&north_tile_pos)
+            .expect("The north should exist");
+        let east = tile_storage
+            .get(&east_tile_pos)
+            .expect("The east should exist");
+        let south = tile_storage
+            .get(&south_tile_pos)
+            .expect("The south should exist");
+        let west = tile_storage
+            .get(&west_tile_pos)
+            .expect("The west should exist");
 
-        commands.entity(tile).insert((
-            Collapsed::Red,
-            RoomInfo::from_type(RoomType::Entrance, 0xDeadBeef),
-        ));
+        let Some(collapsed) = valid_tile_q
+            .get(tile)
+            .unwrap()
+            .collapse(&mut tile_rand.0)
+        else {
+            commands.entity(tile).remove::<ValidTiles>();
+            return;
+        };
+
+        let mut tile_texture = tile_text_q.get_mut(tile).unwrap();
+        *tile_texture = collapsed.to_texture();
+
+        let mut tile_text_north = tile_text_q.get_mut(north).unwrap();
+        *tile_text_north = collapsed.to_texture(); 
+
+        let mut tile_text_east = tile_text_q.get_mut(east).unwrap();
+        *tile_text_east = collapsed.to_texture(); 
+
+        let mut tile_text_south = tile_text_q.get_mut(south).unwrap();
+        *tile_text_south = collapsed.to_texture(); 
+
+        let mut tile_text_west = tile_text_q.get_mut(west).unwrap();
+        *tile_text_west = collapsed.to_texture(); 
+
+        commands
+            .entity(tile)
+            .insert((
+                collapsed,
+                RoomInfo::from_type(RoomType::Entrance, 0xDeadBeef),
+            ))
+            .remove::<ValidTiles>();
+        commands
+            .entity(north)
+            .insert((
+                collapsed,
+                RoomInfo::from_type(RoomType::Entrance, 0xDeadBeef),
+            ))
+            .remove::<ValidTiles>();
     }
 }
 
