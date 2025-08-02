@@ -1,9 +1,12 @@
+use std::ops::DerefMut;
 use super::*;
 use crate::prelude::*;
-use crate::room::ROOM_SIZE;
 use bevy::prelude::*;
+use bevy_ecs_tilemap::prelude::*;
+use rand::Rng;
 
 pub struct CombatPlugin;
+const ACTOR_SPEED: f32 = 300.0;
 
 impl Plugin for CombatPlugin {
     fn build(&self, app: &mut App) {
@@ -17,12 +20,11 @@ impl Plugin for CombatPlugin {
             .add_systems(OnEnter(CombatState::MoveBack), move_back)
             .add_systems(
                 Update,
-                (
-                    move_to_target.run_if(in_state(CombatState::MoveToCenter)),
-                    move_to_center_check.run_if(in_state(CombatState::MoveToCenter)),
-                    move_to_target.run_if(in_state(CombatState::MoveBack)),
-                    move_back_check.run_if(in_state(CombatState::MoveBack)),
-                ),
+                (move_to_target, move_to_center_check).run_if(in_state(CombatState::MoveToCenter)),
+            )
+            .add_systems(
+                Update,
+                (move_to_target, move_back_check).run_if(in_state(CombatState::MoveBack)),
             )
             .add_systems(OnExit(GameState::Combat), cleanup_positions);
     }
@@ -137,7 +139,7 @@ impl TurnOrder {
 
 /// The action being taken by the acting actor
 #[derive(Resource, Deref, DerefMut)]
-pub struct ActingActorActon(pub Action);
+pub struct ActingActorAction(pub Action);
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum TeamAlive {
@@ -161,13 +163,24 @@ impl TeamAlive {
     }
 }
 
+//Stores the original positions of all actors
 #[derive(Component, Deref, DerefMut)]
 pub struct ActorOriginalPosition(pub Vec2);
 
+//Stores the position that actor is going to
 #[derive(Component, Deref, DerefMut)]
 pub struct ActorTargetPosition(pub Vec2);
 
+//An event for when an action is done
+#[derive(Event)]
+pub struct ActionEvent {
+    pub actor: Entity,
+    pub action: Action,
+    pub target: Entity,
+}
+
 /// The action the [`ActingActor`] is taking
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum Action {
     /// The actor does damage to the `target`
     Attack {
@@ -236,24 +249,33 @@ fn prep_turn_order(
     }
 }
 
+//////////FROM HERE ARE MOVEMENT SYSTEMS//////////////////
+
 //sets target postion to be center
-fn move_to_center(mut commands: Commands, active_actor: Single<Entity, With<ActingActor>>) {
+fn move_to_center(
+    mut commands: Commands,
+    active_actor: Single<Entity, With<ActingActor>>,
+    tilemap: Single<
+        (
+            &TilemapSize,
+            &TilemapGridSize,
+            &TilemapTileSize,
+            &TilemapType,
+            &TilemapAnchor,
+        ),
+        With<RoomTilemap>,
+    >,
+) {
     //set the center_world_pos
+    let (map_size, grid_size, tile_size, map_type, map_anchor) = *tilemap;
+
     let center_tile_pos = TilePos {
-        x: ROOM_SIZE.x / 2,
-        y: ROOM_SIZE.y / 2,
+        x: map_size.x / 2,
+        y: map_size.y / 2,
     };
 
-    let center_world_pos = center_tile_pos.center_in_world(
-        &ROOM_SIZE,
-        &TilemapGridSize {
-            x: TILE_SIZE.x,
-            y: TILE_SIZE.y,
-        },
-        &TILE_SIZE,
-        &TilemapType::Hexagon(HexCoordSystem::Row),
-        &TilemapAnchor::Center,
-    );
+    let center_world_pos =
+        center_tile_pos.center_in_world(&map_size, &grid_size, &tile_size, &map_type, &map_anchor);
     //Set a component with the target position
     commands
         .entity(*active_actor)
@@ -301,13 +323,64 @@ fn move_back_check(
 
 //Moves the ActingActor to target position and then removes target position
 fn move_to_target(
-    mut active_actor: Single<(Entity, &mut Transform, &ActorTargetPosition), With<ActingActor>>,
+    mut active_actor: Single<(&mut Transform, &ActorTargetPosition), With<ActingActor>>,
     time: Res<Time>,
 ) {
-    let (entity, mut transform, target_pos) = active_actor.into_inner();
+    let (ref mut transform, target_pos) = *active_actor;
 
     let direction = target_pos.0 - transform.translation.xy();
     let distance = direction.length();
-    let movement = direction.normalize_or_zero() * (300.0 * time.delta_secs()).clamp(0.0, distance);
+    let movement =
+        direction.normalize_or_zero() * (ACTOR_SPEED * time.delta_secs()).clamp(0.0, distance);
     transform.translation += movement.extend(0.0);
 }
+
+////////////////Choose action/////////////////////
+
+fn choose_player_action() {}
+
+fn choose_monster_action<Rand: Resource + DerefMut<Target: Rng>>(
+    mut commands: Commands,
+    mut next_state: ResMut<NextState<CombatState>>,
+    queue: ResMut<TurnOrder>,
+    active_actor: Single<Entity, With<ActingActor>>,
+    mut actor_action: EventWriter<ActionEvent>,
+    mut rng: ResMut<Rand>,
+    actor_q: Query<(&Health, &Team)>,
+) {
+    
+    let active_act = *active_actor;
+    let targets: Vec<Entity> = queue.queue()
+        .iter()
+        .filter_map(|&entity| {
+            if let Ok((health, target_team)) = actor_q.get(entity) {
+                if health.is_alive() && *target_team == Team::Player {
+                    Some(entity)
+                } else {
+                    None 
+                }
+            } else {
+                None 
+            }
+        })
+        .collect();
+
+    let chosen_target = targets[rng.random_range(0..targets.len())];
+    let monster_action = Action::Attack { target: chosen_target };
+    
+    commands.insert_resource(ActingActorAction(monster_action));
+    actor_action.write(ActionEvent {
+        actor: active_act,
+        action: monster_action.clone(),
+        target: chosen_target,
+    });
+
+    next_state.set(CombatState::PerformAction);
+}
+
+
+
+///////////////Perform Action///////////////////
+
+
+
