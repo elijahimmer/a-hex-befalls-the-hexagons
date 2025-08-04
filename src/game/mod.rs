@@ -184,7 +184,6 @@ fn display_trigger_or_skip(
             R::Pit(_) => format!("You fell in a Pit O' Doom!"),
             // TODO: Display item name when we can
             R::Item(item) => format!("Found item: None"),
-            
         };
 
         commands.spawn((

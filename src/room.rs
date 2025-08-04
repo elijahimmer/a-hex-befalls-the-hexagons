@@ -2,7 +2,8 @@ use crate::prelude::*;
 use bevy::prelude::*;
 use bevy_ecs_tilemap::helpers::hex_grid::axial::AxialPos;
 use bevy_ecs_tilemap::prelude::*;
-use serde::{Deserialize, Serialize}; use std::ops::Range;
+use serde::{Deserialize, Serialize};
+use std::ops::Range;
 
 pub const ROOM_RADIUS: u32 = 3;
 pub const ROOM_SIZE: TilemapSize = TilemapSize {
@@ -181,17 +182,11 @@ pub fn spawn_room_entities(
                 ));
             }
         }
-        R::Item(item) => {
-            match item {
-                Item::HealingPotion => {
-                    
-                }
+        R::Item(item) => match item {
+            Item::HealingPotion => {}
 
-                Item::VisionPotion => {
-                
-                }
-            }
-        }
+            Item::VisionPotion => {}
+        },
         R::Pit(damage) => {
             // Spawn spike pit
         }

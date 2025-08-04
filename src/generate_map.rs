@@ -42,8 +42,10 @@ impl Plugin for GenerateMapPlugin {
                 spawn_map,
                 (
                     create_origin_and_pillars,
+                    build_paths,
                     spawn_tile_labels::<With<MapTilemap>, With<MapTile>>,
-                ),
+                )
+                    .chain(),
             )
                 .chain(),
         )
@@ -58,7 +60,7 @@ impl Plugin for GenerateMapPlugin {
         /*
         .add_systems(
             FixedUpdate,
-            (update_neighbors, collapse_tile)
+            (build_paths)
                 .chain()
                 .run_if(in_state(GENERATING_STATE)),
         );
@@ -167,6 +169,25 @@ impl Collapsed {
     }
 }
 
+#[derive(Component, Clone, Copy)]
+pub enum Pillars {
+    North,
+    East,
+    South,
+    West,
+}
+
+impl Pillars {
+    pub fn to_pillar(&self) -> u32 {
+        match self {
+            Pillars::North => 0,
+            Pillars::East => 1,
+            Pillars::South => 2,
+            Pillars::West => 3,
+        }
+    }
+}
+
 /// Setup for Generation settings so generation is seedable
 fn setup(mut commands: Commands, settings: Res<GenerationSettings>) {
     let rng = RandomSource::seed_from_u64(settings.seed);
@@ -226,7 +247,7 @@ fn spawn_map(mut commands: Commands, tile_texture: Res<HexTileImage>) {
 
 /// finds the origin of the Map
 fn create_origin_and_pillars(
-    mut commands: Commands, 
+    mut commands: Commands,
     tilestorage_q: Query<&mut TileStorage, With<MapTilemap>>,
     valid_tile_q: Query<&ValidTiles>,
     mut tile_rand: ResMut<GenerationRand>,
@@ -235,32 +256,19 @@ fn create_origin_and_pillars(
     let north_tile_pos: TilePos = TilePos {
         x: tile_rand.0.random_range(2..=5),
         y: tile_rand.0.random_range(8..=10),
-    }; 
-
-    println!("x: {} y: {}", north_tile_pos.x,north_tile_pos.y);
-
+    };
     let east_tile_pos: TilePos = TilePos {
-        x: tile_rand.0.random_range(1..=3),
+        x: tile_rand.0.random_range(1..=2),
         y: tile_rand.0.random_range(4..=6),
-    }; 
-
-
-    println!("x: {} y: {}", east_tile_pos.x,east_tile_pos.y);
-
+    };
     let south_tile_pos: TilePos = TilePos {
         x: tile_rand.0.random_range(5..=8),
         y: tile_rand.0.random_range(0..=2),
-    }; 
-
-    println!("x: {} y: {}", south_tile_pos.x,south_tile_pos.y);
-
+    };
     let west_tile_pos: TilePos = TilePos {
-        x: tile_rand.0.random_range(7..=9),
+        x: tile_rand.0.random_range(8..=9),
         y: tile_rand.0.random_range(4..=6),
-    }; 
-
-    println!("x: {} y: {}", west_tile_pos.x,west_tile_pos.y);
-
+    };
     for tile_storage in &tilestorage_q {
         let tile = tile_storage
             .get(&MAP_ORIGIN)
@@ -278,11 +286,7 @@ fn create_origin_and_pillars(
             .get(&west_tile_pos)
             .expect("The west should exist");
 
-        let Some(collapsed) = valid_tile_q
-            .get(tile)
-            .unwrap()
-            .collapse(&mut tile_rand.0)
-        else {
+        let Some(collapsed) = valid_tile_q.get(tile).unwrap().collapse(&mut tile_rand.0) else {
             commands.entity(tile).remove::<ValidTiles>();
             return;
         };
@@ -291,16 +295,16 @@ fn create_origin_and_pillars(
         *tile_texture = collapsed.to_texture();
 
         let mut tile_text_north = tile_text_q.get_mut(north).unwrap();
-        *tile_text_north = collapsed.to_texture(); 
+        *tile_text_north = collapsed.to_texture();
 
         let mut tile_text_east = tile_text_q.get_mut(east).unwrap();
-        *tile_text_east = collapsed.to_texture(); 
+        *tile_text_east = collapsed.to_texture();
 
         let mut tile_text_south = tile_text_q.get_mut(south).unwrap();
-        *tile_text_south = collapsed.to_texture(); 
+        *tile_text_south = collapsed.to_texture();
 
         let mut tile_text_west = tile_text_q.get_mut(west).unwrap();
-        *tile_text_west = collapsed.to_texture(); 
+        *tile_text_west = collapsed.to_texture();
 
         commands
             .entity(tile)
@@ -312,10 +316,153 @@ fn create_origin_and_pillars(
         commands
             .entity(north)
             .insert((
+                Pillars::North,
                 collapsed,
-                RoomInfo::from_type(RoomType::Entrance, 0xDeadBeef),
+                RoomInfo::from_type(RoomType::Pillar, 0xDeadBeef),
             ))
             .remove::<ValidTiles>();
+        commands
+            .entity(east)
+            .insert((
+                Pillars::East,
+                collapsed,
+                RoomInfo::from_type(RoomType::Pillar, 0xDeadBeef),
+            ))
+            .remove::<ValidTiles>();
+        commands
+            .entity(south)
+            .insert((
+                Pillars::South,
+                collapsed,
+                RoomInfo::from_type(RoomType::Pillar, 0xDeadBeef),
+            ))
+            .remove::<ValidTiles>();
+        commands
+            .entity(west)
+            .insert((
+                Pillars::West,
+                collapsed,
+                RoomInfo::from_type(RoomType::Pillar, 0xDeadBeef),
+            ))
+            .remove::<ValidTiles>();
+    }
+}
+
+fn build_paths(
+    mut commands: Commands,
+    pillars_q: Query<&TilePos, With<Pillars>>,
+    tilestorage_q: Query<&mut TileStorage, With<MapTilemap>>,
+    valid_tile_q: Query<&ValidTiles>,
+    mut tile_text_q: Query<&mut TileTextureIndex>,
+) {
+    let neighbors =
+        HexNeighbors::<TilePos>::get_neighboring_positions_standard(&MAP_ORIGIN, &MAP_SIZE);
+    for tile_storage in tilestorage_q {
+        for neighbor_pos in neighbors.iter() {
+            println!("x: {}, y: {}", neighbor_pos.x, neighbor_pos.y);
+            
+            let curr_neighbor = tile_storage
+                .get(&neighbor_pos)
+                .expect("The origin should exist, as we just made it...");
+
+            let mut neighbor_texture = tile_text_q.get_mut(curr_neighbor).unwrap();
+            *neighbor_texture = Collapsed::Gray.to_texture();
+
+            commands
+                .entity(curr_neighbor)
+                .insert((
+                    Collapsed::Gray,
+                    RoomInfo::from_type(RoomType::EmptyRoom, 0xDeadBeef),
+                ))
+                .remove::<ValidTiles>();
+        }
+        let specific = tile_storage
+            .get(&(TilePos { x: 4, y: 4 }))
+            .expect("Location should exist");
+
+        let specific2 = tile_storage
+            .get(&(TilePos { x: 6, y: 6 }))
+            .expect("Location should exist");
+
+        let mut specific_texture = tile_text_q.get_mut(specific).unwrap();
+        *specific_texture = Collapsed::Gray.to_texture();
+
+        let mut specific_texture2 = tile_text_q.get_mut(specific2).unwrap();
+        *specific_texture2 = Collapsed::Gray.to_texture();
+
+        commands.entity(specific)
+            .insert((
+                Collapsed::Gray,
+                RoomInfo::from_type(RoomType::EmptyRoom, 0xDeadBeef),
+            ))
+            .remove::<ValidTiles>();
+
+        commands.entity(specific2)
+            .insert((
+                Collapsed::Gray,
+                RoomInfo::from_type(RoomType::EmptyRoom, 0xDeadBeef),
+            ))
+            .remove::<ValidTiles>();
+
+        let mut count = 1;
+        for pillar in pillars_q {
+            let mut current_pos: TilePos = TilePos {
+                x: MAP_RADIUS,
+                y: MAP_RADIUS,
+            };
+            println!("pillar {}:\n\tx: {}\n\ty: {}", count, pillar.x, pillar.y);
+            while current_pos.x != pillar.x || current_pos.y != pillar.y {
+                if current_pos.x == 5 && current_pos.y == 5 {
+                    if current_pos.x > pillar.x {
+                        current_pos.x -= 1;
+                    } else if current_pos.x < pillar.x {
+                        current_pos.x += 1;
+                    } else if current_pos.y > pillar.y {
+                        current_pos.y -= 1;
+                    } else if current_pos.y < pillar.y {
+                        current_pos.y += 1;
+                    }
+                } else {
+                    println!("x: {}, y: {}", current_pos.x, current_pos.y);
+                    if current_pos.x > pillar.x {
+                        current_pos.x -= 1;
+                    } else if current_pos.x < pillar.x {
+                        current_pos.x += 1;
+                    }
+                    if current_pos.y > pillar.y {
+                        current_pos.y -= 1;
+                    } else if current_pos.y < pillar.y {
+                        current_pos.y += 1;
+                    }
+
+                    if current_pos.x == pillar.x && current_pos.y == pillar.y {
+                        break;
+                    }
+
+                    let current_neighbors =
+                        HexNeighbors::<TilePos>::get_neighboring_positions_standard(
+                            &current_pos,
+                            &MAP_SIZE,
+                        );
+
+                    let tile = tile_storage
+                        .get(&current_pos)
+                        .expect("The origin should exist, as we just made it...");
+
+                    let mut tile_texture = tile_text_q.get_mut(tile).unwrap();
+                    *tile_texture = Collapsed::Gray.to_texture();
+
+                    commands
+                        .entity(tile)
+                        .insert((
+                            Collapsed::Gray,
+                            RoomInfo::from_type(RoomType::EmptyRoom, 0xDeadBeef),
+                        ))
+                        .remove::<ValidTiles>();
+                }
+                count += 1;
+            }
+        }
     }
 }
 
