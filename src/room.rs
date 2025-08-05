@@ -35,11 +35,6 @@ impl RoomInfo {
 pub enum RoomType {
     /// An empty room with nothing interesting
     EmptyRoom,
-    /// The entrance room, with nothing interesting
-    ///
-    /// Also acts as the exit once you have collected all
-    /// nessesary parts
-    Entrance,
     /// A room that holds enemies to fight
     /// Stores the enemies that are inside the room
     /// When cleared, all of the given actors should be spawned dead.
@@ -61,6 +56,11 @@ pub enum RoomType {
     /// TODO: Replace the `()` with the `Item` type when
     /// that is created.
     Item(Item),
+    /// The entrance room, with nothing interesting
+    ///
+    /// Also acts as the exit once you have collected all
+    /// nessesary parts
+    Entrance,
     Pillar,
 }
 
@@ -165,8 +165,7 @@ pub fn spawn_room_entities(
         R::EmptyRoom => {}
         R::Entrance => {}
         R::Combat(enemies) => {
-            for (name, pos_offset) in enemies.iter().zip(ENEMY_POSITIONS.into_iter()) {
-                let actor_pos: TilePos =
+            for (name, pos_offset) in enemies.iter().zip(ENEMY_POSITIONS.into_iter()) { let actor_pos: TilePos =
                     (center_tile_pos.as_ivec2() + pos_offset).as_uvec2().into();
 
                 let world_pos =
