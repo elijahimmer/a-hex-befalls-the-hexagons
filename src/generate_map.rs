@@ -231,7 +231,14 @@ fn create_origin(mut commands: Commands, tilestorage_q: Query<&mut TileStorage, 
 
         commands.entity(tile).insert((
             Collapsed::Red,
-            RoomInfo::from_type(RoomType::Entrance, 0xDeadBeef),
+            RoomInfo::from_type(
+                RoomType::Combat(Box::new([
+                    ActorName::Ogre,
+                    ActorName::Skeleton,
+                    ActorName::Goblin,
+                ])),
+                0xDeadBeef,
+            ),
         ));
     }
 }
