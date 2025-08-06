@@ -76,7 +76,7 @@ pub struct GenerationSettings {
 }
 
 /// Seedable Rand Resource
-#[derive(Resource)]
+#[derive(Resource, Deref, DerefMut)]
 struct GenerationRand(pub RandomSource);
 
 #[derive(Component, Reflect)]
@@ -89,63 +89,6 @@ pub struct MapTilemap;
 
 #[derive(Component)]
 pub struct Created;
-
-/// List of tiles a tile in the tilemap can be next to.
-#[derive(Component, Clone)]
-pub struct ValidTiles {
-    gray: bool,
-    red: bool,
-    yellow: bool,
-    green: bool,
-    lblue: bool,
-    dblue: bool,
-}
-
-impl ValidTiles {
-    /// Method to get entropy of a tile
-    pub fn entropy(&self) -> u8 {
-        self.gray as u8
-            + self.red as u8
-            + self.yellow as u8
-            + self.green as u8
-            + self.lblue as u8
-            + self.dblue as u8
-    }
-
-    /// Method to collapse a tile to a single state
-    pub fn collapse(&self, rng: &mut RandomSource) -> Option<Collapsed> {
-        let possibilities = [
-            (self.gray, Collapsed::Gray),
-            (self.red, Collapsed::Red),
-            (self.yellow, Collapsed::Yellow),
-            (self.green, Collapsed::Green),
-            (self.lblue, Collapsed::LBlue),
-            (self.dblue, Collapsed::DBlue),
-        ]
-        .into_iter()
-        .filter_map(|(enable, c)| enable.then_some(c))
-        .collect::<Vec<_>>();
-
-        if possibilities.len() == 0 {
-            return None;
-        }
-
-        Some(possibilities[rng.random_range(0..possibilities.len())])
-    }
-}
-
-impl Default for ValidTiles {
-    fn default() -> Self {
-        Self {
-            gray: true,
-            red: true,
-            yellow: true,
-            green: true,
-            lblue: true,
-            dblue: true,
-        }
-    }
-}
 
 /// Enum to represent all possible collapsed components
 #[derive(Component, Clone, Copy)]
@@ -178,17 +121,6 @@ pub enum Pillars {
     East,
     South,
     West,
-}
-
-impl Pillars {
-    pub fn to_pillar(&self) -> u32 {
-        match self {
-            Pillars::North => 0,
-            Pillars::East => 1,
-            Pillars::South => 2,
-            Pillars::West => 3,
-        }
-    }
 }
 
 /// Setup for Generation settings so generation is seedable
@@ -247,6 +179,8 @@ fn spawn_map(mut commands: Commands, tile_texture: Res<HexTileImage>) {
         },
     ));
 }
+
+// TODO: change values to enums
 
 /// finds the origin of the Map
 fn create_origin_and_pillars(
@@ -308,7 +242,6 @@ fn create_origin_and_pillars(
         commands
             .entity(tile)
             .insert((
-                Created,
                 collapsed,
                 RoomInfo::from_type(RoomType::Entrance, 0xDeadBeef),
             ));
@@ -316,7 +249,6 @@ fn create_origin_and_pillars(
             .entity(north)
             .insert((
                 Pillars::North,
-                Created,
                 collapsed,
                 RoomInfo::from_type(RoomType::Pillar, 0xDeadBeef),
             )); commands
@@ -330,7 +262,6 @@ fn create_origin_and_pillars(
             .entity(south)
             .insert((
                 Pillars::South,
-                Created,
                 collapsed,
                 RoomInfo::from_type(RoomType::Pillar, 0xDeadBeef),
             ));
@@ -338,7 +269,6 @@ fn create_origin_and_pillars(
             .entity(west)
             .insert((
                 Pillars::West,
-                Created,
                 collapsed,
                 RoomInfo::from_type(RoomType::Pillar, 0xDeadBeef),
             ));
@@ -350,6 +280,7 @@ fn build_paths(
     pillars_q: Query<&TilePos, With<Pillars>>,
     tilestorage_q: Query<&mut TileStorage, With<MapTilemap>>,
     mut tile_text_q: Query<&mut TileTextureIndex>,
+     mut rng: ResMut<GenerationRand>,
 ) {
     let mut seen: Vec<TilePos> = Vec::new();
     for tile_storage in tilestorage_q {
@@ -361,7 +292,6 @@ fn build_paths(
                     HexNeighbors::<TilePos>::get_neighboring_positions_standard(&current_pos, &MAP_SIZE);
                 
                 let mut least: u32 = 20;
-
                 let mut store_x: u32 = current_pos.x;
                 let mut store_y: u32 = current_pos.y;
 
@@ -392,6 +322,7 @@ fn build_paths(
                         break;
                     }
                 }
+
                 if check {
                     seen.push(current_pos);
 
@@ -402,117 +333,14 @@ fn build_paths(
 
                     println!("Inserted TilePos - x: {}, y: {}", current_pos.x, current_pos.y);
 
-                    let selected_room = ;
-
                     commands
                         .entity(selected_tile)
-                        .insert(Created)
                         .insert((
                             Collapsed::Gray,
-                            RoomInfo::from_type(RoomType::EmptyRoom, 0xDeadBeef),
+                            RoomInfo::from_type(RoomType::from_rng(&mut *rng), 0xDeadBeef),
                         ));
                 }
             }
         }
     }
-}
-
-/// updates the entropy of neighbor tiles that are changed
-fn update_neighbors(
-    changed_tile_q: Query<(&Collapsed, &TilePos), Changed<Collapsed>>,
-    tilestorage_q: Single<&TileStorage, With<MapTilemap>>,
-    mut valid_tile_q: Query<&mut ValidTiles>,
-) {
-    let tile_storage = *tilestorage_q;
-    for (collapsed, tile_pos) in changed_tile_q {
-        let neighbors =
-            HexNeighbors::<TilePos>::get_neighboring_positions_standard(&tile_pos, &MAP_SIZE);
-        for loc in neighbors.iter() {
-            if let Some(entity) = tile_storage.checked_get(&loc) {
-                let Ok(mut valid_tile) = valid_tile_q.get_mut(entity) else {
-                    continue;
-                };
-
-                match collapsed {
-                    Collapsed::Gray => {
-                        valid_tile.gray = false;
-                    }
-
-                    Collapsed::Red => {
-                        valid_tile.red = false;
-                    }
-
-                    Collapsed::Yellow => {
-                        valid_tile.yellow = false;
-                    }
-                    Collapsed::Green => {
-                        valid_tile.green = false;
-                    }
-
-                    Collapsed::LBlue => {
-                        valid_tile.lblue = false;
-                    }
-
-                    Collapsed::DBlue => {
-                        valid_tile.dblue = false;
-                    }
-                }
-            }
-        }
-    }
-}
-
-/// collapses a tile
-fn collapse_tile(
-    mut commands: Commands,
-    tile_storage: Single<&TileStorage, With<MapTilemap>>,
-    valid_tile_q: Query<&ValidTiles>,
-    mut tile_text_q: Query<&mut TileTextureIndex>,
-    mut tile_rand: ResMut<GenerationRand>,
-    mut generation_progress: ResMut<GenerationProgress>,
-) {
-    let mut entity_vec: Vec<Entity> = Vec::new();
-    let mut lowest = u8::MAX;
-
-    for tile in tile_storage.iter().filter_map(|t| *t) {
-        let Ok(valid_tile) = valid_tile_q.get(tile) else {
-            continue;
-        };
-
-        let entropy = valid_tile.entropy();
-
-        match lowest.cmp(&entropy) {
-            Ordering::Less => {}
-            Ordering::Equal => {
-                entity_vec.push(tile);
-            }
-            Ordering::Greater => {
-                entity_vec.clear();
-                entity_vec.push(tile);
-                lowest = entropy;
-            }
-        }
-    }
-
-    if entity_vec.len() == 0 {
-        generation_progress.world_done = true;
-        return;
-    }
-
-    let selected_entity = entity_vec[tile_rand.0.random_range(0..entity_vec.len())];
-    let mut tile_texture = tile_text_q.get_mut(selected_entity).unwrap();
-    let Some(collapsed) = valid_tile_q
-        .get(selected_entity)
-        .unwrap()
-        .collapse(&mut tile_rand.0)
-    else {
-        commands.entity(selected_entity).remove::<ValidTiles>();
-        return;
-    };
-
-    *tile_texture = collapsed.to_texture();
-    commands
-        .entity(selected_entity)
-        .insert(collapsed)
-        .remove::<ValidTiles>();
 }

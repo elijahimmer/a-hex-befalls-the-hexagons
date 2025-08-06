@@ -11,6 +11,7 @@ use std::fmt::Debug;
 #[cfg(feature = "sqlite")]
 use std::num::NonZero;
 use strum::{Display, EnumIter};
+use rand::Rng;
 
 pub const ACTOR_LAYER: f32 = 1.0;
 
@@ -196,6 +197,39 @@ pub enum ActorName {
     Skeleton,
     #[strum(to_string = "Unknown Jim")]
     UnknownJim,
+}
+
+impl ActorName {
+    pub fn get_enemies(rng: &mut impl Rng) -> Box<[ActorName]> {
+        let mon = rng.random_range(0..10);
+        let mut enemies: Vec<ActorName> = Vec::new();
+
+        if mon < 1 {
+            // I know that's not how you do it but I'll fix it laterElijah. Ok I'm sorry
+            for i in 0..3 {
+                enemies.push(Self::get_rand_enemy(rng)); 
+            }
+        } else if mon < 3 {
+            for i in 0..2 {
+                enemies.push(Self::get_rand_enemy(rng)); 
+            }
+        } else {
+            enemies.push(Self::get_rand_enemy(rng)); 
+        }
+
+        enemies.into()
+    }
+
+    pub fn get_rand_enemy(rng: &mut impl Rng) -> ActorName {
+        let idx = rng.random_range(0..3);
+    
+        match idx {
+            0 => ActorName::Goblin,
+            1 => ActorName::Ogre,
+            2 => ActorName::Skeleton,
+            _ => unreachable!(), 
+        }
+    }
 }
 
 #[derive(Component, Debug, Hash, PartialEq, Eq, Clone, Copy, Serialize, Deserialize, Display)]

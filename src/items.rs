@@ -1,6 +1,7 @@
 use crate::prelude::*;
 use serde::{Deserialize, Serialize};
 use strum::Display;
+use rand::Rng;
 
 #[derive(Resource, Deref, DerefMut, Default)]
 pub struct Items(pub Vec<Item>);
@@ -11,6 +12,18 @@ pub enum Item {
     HealingPotion,
     #[strum(to_string = "Vision Potion")]
     VisionPotion,
+}
+
+impl Item {
+    pub fn get_rand_item(rng: &mut impl Rng) -> Item {
+        let item = rng.random_range(0..2);
+        
+        match item {
+            0 => Item::HealingPotion,
+            1 => Item::VisionPotion,
+            _ => unreachable!(),
+        }
+    }
 }
 
 // #[cfg(feature = "sqlite")]

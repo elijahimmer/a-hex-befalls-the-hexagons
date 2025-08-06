@@ -3,6 +3,7 @@ use bevy::prelude::*;
 use bevy_ecs_tilemap::helpers::hex_grid::axial::AxialPos;
 use bevy_ecs_tilemap::prelude::*;
 use serde::{Deserialize, Serialize};
+use rand::{Rng, SeedableRng};
 use std::ops::Range;
 
 pub const ROOM_RADIUS: u32 = 3;
@@ -62,6 +63,20 @@ pub enum RoomType {
     /// nessesary parts
     Entrance,
     Pillar,
+}
+
+impl RoomType {
+    pub fn from_rng(rng: &mut impl Rng) -> RoomType {
+        let val = rng.random_range(0..4);
+
+        match val {
+            0 => RoomType::EmptyRoom, 
+            1 => RoomType::Combat(ActorName::get_enemies(rng)), 
+            2 => RoomType::Pit(0..21), 
+            3 => RoomType::Item(Item::get_rand_item(rng)), 
+            _ => unreachable!(),
+        }
+    }
 }
 
 /// Marker to indicate the current room the player
