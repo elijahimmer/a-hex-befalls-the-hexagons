@@ -3,9 +3,10 @@ use crate::prelude::*;
 use bevy::{ecs::error::info, prelude::*};
 use bevy_ecs_tilemap::prelude::*;
 use rand::Rng;
+use std::fmt;
 
 pub struct CombatPlugin;
-const ACTOR_SPEED: f32 = 300.0;
+const ACTOR_SPEED: f32 = 100.0;
 
 impl Plugin for CombatPlugin {
     fn build(&self, app: &mut App) {
@@ -146,7 +147,7 @@ pub struct ActorTargetPosition(pub Vec2);
 pub struct ActingActorAction(pub Action);
 
 /// The combat queue of actors
-#[derive(Resource)]
+#[derive(Resource, Debug)]
 pub struct TurnOrder {
     queue: VecDeque<Entity>,
 }
@@ -201,6 +202,15 @@ impl TurnOrder {
     }
 }
 
+
+impl fmt::Display for TurnOrder {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for actor in &self.queue {
+            write!(f, "{}, ", actor)?;
+        }
+        Ok(())
+    }
+}
 ////////////////EVENTS///////////////////
 
 //An event for when an action is done
@@ -260,7 +270,7 @@ fn prep_turn_order(
             commands.entity(queue.active()).remove::<ActingActor>();
         }
     }
-
+    info!("{:?}", queue);
     debug!("this is {:?} turn", queue.active());
 }
 
@@ -355,6 +365,7 @@ fn move_to_target(
 fn choose_action(
     mut commands: Commands,
     mut next_state: ResMut<NextState<CombatState>>,
+    mut rng: ResMut<EventRng>,
     queue: ResMut<TurnOrder>,
     active_actor: Single<(Entity, &Team), With<ActingActor>>,
     actor_q: Query<(&Health, &Team)>,
@@ -376,14 +387,17 @@ fn choose_action(
         })
         .collect();
 
-    let chosen_target = targets[rand::rng().random_range(0..targets.len())];
+    let chosen_target = targets[rng.random_range(0..targets.len())];
     let monster_action = Action::Attack {
         target: chosen_target,
     };
     info!("CHOSEN TARGET {:?}", chosen_target);
 
+    // Get the Attack and do .conduct on thgat
+
     commands.insert_resource(ActingActorAction(monster_action));
-    next_state.set(CombatState::PerformAction);
+    //next_state.set(CombatState::PerformAction);
+    next_state.set(CombatState::MoveBack);
 }
 
 ///////////////Perform Action///////////////////
