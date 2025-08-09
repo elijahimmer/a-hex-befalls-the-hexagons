@@ -15,6 +15,9 @@ pub struct GenerateMapPlugin;
 
 pub const WORLD_MAP_ORIGIN: Vec3 = Vec3::new(1000.0, 0.0, MAP_TILE_LAYER);
 pub const MAP_RADIUS: u32 = 5;
+pub const PILLAR_OFFSET_VERT: u32 = 3;
+pub const PILLAR_OFFSET_HORZ_X: u32 = 4;
+pub const PILLAR_OFFSET_HORZ_Y: u32 = 1;
 pub const MAP_SIZE: TilemapSize = TilemapSize {
     x: MAP_RADIUS * 2 + 1,
     y: MAP_RADIUS * 2 + 1,
@@ -53,18 +56,10 @@ impl Plugin for GenerateMapPlugin {
             OnExit(GENERATING_STATE),
             (
                 restore_fixed_update_time,
-                //despawn_tile_labels::<With<MapTilemap>>,
+                despawn_tile_labels::<With<MapTilemap>>,
                 remove_component::<Collapsed>,
             ),
         );
-        /*
-        .add_systems(
-            FixedUpdate,
-            (build_paths)
-                .chain()
-                .run_if(in_state(GENERATING_STATE)),
-        );
-        */
     }
 }
 
@@ -190,23 +185,23 @@ fn create_origin_and_pillars(
     mut tile_text_q: Query<&mut TileTextureIndex>,
 ) {
     let north_tile_pos: TilePos = TilePos {
-        x: tile_rand.0.random_range(2..=5),
-        y: tile_rand.0.random_range(8..=10),
+        x: tile_rand.0.random_range(MAP_RADIUS-PILLAR_OFFSET_VERT..=MAP_RADIUS),
+        y: tile_rand.0.random_range(MAP_RADIUS+PILLAR_OFFSET_VERT..=MAP_RADIUS+MAP_RADIUS),
     };
     let east_tile_pos: TilePos = TilePos {
-        x: tile_rand.0.random_range(1..=2),
-        y: tile_rand.0.random_range(4..=6),
+        x: tile_rand.0.random_range(MAP_RADIUS-PILLAR_OFFSET_HORZ_X..=MAP_RADIUS-PILLAR_OFFSET_VERT),
+        y: tile_rand.0.random_range(MAP_RADIUS-PILLAR_OFFSET_HORZ_Y..=MAP_RADIUS+PILLAR_OFFSET_HORZ_Y),
     };
     let south_tile_pos: TilePos = TilePos {
-        x: tile_rand.0.random_range(5..=8),
-        y: tile_rand.0.random_range(0..=2),
+        x: tile_rand.0.random_range(MAP_RADIUS..=MAP_RADIUS+PILLAR_OFFSET_VERT),
+        y: tile_rand.0.random_range(MAP_RADIUS-MAP_RADIUS..=MAP_RADIUS-PILLAR_OFFSET_VERT),
     };
     let west_tile_pos: TilePos = TilePos {
-        x: tile_rand.0.random_range(8..=9),
-        y: tile_rand.0.random_range(4..=6),
+        x: tile_rand.0.random_range(MAP_RADIUS+PILLAR_OFFSET_VERT..=MAP_RADIUS+PILLAR_OFFSET_HORZ_X),
+        y: tile_rand.0.random_range(MAP_RADIUS-PILLAR_OFFSET_HORZ_Y..=MAP_RADIUS+PILLAR_OFFSET_HORZ_Y),
     };
     for tile_storage in &tilestorage_q {
-        let tile = tile_storage
+        let start = tile_storage
             .get(&MAP_ORIGIN)
             .expect("The origin should exist, as we just made it...");
         let north = tile_storage
@@ -224,7 +219,7 @@ fn create_origin_and_pillars(
 
         let collapsed = Collapsed::Red;
 
-        let mut tile_texture = tile_text_q.get_mut(tile).unwrap();
+        let mut tile_texture = tile_text_q.get_mut(start).unwrap();
         *tile_texture = collapsed.to_texture();
 
         let mut tile_text_north = tile_text_q.get_mut(north).unwrap();
@@ -240,7 +235,7 @@ fn create_origin_and_pillars(
         *tile_text_west = collapsed.to_texture();
 
         commands
-            .entity(tile)
+            .entity(start)
             .insert((
                 collapsed,
                 RoomInfo::from_type(RoomType::Entrance, 0xDeadBeef),
@@ -315,8 +310,8 @@ fn build_paths(
 
                 let mut check = true;
 
-                for i in 0..seen.len() {
-                    let tile_pos: &TilePos = seen.get(i).unwrap();
+                for seenIdx in 0..seen.len() {
+                    let tile_pos: &TilePos = seen.get(seenIdx).unwrap();
                     if tile_pos.x == current_pos.x && tile_pos.y == current_pos.y {
                         check = false;
                         break;
@@ -330,8 +325,6 @@ fn build_paths(
 
                     let mut selected_texture = tile_text_q.get_mut(selected_tile).unwrap();
                     *selected_texture = Collapsed::Gray.to_texture();
-
-                    println!("Inserted TilePos - x: {}, y: {}", current_pos.x, current_pos.y);
 
                     commands
                         .entity(selected_tile)
