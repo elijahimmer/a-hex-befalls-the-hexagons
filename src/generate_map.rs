@@ -82,8 +82,62 @@ pub struct MapTile;
 #[reflect(Component)]
 pub struct MapTilemap;
 
-#[derive(Component)]
-pub struct Created;
+/// List of tiles a tile in the tilemap can be next to.
+#[derive(Component, Clone)]
+pub struct ValidTiles {
+    gray: bool,
+    red: bool,
+    yellow: bool,
+    green: bool,
+    lblue: bool,
+    dblue: bool,
+}
+
+impl ValidTiles {
+    /// Method to get entropy of a tile
+    pub fn entropy(&self) -> u8 {
+        self.gray as u8
+            + self.red as u8
+            + self.yellow as u8
+            + self.green as u8
+            + self.lblue as u8
+            + self.dblue as u8
+    }
+
+    /// Method to collapse a tile to a single state
+    pub fn collapse(&self, rng: &mut RandomSource) -> Option<Collapsed> {
+        let possibilities = [
+            (self.gray, Collapsed::Gray),
+            (self.red, Collapsed::Red),
+            (self.yellow, Collapsed::Yellow),
+            (self.green, Collapsed::Green),
+            (self.lblue, Collapsed::LBlue),
+            (self.dblue, Collapsed::DBlue),
+        ]
+        .into_iter()
+        .filter_map(|(enable, c)| enable.then_some(c))
+        .collect::<Vec<_>>();
+
+        if possibilities.len() == 0 {
+            return None;
+        }
+
+        Some(possibilities[rng.random_range(0..possibilities.len())])
+    }
+}
+
+impl Default for ValidTiles {
+    fn default() -> Self {
+        Self {
+            gray: true,
+            red: true,
+            yellow: true,
+            green: true,
+            lblue: true,
+            dblue: true,
+        }
+    }
+}
 
 /// Enum to represent all possible collapsed components
 #[derive(Component, Clone, Copy)]
@@ -174,8 +228,6 @@ fn spawn_map(mut commands: Commands, tile_texture: Res<HexTileImage>) {
         },
     ));
 }
-
-// TODO: change values to enums
 
 /// finds the origin of the Map
 fn create_origin_and_pillars(
