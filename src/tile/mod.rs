@@ -11,8 +11,9 @@ pub const TILE_SIZE_VEC: UVec2 = UVec2 { x: 48, y: 52 };
 pub const TILE_ASSET_LOAD_PATH: &'static str = "embedded://assets/sprites/basic_sheet.png";
 pub const TILE_ATLAS_SIZE: UVec2 = UVec2::new(15, 1);
 pub const FLOOR_TILE_VARIENTS: Range<u32> = 0..6;
-pub const SKY_TILE_VARIENTS: Range<u32> = 6..14;
-pub const OUTLINE_TILE: u32 = 14;
+pub const DOOR_TILE_VARIENT: u32 = 6;
+pub const SKY_TILE_VARIENTS: Range<u32> = 7..15;
+pub const OUTLINE_TILE: u32 = 15;
 pub const HEX_COORD_SYSTEM: HexCoordSystem = HexCoordSystem::Row;
 
 pub struct TilePlugin;
@@ -89,7 +90,7 @@ pub fn spawn_tile_labels<MapFilter, TileFilter>(
                 let tile_center = tile_pos
                     .center_in_world(map_size, grid_size, tile_size, map_type, anchor)
                     .extend(1.0);
-                let transform = *map_transform * Transform::from_translation(tile_center);
+                let transform = Transform::from_translation(tile_center);
 
                 builder.spawn((
                     Text2d::new(format!("{},{}", tile_pos.x, tile_pos.y)),

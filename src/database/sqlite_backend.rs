@@ -447,65 +447,65 @@ fn migrate_database(db: &Database, from: Version) -> Result<(), MigrationError> 
 mod test {
     use super::*;
 
-    const VERSION_11_SCHEMA: &str = "
-    BEGIN TRANSACTION;
+    // const VERSION_11_SCHEMA: &str = "
+    // BEGIN TRANSACTION;
 
-    CREATE TABLE Version(
-      version INTEGER PRIMARY KEY
-    ) STRICT;
+    // CREATE TABLE Version(
+    //   version INTEGER PRIMARY KEY
+    // ) STRICT;
 
-    INSERT INTO Version VALUES({DB_VERSION});
+    // INSERT INTO Version VALUES({DB_VERSION});
 
-    CREATE TABLE Keybinds(
-        key   TEXT PRIMARY KEY,
-        value TEXT NOT NULL
-    ) STRICT;
+    // CREATE TABLE Keybinds(
+    //     key   TEXT PRIMARY KEY,
+    //     value TEXT NOT NULL
+    // ) STRICT;
 
-    CREATE TABLE Style(
-        key   TEXT PRIMARY KEY,
-        value ANY NOT NULL
-    ) STRICT;
+    // CREATE TABLE Style(
+    //     key   TEXT PRIMARY KEY,
+    //     value ANY NOT NULL
+    // ) STRICT;
 
-    CREATE TABLE SaveGame(
-        game_id        INTEGER PRIMARY KEY AUTOINCREMENT,
-        created        TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        last_saved     TEXT NOT NULL,
-        world_seed     INTEGER NOT NULL,
-        current_room_x INTEGER DEFAULT NULL,
-        current_room_y INTEGER DEFAULT NULL,
-        FOREIGN KEY(game_id, current_room_x, current_room_y)
-            REFERENCES RoomInfo(game_id, position_x, position_y)
-            DEFERRABLE INITIALLY DEFERRED
-    ) STRICT;
+    // CREATE TABLE SaveGame(
+    //     game_id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    //     created        TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    //     last_saved     TEXT NOT NULL,
+    //     world_seed     INTEGER NOT NULL,
+    //     current_room_x INTEGER DEFAULT NULL,
+    //     current_room_y INTEGER DEFAULT NULL,
+    //     FOREIGN KEY(game_id, current_room_x, current_room_y)
+    //         REFERENCES RoomInfo(game_id, position_x, position_y)
+    //         DEFERRABLE INITIALLY DEFERRED
+    // ) STRICT;
 
-    CREATE TABLE PlayerActor(
-        game_id           INTEGER NOT NULL REFERENCES SaveGame(game_id) DEFERRABLE INITIALLY DEFERRED,
-        name              TEXT    NOT NULL,
-        health_max        INTEGER NOT NULL,
-        health_curr       INTEGER,
-        attack_damage_min INTEGER NOT NULL,
-        attack_damage_max INTEGER NOT NULL,
-        attack_speed      INTEGER NOT NULL,
-        hit_chance        REAL NOT NULL
-    ) STRICT;
+    // CREATE TABLE PlayerActor(
+    //     game_id           INTEGER NOT NULL REFERENCES SaveGame(game_id) DEFERRABLE INITIALLY DEFERRED,
+    //     name              TEXT    NOT NULL,
+    //     health_max        INTEGER NOT NULL,
+    //     health_curr       INTEGER,
+    //     attack_damage_min INTEGER NOT NULL,
+    //     attack_damage_max INTEGER NOT NULL,
+    //     attack_speed      INTEGER NOT NULL,
+    //     hit_chance        REAL NOT NULL
+    // ) STRICT;
 
-    CREATE TABLE RoomInfo(
-        game_id    INTEGER NOT NULL REFERENCES SaveGame(game_id) DEFERRABLE INITIALLY DEFERRED,
-        position_x INTEGER NOT NULL,
-        position_y INTEGER NOT NULL,
-        cleared    INTEGER NOT NULL,
-        r_type     TEXT    NOT NULL,
-        rng_seed   INTEGER NOT NULL,
-        PRIMARY KEY(game_id, position_x, position_y)
-    ) STRICT;
+    // CREATE TABLE RoomInfo(
+    //     game_id    INTEGER NOT NULL REFERENCES SaveGame(game_id) DEFERRABLE INITIALLY DEFERRED,
+    //     position_x INTEGER NOT NULL,
+    //     position_y INTEGER NOT NULL,
+    //     cleared    INTEGER NOT NULL,
+    //     r_type     TEXT    NOT NULL,
+    //     rng_seed   INTEGER NOT NULL,
+    //     PRIMARY KEY(game_id, position_x, position_y)
+    // ) STRICT;
 
-    CREATE TABLE Item(
-        game_id INTEGER NOT NULL REFERENCES SaveGame(game_id) DEFERRABLE INITIALLY DEFERRED,
-        type    Text    NOT NULL
-    ) STRICT;
+    // CREATE TABLE Item(
+    //     game_id INTEGER NOT NULL REFERENCES SaveGame(game_id) DEFERRABLE INITIALLY DEFERRED,
+    //     type    Text    NOT NULL
+    // ) STRICT;
 
-    COMMIT;
-    ";
+    // COMMIT;
+    // ";
 
     #[test]
     pub fn test_validate() {

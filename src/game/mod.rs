@@ -3,7 +3,10 @@ mod combat;
 pub use combat::*;
 
 use crate::prelude::*;
-use crate::room::{CurrentRoom, InRoom, mark_room_cleared, spawn_room, spawn_room_entities};
+use crate::room::{
+    CurrentRoom, EntranceDirection, InRoom, ROOM_CENTER, ROOM_RADIUS, mark_room_cleared,
+    spawn_room, spawn_room_entities,
+};
 #[cfg(feature = "sqlite")]
 use crate::saving::save_game;
 use bevy::prelude::*;
@@ -57,6 +60,7 @@ impl Plugin for GamePlugin {
                 navigation_enter,
             ),
         )
+        .add_systems(OnExit(GameState::Navigation), navigation_leave)
         .add_plugins(CombatPlugin);
     }
 }
@@ -268,42 +272,60 @@ fn trigger_event(
 
 fn navigation_enter(
     mut commands: Commands,
-    style: Res<Style>,
-    asset_server: Res<AssetServer>,
     current_room: Single<&TilePos, With<CurrentRoom>>,
-    created_room: Query<Has<RoomInfo>>,
-    tilemap: Single<
-        (
-            &TilemapSize,
-            &TilemapGridSize,
-            &TilemapTileSize,
-            &TilemapType,
-            &TilemapAnchor,
-            &TileStorage,
-        ),
-        With<RoomTilemap>,
-    >,
+    map_map: Single<(&TilemapSize, &TileStorage), With<MapTilemap>>,
+    room_map: Single<(&TilemapType, &TileStorage), With<RoomTilemap>>,
+    maptile_q: Query<&TileTextureIndex>,
 ) {
-    let (
-        tilemap_size,
-        tilemap_grid_size,
-        tilemap_tile_size,
-        tilemap_type,
-        tilemap_anchor,
-        tile_storage,
-    ) = *tilemap;
+    let (map_size, map_storage) = *map_map;
+
+    let (TilemapType::Hexagon(room_type), room_storage) = *room_map else {
+        unreachable!()
+    };
 
     let neighbors =
-        HexNeighbors::<TilePos>::get_neighboring_positions_standard(&current_room, tilemap_size);
+        HexNeighbors::<TilePos>::get_neighboring_positions_standard(&current_room, map_size);
 
-    let mut valid: Vec<TilePos> = Vec::new();
-    for neighbor in neighbors.iter() {
-        let Some(entity) = tile_storage.checked_get(neighbor) else {
-            continue;
-        };
-        let Ok(true) = created_room.get(entity) else {
-            valid.push(*neighbor);
-            break;
-        };
-    }
+    let door_directions = neighbors
+        .iter()
+        .zip(EntranceDirection::ALL.into_iter())
+        .map(|(neighbor, dir)| (map_storage.checked_get(neighbor), dir))
+        .map(|(entity_maybe, dir)| {
+            if let Some(entity) = entity_maybe {
+                (
+                    maptile_q
+                        .get(entity)
+                        .is_ok_and(|t| *t != TileTextureIndex(OUTLINE_TILE)),
+                    dir,
+                )
+            } else {
+                (false, dir)
+            }
+        });
+
+    let radius = ROOM_RADIUS;
+    let room_center = ROOM_CENTER;
+
+    let inserts = door_directions
+        .map(|(v, dir)| (v, dir.door_offset(&room_center, radius, *room_type)))
+        .inspect(|(v, pos)| info!("setting {pos:?} to be {v}"))
+        .map(|(v, pos)| {
+            (
+                v,
+                room_storage
+                    .get(&pos)
+                    .expect("The room entrances should be there..."),
+            )
+        })
+        .filter_map(|(visible, entity)| visible.then_some((entity, TileVisible(true))))
+        .inspect(|(v, pos)| info!("setting {pos:?} to be visible"))
+        .collect::<Vec<_>>();
+
+    commands.insert_batch(inserts);
+}
+
+fn navigation_leave(mut room_tile_q: Query<&mut TileVisible, With<EntranceDirection>>) {
+    room_tile_q
+        .iter_mut()
+        .for_each(|mut v| *v = TileVisible(false))
 }

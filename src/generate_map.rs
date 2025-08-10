@@ -1,5 +1,3 @@
-// TODO: Make this run not limited to the game loop
-
 use crate::menu::new_game::GenerationProgress;
 use crate::menu::new_game::NewGameState;
 use crate::prelude::*;
@@ -9,7 +7,6 @@ use bevy_ecs_tilemap::helpers::hex_grid::axial::AxialPos;
 use bevy_ecs_tilemap::helpers::hex_grid::neighbors::HexNeighbors;
 use bevy_ecs_tilemap::prelude::*;
 use rand::{Rng, SeedableRng};
-use std::cmp::Ordering;
 
 pub struct GenerateMapPlugin;
 
@@ -56,6 +53,7 @@ impl Plugin for GenerateMapPlugin {
             OnExit(GENERATING_STATE),
             (
                 restore_fixed_update_time,
+                despawn_outline_tiles,
                 despawn_tile_labels::<With<MapTilemap>>,
                 remove_component::<Collapsed>,
             ),
@@ -87,10 +85,10 @@ pub struct MapTilemap;
 pub enum Collapsed {
     Gray,
     Red,
-    Yellow,
-    Green,
-    LBlue,
-    DBlue,
+    // Yellow,
+    // Green,
+    // LBlue,
+    // DBlue,
 }
 
 impl Collapsed {
@@ -99,10 +97,10 @@ impl Collapsed {
         TileTextureIndex(match self {
             Collapsed::Gray => 0,
             Collapsed::Red => 1,
-            Collapsed::Yellow => 2,
-            Collapsed::Green => 3,
-            Collapsed::LBlue => 4,
-            Collapsed::DBlue => 5,
+            // Collapsed::Yellow => 2,
+            // Collapsed::Green => 3,
+            // Collapsed::LBlue => 4,
+            // Collapsed::DBlue => 5,
         })
     }
 }
@@ -277,7 +275,7 @@ fn build_paths(
     pillars_q: Query<&TilePos, With<Pillars>>,
     tilestorage_q: Query<&mut TileStorage, With<MapTilemap>>,
     mut tile_text_q: Query<&mut TileTextureIndex>,
-    mut rng: ResMut<GenerationRand>,
+    // mut rng: ResMut<GenerationRand>,
     mut generation_progress: ResMut<GenerationProgress>,
 ) {
     let mut seen: Vec<TilePos> = Vec::new();
@@ -315,8 +313,8 @@ fn build_paths(
 
                 let mut check = true;
 
-                for seenIdx in 0..seen.len() {
-                    let tile_pos: &TilePos = seen.get(seenIdx).unwrap();
+                for seen_idx in 0..seen.len() {
+                    let tile_pos: &TilePos = seen.get(seen_idx).unwrap();
                     if tile_pos.x == current_pos.x && tile_pos.y == current_pos.y {
                         check = false;
                         break;
@@ -343,4 +341,21 @@ fn build_paths(
         }
     }
     generation_progress.world_done = true;
+}
+
+fn despawn_outline_tiles(
+    mut commands: Commands,
+    tile_storage: Single<&mut TileStorage, With<MapTilemap>>,
+    tile_q: Query<&TileTextureIndex>,
+) {
+    tile_storage
+        .iter()
+        .filter_map(|opt| *opt)
+        .filter(|tile_entity| {
+            tile_q
+                .get(*tile_entity)
+                .ok()
+                .is_some_and(|texture| *texture == TileTextureIndex(OUTLINE_TILE))
+        })
+        .for_each(|entity| commands.entity(entity).despawn());
 }

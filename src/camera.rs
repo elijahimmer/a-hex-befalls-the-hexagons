@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-pub const CAMERA_DEFAULT_SCALE: f32 = 2.00;
+pub const CAMERA_DEFAULT_SCALE: f32 = 1.00;
 
 /// The plugin to enable the camera
 pub struct CameraPlugin;

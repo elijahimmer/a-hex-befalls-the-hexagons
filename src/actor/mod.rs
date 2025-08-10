@@ -206,11 +206,11 @@ impl ActorName {
 
         if mon < 1 {
             // I know that's not how you do it but I'll fix it laterElijah. Ok I'm sorry
-            for i in 0..3 {
+            for _ in 0..3 {
                 enemies.push(Self::get_rand_enemy(rng));
             }
         } else if mon < 3 {
-            for i in 0..2 {
+            for _ in 0..2 {
                 enemies.push(Self::get_rand_enemy(rng));
             }
         } else {

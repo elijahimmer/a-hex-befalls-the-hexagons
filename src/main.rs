@@ -39,6 +39,7 @@ pub mod prelude {
     pub use crate::camera::{MainCamera, MainCameraMarker};
     pub use crate::controls::{Control, ControlState, Controls, Keybind};
     pub use crate::database::{Database, Error as DatabaseError, FromDatabase, ToDatabase};
+    pub use crate::generate_map::MapTilemap;
     pub use crate::items::{Item, Items};
     pub use crate::room::{RoomInfo, RoomTile, RoomTilemap, RoomType};
     #[cfg(feature = "sqlite")]

@@ -2,14 +2,20 @@ use crate::prelude::*;
 use bevy::prelude::*;
 use bevy_ecs_tilemap::helpers::hex_grid::axial::AxialPos;
 use bevy_ecs_tilemap::prelude::*;
-use rand::{Rng, SeedableRng};
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::ops::Range;
 
 pub const ROOM_RADIUS: u32 = 3;
+// + 1 for center and + 2 for doors
 pub const ROOM_SIZE: TilemapSize = TilemapSize {
-    x: ROOM_RADIUS * 2 + 1,
-    y: ROOM_RADIUS * 2 + 1,
+    x: ROOM_RADIUS * 2 + 3,
+    y: ROOM_RADIUS * 2 + 3,
+};
+// + 1 for margins
+pub const ROOM_CENTER: TilePos = TilePos {
+    x: ROOM_RADIUS + 1,
+    y: ROOM_RADIUS + 1,
 };
 
 pub const ROOM_TILE_LAYER: f32 = -1.0;
@@ -98,13 +104,10 @@ pub struct RoomTile;
 pub struct RoomTilemap;
 
 pub fn spawn_room(mut commands: Commands, tile_texture: Res<HexTileImage>) {
-    let tilemap_entity = commands.spawn_empty().id();
+    let tilemap_entity = commands.spawn((Visibility::Visible,)).id();
 
     let mut tile_storage = TileStorage::empty(ROOM_SIZE);
-    let origin = TilePos {
-        x: ROOM_SIZE.x / 2,
-        y: ROOM_SIZE.y / 2,
-    };
+    let origin = ROOM_CENTER;
 
     let tile_positions = generate_hexagon(
         AxialPos::from_tile_pos_given_coord_system(&origin, HEX_COORD_SYSTEM),
@@ -126,7 +129,26 @@ pub fn spawn_room(mut commands: Commands, tile_texture: Res<HexTileImage>) {
                     },
                 ))
                 .id();
-            tile_storage.checked_set(&tile_pos, id);
+            tile_storage.set(&tile_pos, id);
+        }
+
+        for (dir, tile_pos) in EntranceDirection::ALL
+            .iter()
+            .map(|d| (d, d.door_offset(&origin, ROOM_RADIUS, HEX_COORD_SYSTEM)))
+        {
+            let id = parent
+                .spawn((
+                    *dir,
+                    TileBundle {
+                        position: tile_pos,
+                        tilemap_id: TilemapId(tilemap_entity),
+                        texture_index: TileTextureIndex(DOOR_TILE_VARIENT),
+                        visible: TileVisible(false),
+                        ..Default::default()
+                    },
+                ))
+                .id();
+            tile_storage.set(&tile_pos, id);
         }
     });
 
@@ -141,6 +163,7 @@ pub fn spawn_room(mut commands: Commands, tile_texture: Res<HexTileImage>) {
             tile_size: TILE_SIZE,
             anchor: TilemapAnchor::Center,
             transform: Transform::from_xyz(0., 0., ROOM_TILE_LAYER),
+            visibility: Visibility::Visible,
             ..Default::default()
         },
     ));
@@ -212,4 +235,51 @@ pub fn spawn_room_entities(
 /// Should be run after the room
 pub fn mark_room_cleared(mut info: Single<&mut RoomInfo, With<CurrentRoom>>) {
     info.cleared = true;
+}
+
+#[derive(Component, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub enum EntranceDirection {
+    NorthEast,
+    North,
+    NorthWest,
+    SouthWest,
+    South,
+    SouthEast,
+}
+
+impl EntranceDirection {
+    pub const ALL: [EntranceDirection; 6] = [
+        EntranceDirection::NorthEast,
+        EntranceDirection::North,
+        EntranceDirection::NorthWest,
+        EntranceDirection::SouthWest,
+        EntranceDirection::South,
+        EntranceDirection::SouthEast,
+    ];
+
+    pub fn axial_offset(&self) -> AxialPos {
+        match self {
+            EntranceDirection::NorthEast => AxialPos::new(1, 1),
+            EntranceDirection::North => AxialPos::new(-1, 2),
+            EntranceDirection::NorthWest => AxialPos::new(-2, 1),
+            EntranceDirection::SouthWest => AxialPos::new(-1, -1),
+            EntranceDirection::South => AxialPos::new(1, -2),
+            EntranceDirection::SouthEast => AxialPos::new(2, -1),
+        }
+    }
+
+    pub fn door_offset(
+        &self,
+        origin: &TilePos,
+        distance: u32,
+        coord_sys: HexCoordSystem,
+    ) -> TilePos {
+        let pos = AxialPos::from_tile_pos_given_coord_system(origin, coord_sys);
+        let offset = self.axial_offset();
+        let pos = AxialPos {
+            q: pos.q + offset.q * distance.div_ceil(2) as i32,
+            r: pos.r + offset.r * distance.div_ceil(2) as i32,
+        };
+        pos.as_tile_pos_given_coord_system(coord_sys)
+    }
 }
