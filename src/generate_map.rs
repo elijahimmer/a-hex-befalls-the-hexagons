@@ -180,20 +180,36 @@ fn create_origin_and_pillars(
     mut tile_text_q: Query<&mut TileTextureIndex>,
 ) {
     let north_tile_pos: TilePos = TilePos {
-        x: tile_rand.0.random_range(MAP_RADIUS-PILLAR_OFFSET_VERT..=MAP_RADIUS),
-        y: tile_rand.0.random_range(MAP_RADIUS+PILLAR_OFFSET_VERT..=MAP_RADIUS+MAP_RADIUS),
+        x: tile_rand
+            .0
+            .random_range(MAP_RADIUS - PILLAR_OFFSET_VERT..=MAP_RADIUS),
+        y: tile_rand
+            .0
+            .random_range(MAP_RADIUS + PILLAR_OFFSET_VERT..=MAP_RADIUS + MAP_RADIUS),
     };
     let east_tile_pos: TilePos = TilePos {
-        x: tile_rand.0.random_range(MAP_RADIUS-PILLAR_OFFSET_HORZ_X..=MAP_RADIUS-PILLAR_OFFSET_VERT),
-        y: tile_rand.0.random_range(MAP_RADIUS-PILLAR_OFFSET_HORZ_Y..=MAP_RADIUS+PILLAR_OFFSET_HORZ_Y),
+        x: tile_rand
+            .0
+            .random_range(MAP_RADIUS - PILLAR_OFFSET_HORZ_X..=MAP_RADIUS - PILLAR_OFFSET_VERT),
+        y: tile_rand
+            .0
+            .random_range(MAP_RADIUS - PILLAR_OFFSET_HORZ_Y..=MAP_RADIUS + PILLAR_OFFSET_HORZ_Y),
     };
     let south_tile_pos: TilePos = TilePos {
-        x: tile_rand.0.random_range(MAP_RADIUS..=MAP_RADIUS+PILLAR_OFFSET_VERT),
-        y: tile_rand.0.random_range(MAP_RADIUS-MAP_RADIUS..=MAP_RADIUS-PILLAR_OFFSET_VERT),
+        x: tile_rand
+            .0
+            .random_range(MAP_RADIUS..=MAP_RADIUS + PILLAR_OFFSET_VERT),
+        y: tile_rand
+            .0
+            .random_range(MAP_RADIUS - MAP_RADIUS..=MAP_RADIUS - PILLAR_OFFSET_VERT),
     };
     let west_tile_pos: TilePos = TilePos {
-        x: tile_rand.0.random_range(MAP_RADIUS+PILLAR_OFFSET_VERT..=MAP_RADIUS+PILLAR_OFFSET_HORZ_X),
-        y: tile_rand.0.random_range(MAP_RADIUS-PILLAR_OFFSET_HORZ_Y..=MAP_RADIUS+PILLAR_OFFSET_HORZ_Y),
+        x: tile_rand
+            .0
+            .random_range(MAP_RADIUS + PILLAR_OFFSET_VERT..=MAP_RADIUS + PILLAR_OFFSET_HORZ_X),
+        y: tile_rand
+            .0
+            .random_range(MAP_RADIUS - PILLAR_OFFSET_HORZ_Y..=MAP_RADIUS + PILLAR_OFFSET_HORZ_Y),
     };
     for tile_storage in &tilestorage_q {
         let start = tile_storage
@@ -229,39 +245,30 @@ fn create_origin_and_pillars(
         let mut tile_text_west = tile_text_q.get_mut(west).unwrap();
         *tile_text_west = collapsed.to_texture();
 
-        commands
-            .entity(start)
-            .insert((
-                collapsed,
-                RoomInfo::from_type(RoomType::Entrance, 0xDeadBeef),
-            ));
-        commands
-            .entity(north)
-            .insert((
-                Pillars::North,
-                collapsed,
-                RoomInfo::from_type(RoomType::Pillar, 0xDeadBeef),
-            )); commands
-            .entity(east)
-            .insert((
-                Pillars::East,
-                collapsed,
-                RoomInfo::from_type(RoomType::Pillar, 0xDeadBeef),
-            ));
-        commands
-            .entity(south)
-            .insert((
-                Pillars::South,
-                collapsed,
-                RoomInfo::from_type(RoomType::Pillar, 0xDeadBeef),
-            ));
-        commands
-            .entity(west)
-            .insert((
-                Pillars::West,
-                collapsed,
-                RoomInfo::from_type(RoomType::Pillar, 0xDeadBeef),
-            ));
+        commands.entity(start).insert((
+            collapsed,
+            RoomInfo::from_type(RoomType::Entrance, 0xDeadBeef),
+        ));
+        commands.entity(north).insert((
+            Pillars::North,
+            collapsed,
+            RoomInfo::from_type(RoomType::Pillar, 0xDeadBeef),
+        ));
+        commands.entity(east).insert((
+            Pillars::East,
+            collapsed,
+            RoomInfo::from_type(RoomType::Pillar, 0xDeadBeef),
+        ));
+        commands.entity(south).insert((
+            Pillars::South,
+            collapsed,
+            RoomInfo::from_type(RoomType::Pillar, 0xDeadBeef),
+        ));
+        commands.entity(west).insert((
+            Pillars::West,
+            collapsed,
+            RoomInfo::from_type(RoomType::Pillar, 0xDeadBeef),
+        ));
     }
 }
 
@@ -279,9 +286,11 @@ fn build_paths(
             let mut current_pos: TilePos = TilePos { x: 5, y: 5 };
 
             while current_pos.x != pillar.x || current_pos.y != pillar.y {
-                let neighbors =
-                    HexNeighbors::<TilePos>::get_neighboring_positions_standard(&current_pos, &MAP_SIZE);
-                
+                let neighbors = HexNeighbors::<TilePos>::get_neighboring_positions_standard(
+                    &current_pos,
+                    &MAP_SIZE,
+                );
+
                 let mut least: u32 = 20;
                 let mut store_x: u32 = current_pos.x;
                 let mut store_y: u32 = current_pos.y;
@@ -322,12 +331,13 @@ fn build_paths(
                     let mut selected_texture = tile_text_q.get_mut(selected_tile).unwrap();
                     *selected_texture = Collapsed::Gray.to_texture();
 
-                    commands
-                        .entity(selected_tile)
-                        .insert((
-                            Collapsed::Gray,
-                            RoomInfo::from_type(RoomType::EmptyRoom/*RoomType::from_rng(&mut *rng)*/, 0xDeadBeef),
-                        ));
+                    commands.entity(selected_tile).insert((
+                        Collapsed::Gray,
+                        RoomInfo::from_type(
+                            RoomType::EmptyRoom, /*RoomType::from_rng(&mut *rng)*/
+                            0xDeadBeef,
+                        ),
+                    ));
                 }
             }
         }

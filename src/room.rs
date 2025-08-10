@@ -2,8 +2,8 @@ use crate::prelude::*;
 use bevy::prelude::*;
 use bevy_ecs_tilemap::helpers::hex_grid::axial::AxialPos;
 use bevy_ecs_tilemap::prelude::*;
-use serde::{Deserialize, Serialize};
 use rand::{Rng, SeedableRng};
+use serde::{Deserialize, Serialize};
 use std::ops::Range;
 
 pub const ROOM_RADIUS: u32 = 3;
@@ -70,10 +70,10 @@ impl RoomType {
         let val = rng.random_range(0..4);
 
         match val {
-            0 => RoomType::EmptyRoom, 
-            1 => RoomType::Combat(ActorName::get_enemies(rng)), 
-            2 => RoomType::Pit(0..21), 
-            3 => RoomType::Item(Item::get_rand_item(rng)), 
+            0 => RoomType::EmptyRoom,
+            1 => RoomType::Combat(ActorName::get_enemies(rng)),
+            2 => RoomType::Pit(0..21),
+            3 => RoomType::Item(Item::get_rand_item(rng)),
             _ => unreachable!(),
         }
     }
@@ -180,7 +180,8 @@ pub fn spawn_room_entities(
         R::EmptyRoom => {}
         R::Entrance => {}
         R::Combat(enemies) => {
-            for (name, pos_offset) in enemies.iter().zip(ENEMY_POSITIONS.into_iter()) { let actor_pos: TilePos =
+            for (name, pos_offset) in enemies.iter().zip(ENEMY_POSITIONS.into_iter()) {
+                let actor_pos: TilePos =
                     (center_tile_pos.as_ivec2() + pos_offset).as_uvec2().into();
 
                 let world_pos =

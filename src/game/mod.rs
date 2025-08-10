@@ -298,11 +298,12 @@ fn navigation_enter(
 
     let mut valid: Vec<TilePos> = Vec::new();
     for neighbor in neighbors.iter() {
-        let entity = tile_storage.get(neighbor).unwrap();
-        let is_room = created_room.get(entity).unwrap_or(false);
-        if is_room {
+        let Some(entity) = tile_storage.checked_get(neighbor) else {
+            continue;
+        };
+        let Ok(true) = created_room.get(entity) else {
             valid.push(*neighbor);
             break;
-        }
+        };
     }
 }
