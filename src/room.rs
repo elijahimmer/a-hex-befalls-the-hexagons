@@ -131,25 +131,6 @@ pub fn spawn_room(mut commands: Commands, tile_texture: Res<HexTileImage>) {
                 .id();
             tile_storage.set(&tile_pos, id);
         }
-
-        for (dir, tile_pos) in EntranceDirection::ALL
-            .iter()
-            .map(|d| (d, d.door_offset(&origin, ROOM_RADIUS, HEX_COORD_SYSTEM)))
-        {
-            let id = parent
-                .spawn((
-                    *dir,
-                    TileBundle {
-                        position: tile_pos,
-                        tilemap_id: TilemapId(tilemap_entity),
-                        texture_index: TileTextureIndex(DOOR_TILE_VARIENT),
-                        visible: TileVisible(false),
-                        ..Default::default()
-                    },
-                ))
-                .id();
-            tile_storage.set(&tile_pos, id);
-        }
     });
 
     commands.entity(tilemap_entity).insert((

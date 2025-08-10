@@ -60,7 +60,10 @@ impl Plugin for GamePlugin {
                 navigation_enter,
             ),
         )
-        .add_systems(OnExit(GameState::Navigation), navigation_leave)
+        .add_systems(
+            OnExit(GameState::Navigation),
+            despawn_filtered::<With<EntranceDirection>>,
+        )
         .add_plugins(CombatPlugin);
     }
 }
@@ -273,59 +276,47 @@ fn trigger_event(
 fn navigation_enter(
     mut commands: Commands,
     current_room: Single<&TilePos, With<CurrentRoom>>,
-    map_map: Single<(&TilemapSize, &TileStorage), With<MapTilemap>>,
-    room_map: Single<(&TilemapType, &TileStorage), With<RoomTilemap>>,
+    map_map: Single<(&TilemapSize, &TileStorage), (With<MapTilemap>, Without<RoomTilemap>)>,
+    mut room_map: Single<(Entity, &mut TileStorage), (With<RoomTilemap>, Without<MapTilemap>)>,
     maptile_q: Query<&TileTextureIndex>,
 ) {
     let (map_size, map_storage) = *map_map;
 
-    let (TilemapType::Hexagon(room_type), room_storage) = *room_map else {
-        unreachable!()
-    };
+    let (room_entity, ref mut room_storage) = *room_map;
+
+    let room_center = ROOM_CENTER;
 
     let neighbors =
         HexNeighbors::<TilePos>::get_neighboring_positions_standard(&current_room, map_size);
 
     let door_directions = neighbors
         .iter()
-        .zip(EntranceDirection::ALL.into_iter())
-        .map(|(neighbor, dir)| (map_storage.checked_get(neighbor), dir))
-        .map(|(entity_maybe, dir)| {
-            if let Some(entity) = entity_maybe {
-                (
-                    maptile_q
-                        .get(entity)
-                        .is_ok_and(|t| *t != TileTextureIndex(OUTLINE_TILE)),
-                    dir,
-                )
-            } else {
-                (false, dir)
-            }
+        .zip(EntranceDirection::ALL)
+        .filter_map(|(neighbor, dir)| map_storage.checked_get(neighbor).map(|n| (n, dir)))
+        .filter_map(|(entity, dir)| {
+            maptile_q
+                .get(entity)
+                .is_ok_and(|t| *t != TileTextureIndex(OUTLINE_TILE))
+                .then_some(dir)
         });
 
-    let radius = ROOM_RADIUS;
-    let room_center = ROOM_CENTER;
+    commands.entity(room_entity).with_children(move |parent| {
+        for dir in door_directions {
+            let tile_pos = dir.door_offset(&room_center, ROOM_RADIUS, HEX_COORD_SYSTEM);
 
-    let inserts = door_directions
-        .map(|(v, dir)| (v, dir.door_offset(&room_center, radius, *room_type)))
-        .inspect(|(v, pos)| info!("setting {pos:?} to be {v}"))
-        .map(|(v, pos)| {
-            (
-                v,
-                room_storage
-                    .get(&pos)
-                    .expect("The room entrances should be there..."),
-            )
-        })
-        .filter_map(|(visible, entity)| visible.then_some((entity, TileVisible(true))))
-        .inspect(|(v, pos)| info!("setting {pos:?} to be visible"))
-        .collect::<Vec<_>>();
-
-    commands.insert_batch(inserts);
-}
-
-fn navigation_leave(mut room_tile_q: Query<&mut TileVisible, With<EntranceDirection>>) {
-    room_tile_q
-        .iter_mut()
-        .for_each(|mut v| *v = TileVisible(false))
+            let id = parent
+                .spawn((
+                    StateScoped(GameState::Navigation),
+                    dir,
+                    TileBundle {
+                        position: tile_pos,
+                        tilemap_id: TilemapId(room_entity),
+                        texture_index: TileTextureIndex(DOOR_TILE_VARIENT),
+                        ..Default::default()
+                    },
+                ))
+                .id();
+            room_storage.set(&tile_pos, id);
+        }
+    });
 }
