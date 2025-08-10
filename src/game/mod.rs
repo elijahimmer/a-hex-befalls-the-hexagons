@@ -7,8 +7,8 @@ use crate::room::{CurrentRoom, InRoom, mark_room_cleared, spawn_room, spawn_room
 #[cfg(feature = "sqlite")]
 use crate::saving::save_game;
 use bevy::prelude::*;
-use bevy_ecs_tilemap::prelude::*;
 use bevy_ecs_tilemap::helpers::hex_grid::neighbors::HexNeighbors;
+use bevy_ecs_tilemap::prelude::*;
 use rand::{Rng, SeedableRng};
 use std::collections::VecDeque;
 
@@ -270,8 +270,8 @@ fn navigation_enter(
     mut commands: Commands,
     style: Res<Style>,
     asset_server: Res<AssetServer>,
-    current_room: Query<&TilePos, With<CurrentRoom>>,
-    created_room: Query<&TilePos, With<RoomInfo>>,
+    current_room: Single<&TilePos, With<CurrentRoom>>,
+    created_room: Query<Has<RoomInfo>>,
     tilemap: Single<
         (
             &TilemapSize,
@@ -284,19 +284,25 @@ fn navigation_enter(
         With<RoomTilemap>,
     >,
 ) {
-    let (tilemap_size, tilemap_grid_size, tilemap_tile_size, tilemap_type, tilemap_anchor,tile_storage) = *tilemap;
+    let (
+        tilemap_size,
+        tilemap_grid_size,
+        tilemap_tile_size,
+        tilemap_type,
+        tilemap_anchor,
+        tile_storage,
+    ) = *tilemap;
 
-    for current in current_room {
-        let neighbors = HexNeighbors::<TilePos>::get_neighboring_positions_standard(&current, tilemap_size);
-        
-        let mut valid: Vec<TilePos> = Vec::new();
-        for neighbor in neighbors.iter() { 
-            for tile_pos in created_room {
-                if tile_pos == neighbor {
-                    valid.push(*neighbor); 
-                    break;
-                }
-            }
+    let neighbors =
+        HexNeighbors::<TilePos>::get_neighboring_positions_standard(&current_room, tilemap_size);
+
+    let mut valid: Vec<TilePos> = Vec::new();
+    for neighbor in neighbors.iter() {
+        let entity = tile_storage.get(neighbor).unwrap();
+        let is_room = created_room.get(entity).unwrap_or(false);
+        if is_room {
+            valid.push(*neighbor);
+            break;
         }
     }
 }
