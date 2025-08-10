@@ -80,3 +80,18 @@ impl AttackSpeed {
         })
     }
 }
+
+impl BlockChance {
+    pub fn from_name(name: ActorName) -> Self {
+        use ActorName as A;
+        Self(match name {
+            A::Warrior => 0.5,
+            A::Priestess => 0.1,
+            A::Theif => 0.3,
+            A::Ogre => 0.2,
+            A::Goblin => 0.4,
+            A::Skeleton => 0.2,
+            A::UnknownJim => 0.1,
+        })
+    }
+}
