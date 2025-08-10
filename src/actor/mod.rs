@@ -26,6 +26,7 @@ pub struct ActorBundle {
     pub speed: AttackSpeed,
     pub transform: Transform,
     pub animation: AnimationBundle,
+    pub block_chance: BlockChance,
 }
 
 impl ActorBundle {
@@ -51,6 +52,7 @@ impl ActorBundle {
             speed: AttackSpeed::from_name(name),
             transform,
             animation: AnimationBundle::from_name(asset_server, name),
+            block_chance: BlockChance::from_name(name),
         }
     }
 }
@@ -152,6 +154,7 @@ pub fn load_actors(
             // the actor will be placed after this
             let transform = Transform::IDENTITY;
             let animation = AnimationBundle::from_name(&asset_server, name);
+            let block_chance = BlockChance::from_name(name);
 
             Ok(ActorBundle {
                 actor: Actor,
@@ -162,6 +165,7 @@ pub fn load_actors(
                 speed,
                 transform,
                 animation,
+                block_chance,
             })
         })?
         .for_each(|actor| {
