@@ -167,7 +167,7 @@ impl TurnOrder {
     /// Gets the active actor.
     /// asserts that the queue isn't empty
     pub fn active(&self) -> Entity {
-        *self.queue.front().unwrap()
+        *self.queue.back().unwrap()
     }
 
     /// Should be called at end of turn to set the first actor in the
@@ -186,7 +186,7 @@ impl TurnOrder {
             .unwrap();
 
         // + 1 because we skipped one
-        self.queue.rotate_left(idx + 1);
+        self.queue.rotate_right(idx + 1);
     }
 
     pub fn teams_alive(&mut self, actor_q: Query<(&Health, &Team)>) -> TeamAlive {
@@ -200,16 +200,21 @@ impl TurnOrder {
     pub fn queue(&self) -> &VecDeque<Entity> {
         &self.queue
     }
-}
 
-impl fmt::Display for TurnOrder {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for actor in &self.queue {
-            write!(f, "{}, ", actor)?;
-        }
-        Ok(())
+    pub fn display_with_names(&self, name_q: &Query<&ActorName>) -> String {
+        self.queue
+            .iter()
+            .map(|entity| {
+                name_q
+                    .get(*entity)
+                    .map(|name| name.to_string())
+                    .unwrap_or("Unknown".to_string())
+            })
+            .collect::<Vec<_>>()
+            .join(", ")
     }
 }
+
 ////////////////EVENTS///////////////////
 
 //An event for when an action is done
@@ -255,12 +260,12 @@ fn prep_turn_order(
     mut queue: ResMut<TurnOrder>,
     mut next_state: ResMut<NextState<CombatState>>,
     actor_q: Query<(&Health, &Team)>,
-    health_q: Query<&Health>,
+    name_q: Query<&ActorName>,
 ) {
+    println!("Turn order: {}", queue.display_with_names(&name_q));
     match queue.teams_alive(actor_q) {
         TeamAlive::Both => {
             //commands.entity(queue.active()).remove::<ActingActor>();
-            queue.skip_to_next(health_q);
             commands.entity(queue.active()).insert(ActingActor);
             next_state.set(CombatState::MoveToCenter);
         }
@@ -269,8 +274,7 @@ fn prep_turn_order(
             commands.entity(queue.active()).remove::<ActingActor>();
         }
     }
-    info!("{:?}", queue);
-    debug!("this is {:?} turn", queue.active());
+    println!("Turn order: {}", queue.display_with_names(&name_q));
 }
 
 //////////FROM HERE ARE MOVEMENT SYSTEMS//////////////////
@@ -456,9 +460,10 @@ fn end_turn(
     mut queue: ResMut<TurnOrder>,
     mut next_state: ResMut<NextState<CombatState>>,
     actor_q: Query<(&Health, &Team)>,
+    health_q: Query<&Health>,
 ) {
     commands.entity(queue.active()).remove::<ActingActor>();
-
+    queue.skip_to_next(health_q);
     match queue.teams_alive(actor_q) {
         TeamAlive::Both => {
             next_state.set(CombatState::TurnSetup);
