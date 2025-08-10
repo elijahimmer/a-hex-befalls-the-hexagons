@@ -1,3 +1,4 @@
+use crate::embed_asset;
 use crate::menu::new_game::GenerationProgress;
 use crate::menu::new_game::NewGameState;
 use crate::prelude::*;
@@ -24,13 +25,19 @@ pub const MAP_ORIGIN: TilePos = TilePos {
     y: MAP_RADIUS,
 };
 pub const MAP_TILE_LAYER: f32 = 0.0;
+pub const MAP_COORD_SYSTEM: HexCoordSystem = HexCoordSystem::Column;
 
 const GENERATION_SCHEDULE_FREQUENCY: f64 = 10000.0;
 const GENERATING_STATE: NewGameState = NewGameState::GeneratingWorld;
 
+pub const MAP_TILE_SIZE: TilemapTileSize = TilemapTileSize { x: 52.0, y: 48.0 };
+pub const MAP_TILE_ASSET_LOAD_PATH: &'static str = "embedded://assets/sprites/map_tiles.png";
+
 /// Plugin to setup map generation
 impl Plugin for GenerateMapPlugin {
     fn build(&self, app: &mut App) {
+        embed_asset!(app, "assets/sprites/map_tiles.png");
+
         app.add_systems(
             OnEnter(GENERATING_STATE),
             set_fixed_update_time(GENERATION_SCHEDULE_FREQUENCY),
@@ -120,7 +127,8 @@ fn setup(mut commands: Commands, settings: Res<GenerationSettings>) {
 }
 
 /// Spawns tilemap
-fn spawn_map(mut commands: Commands, tile_texture: Res<HexTileImage>) {
+fn spawn_map(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let tile_sprite = asset_server.load(MAP_TILE_ASSET_LOAD_PATH);
     let tilemap_entity = commands.spawn_empty().id();
 
     let mut tile_storage = TileStorage::empty(MAP_SIZE);
@@ -130,18 +138,17 @@ fn spawn_map(mut commands: Commands, tile_texture: Res<HexTileImage>) {
     };
 
     let tile_positions = generate_hexagon(
-        AxialPos::from_tile_pos_given_coord_system(&origin, HEX_COORD_SYSTEM),
+        AxialPos::from_tile_pos_given_coord_system(&origin, MAP_COORD_SYSTEM),
         MAP_RADIUS,
     )
     .into_iter()
-    .map(|axial_pos| axial_pos.as_tile_pos_given_coord_system(HEX_COORD_SYSTEM));
+    .map(|axial_pos| axial_pos.as_tile_pos_given_coord_system(MAP_COORD_SYSTEM));
 
     commands.entity(tilemap_entity).with_children(|parent| {
         for tile_pos in tile_positions {
             let id = parent
                 .spawn((
                     MapTile,
-                    //ValidTiles::default(),
                     TileBundle {
                         position: tile_pos,
                         tilemap_id: TilemapId(tilemap_entity),
@@ -157,12 +164,12 @@ fn spawn_map(mut commands: Commands, tile_texture: Res<HexTileImage>) {
     commands.entity(tilemap_entity).insert((
         MapTilemap,
         TilemapBundle {
-            grid_size: TILE_SIZE.into(),
-            map_type: TilemapType::Hexagon(HexCoordSystem::Row),
+            grid_size: MAP_TILE_SIZE.into(),
+            map_type: TilemapType::Hexagon(MAP_COORD_SYSTEM),
             size: MAP_SIZE,
             storage: tile_storage,
-            texture: TilemapTexture::Single(tile_texture.image.clone()),
-            tile_size: TILE_SIZE,
+            texture: TilemapTexture::Single(tile_sprite),
+            tile_size: MAP_TILE_SIZE,
             anchor: TilemapAnchor::Center,
             transform: Transform::from_translation(WORLD_MAP_ORIGIN),
             ..Default::default()
