@@ -1,12 +1,12 @@
 use super::*;
 use crate::prelude::*;
-use bevy::{ecs::error::info, prelude::*};
+use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 use rand::Rng;
 use std::fmt;
 
 pub struct CombatPlugin;
-const ACTOR_SPEED: f32 = 100.0;
+const ACTOR_SPEED: f32 = 300.0;
 
 impl Plugin for CombatPlugin {
     fn build(&self, app: &mut App) {
@@ -26,7 +26,7 @@ impl Plugin for CombatPlugin {
             (move_to_target, move_to_center_check).run_if(in_state(CombatState::MoveToCenter)),
         )
         .add_systems(OnEnter(CombatState::ChooseAction), choose_action)
-        //.add_systems(OnEnter(CombatState::PerformAction), perform_action),
+        .add_systems(OnEnter(CombatState::PerformAction), perform_action)
         .add_systems(
             Update,
             (move_to_target, move_back_check).run_if(in_state(CombatState::MoveBack)),
@@ -133,7 +133,7 @@ pub enum Action {
 #[derive(Component)]
 pub struct ActingActor;
 
-//Stores the original positions of all actors
+//Stoes the original positions of all actors
 #[derive(Component, Deref, DerefMut)]
 pub struct ActorOriginalPosition(pub Vec2);
 
@@ -201,7 +201,6 @@ impl TurnOrder {
         &self.queue
     }
 }
-
 
 impl fmt::Display for TurnOrder {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -396,29 +395,61 @@ fn choose_action(
     // Get the Attack and do .conduct on thgat
 
     commands.insert_resource(ActingActorAction(monster_action));
-    //next_state.set(CombatState::PerformAction);
-    next_state.set(CombatState::MoveBack);
+    next_state.set(CombatState::PerformAction);
 }
 
 ///////////////Perform Action///////////////////
 
-/*
 fn perform_action(
-    mut commands: Commands,
     mut next_state: ResMut<NextState<CombatState>>,
-    actor_q: Query<Entity, With<Actor>>,
-    mut actor_action: EventWriter<ActionEvent>,
+    mut rng: ResMut<EventRng>,
+    active_actor: Single<(Entity, &Attack), With<ActingActor>>,
+    actor_action: Res<ActingActorAction>,
+    mut actor_q: Query<(&mut Health, &BlockChance), With<Actor>>,
+    //mut actor_action_event: EventWriter<ActionEvent>,
 ) {
+    let (_, a_attack) = *active_actor;
+    if let Action::Attack { target } = **actor_action {
+        let attack = a_attack.clone();
+
+        let attack_result = attack.conduct(&mut *rng);
+        info!("ATTACK RESULT {:?}", attack_result);
+
+        match attack_result {
+            AttackDamage::Hit(damage) => {
+                if let Ok((mut target_health, block_chance)) = actor_q.get_mut(target) {
+                    info!("TARGETS BLOCK CHANCE: {}\n", block_chance.0);
+                    let blocked = rng.random_bool(block_chance.0.into());
+                    info!("Block chance: {:?}, Blocked: {}\n", block_chance.0, blocked);
+                    if !blocked {
+                        target_health.damage(damage.get());
+                        let current_health = target_health.current().map(|h| h.get()).unwrap_or(0);
+                        info!(
+                            "DAMAGE DEALT: {}, TARGET HEALTH: {}\n",
+                            damage.get(),
+                            current_health
+                        );
+
+                        if !target_health.is_alive() {
+                            info!("{:?} IS DEAD!!!!!!!!!!!!!!\n", target);
+                        }
+                    }
+                }
+            }
+            AttackDamage::Miss => {
+                info!("MISSED!!!!!!!!!!!!!!\n");
+            }
+        }
+    }
+    next_state.set(CombatState::MoveBack);
     /*
-    let active_act = *active_actor;
     actor_action.write(ActionEvent {
-        actor: active_act,
-        action: current_action.clone(),
-        target: chosen_target,
+        actor: active_a,
+        action: **actor_action,
+        target,
     });
     */
 }
-*/
 
 fn end_turn(
     mut commands: Commands,
@@ -433,13 +464,13 @@ fn end_turn(
             next_state.set(CombatState::TurnSetup);
         }
         TeamAlive::Player => {
-            print!("Players won")
+            info!("Players won")
         }
         TeamAlive::Enemy => {
-            print!("ENEMY WON")
+            info!("ENEMY WON")
         }
         TeamAlive::Neither => {
-            print!("Everyone is dead!!!!!")
+            info!("Everyone is dead!!!!!")
         }
     }
 }
