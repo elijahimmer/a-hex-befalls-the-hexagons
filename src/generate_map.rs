@@ -326,7 +326,7 @@ fn build_paths(
                         .entity(selected_tile)
                         .insert((
                             Collapsed::Gray,
-                            RoomInfo::from_type(RoomType::from_rng(&mut *rng), 0xDeadBeef),
+                            RoomInfo::from_type(RoomType::EmptyRoom/*RoomType::from_rng(&mut *rng)*/, 0xDeadBeef),
                         ));
                 }
             }
