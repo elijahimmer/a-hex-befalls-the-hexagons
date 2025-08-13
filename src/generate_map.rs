@@ -276,7 +276,7 @@ fn build_paths(
     pillars_q: Query<&TilePos, With<Pillars>>,
     tilestorage_q: Query<&mut TileStorage, With<MapTilemap>>,
     mut tile_text_q: Query<&mut TileTextureIndex>,
-    mut rng: ResMut<GenerationRand>,
+    // mut rng: ResMut<GenerationRand>,
     mut generation_progress: ResMut<GenerationProgress>,
 ) {
     let mut seen: Vec<TilePos> = Vec::new();
@@ -333,7 +333,7 @@ fn build_paths(
                     commands.entity(selected_tile).insert((
                         Collapsed::Gray,
                         RoomInfo::from_type(
-                            RoomType::from_rng(&mut *rng),
+                            RoomType::EmptyRoom, /*RoomType::from_rng(&mut *rng)*/
                             0xDeadBeef,
                         ),
                     ));
