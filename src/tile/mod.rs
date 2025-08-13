@@ -58,7 +58,6 @@ pub fn spawn_tile_labels<MapFilter, TileFilter>(
     tilemap_q: Query<
         (
             Entity,
-            &Transform,
             &TilemapType,
             &TilemapSize,
             &TilemapGridSize,
@@ -73,16 +72,8 @@ pub fn spawn_tile_labels<MapFilter, TileFilter>(
     MapFilter: QueryFilter,
     TileFilter: QueryFilter,
 {
-    for (
-        map_entity,
-        map_transform,
-        map_type,
-        map_size,
-        grid_size,
-        tile_size,
-        tilemap_storage,
-        anchor,
-    ) in tilemap_q.iter()
+    for (map_entity, map_type, map_size, grid_size, tile_size, tilemap_storage, anchor) in
+        tilemap_q.iter()
     {
         commands.entity(map_entity).with_children(|builder| {
             for tile_entity in tilemap_storage.iter().flatten() {
@@ -119,13 +110,9 @@ pub fn despawn_tile_labels<MapFilter>(
 {
     for children in tilemap_q.iter() {
         for child in children {
-            let Ok(has_label) = label_q.get(*child) else {
-                continue;
-            };
-
-            if has_label {
+            if let Ok(true) = label_q.get(*child) {
                 commands.entity(*child).despawn();
-            }
+            };
         }
     }
 }

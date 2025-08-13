@@ -11,7 +11,7 @@ use rand::{Rng, SeedableRng};
 
 pub struct GenerateMapPlugin;
 
-pub const WORLD_MAP_ORIGIN: Vec3 = Vec3::new(1000.0, 0.0, MAP_TILE_LAYER);
+pub const WORLD_MAP_ORIGIN: Vec3 = Vec3::new(10000.0, 0.0, MAP_TILE_LAYER);
 pub const MAP_RADIUS: u32 = 5;
 pub const PILLAR_OFFSET_VERT: u32 = 3;
 pub const PILLAR_OFFSET_HORZ_X: u32 = 4;
@@ -47,12 +47,7 @@ impl Plugin for GenerateMapPlugin {
             (
                 setup,
                 spawn_map,
-                (
-                    create_origin_and_pillars,
-                    build_paths,
-                    spawn_tile_labels::<With<MapTilemap>, With<MapTile>>,
-                )
-                    .chain(),
+                (create_origin_and_pillars, build_paths).chain(),
             )
                 .chain(),
         )
@@ -61,7 +56,6 @@ impl Plugin for GenerateMapPlugin {
             (
                 restore_fixed_update_time,
                 despawn_outline_tiles,
-                despawn_tile_labels::<With<MapTilemap>>,
                 remove_component::<Collapsed>,
             ),
         );

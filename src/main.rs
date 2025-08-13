@@ -36,7 +36,7 @@ pub mod prelude {
     pub use crate::animation::{
         AnimationBundle, AnimationConfig, AnimationConfigs, AnimationFrameTimer,
     };
-    pub use crate::camera::{MainCamera, MainCameraMarker};
+    pub use crate::camera::{MainCameraMarker, MapCameraMarker};
     pub use crate::controls::{Control, ControlState, Controls, Keybind};
     pub use crate::database::{Database, Error as DatabaseError, FromDatabase, ToDatabase};
     pub use crate::generate_map::MapTilemap;
