@@ -189,7 +189,7 @@ fn display_trigger_or_skip(
         let event_text = match r_type {
             R::EmptyRoom | R::Entrance | R::Pillar => unreachable!(),
             R::Combat(_) => format!("Monsters attack!"),
-            R::Pit(_) => format!("You fell in a Pit O' Doom!"),
+            R::Pit(damage) => format!("You fell in a Pit O' Doom!\n\t    -{} Health", damage),
             // TODO: Display item name when we can
             R::Item(item) => format!("Found item: None"),
         };
@@ -253,12 +253,11 @@ fn trigger_event(
     match r_type {
         R::EmptyRoom | R::Entrance => unreachable!(),
         R::Combat(_) => {}
-        R::Pit(damage_range) => {
+        R::Pit(damage) => {
             let actor_count = actor_q.iter().filter(|h| h.is_alive()).count();
             assert!(actor_count > 0);
 
             let actor_damaged = event_rng.random_range(0..actor_count);
-            let damage = event_rng.random_range(damage_range.clone());
 
             actor_q
                 .iter_mut()
@@ -266,7 +265,7 @@ fn trigger_event(
                 .skip(actor_damaged)
                 .next()
                 .unwrap()
-                .damage_no_one_shot(damage);
+                .damage_no_one_shot(*damage);
         }
         R::Item(item) => {}
         R::Pillar => {}

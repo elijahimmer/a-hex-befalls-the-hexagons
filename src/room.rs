@@ -52,7 +52,7 @@ pub enum RoomType {
     /// done by the spike pit
     /// When cleared, the pit is trigged, otherwise it
     /// will trigger on entrance
-    Pit(Range<u32>),
+    Pit(u32),
     /// A room that grants an item upone entry.
     /// Stores the item that is inside the room,
     /// zero
@@ -78,7 +78,7 @@ impl RoomType {
         match val {
             0 => RoomType::EmptyRoom,
             1 => RoomType::Combat(ActorName::get_enemies(rng)),
-            2 => RoomType::Pit(0..21),
+            2 => RoomType::Pit(rng.random_range(0..21)),
             3 => RoomType::Item(Item::get_rand_item(rng)),
             _ => unreachable!(),
         }
@@ -206,9 +206,7 @@ pub fn spawn_room_entities(
 
             Item::VisionPotion => {}
         },
-        R::Pit(damage) => {
-            // Spawn spike pit
-        }
+        R::Pit(damage) => {}
         R::Pillar => {}
     }
 }
