@@ -1,7 +1,6 @@
-use std::ops::DerefMut;
 use super::*;
 use crate::prelude::*;
-use bevy::prelude::*;
+use bevy::{ecs::error::info, prelude::*};
 use bevy_ecs_tilemap::prelude::*;
 use rand::Rng;
 
@@ -10,25 +9,33 @@ const ACTOR_SPEED: f32 = 300.0;
 
 impl Plugin for CombatPlugin {
     fn build(&self, app: &mut App) {
-        app.add_sub_state::<CombatState>()
-            .add_systems(
-                OnEnter(GameState::Combat),
-                (setup_turn_order, store_actor_positions),
-            )
-            .add_systems(OnEnter(CombatState::TurnSetup), prep_turn_order)
-            .add_systems(OnEnter(CombatState::MoveToCenter), move_to_center)
-            .add_systems(OnEnter(CombatState::MoveBack), move_back)
-            .add_systems(
-                Update,
-                (move_to_target, move_to_center_check).run_if(in_state(CombatState::MoveToCenter)),
-            )
-            .add_systems(
-                Update,
-                (move_to_target, move_back_check).run_if(in_state(CombatState::MoveBack)),
-            )
-            .add_systems(OnExit(GameState::Combat), cleanup_positions);
+        app.add_sub_state::<CombatState>();
+
+        #[cfg(feature = "debug")]
+        app.add_systems(Update, log_transitions::<CombatState>);
+        app.add_systems(
+            OnEnter(GameState::Combat),
+            (setup_turn_order, store_actor_positions),
+        )
+        .add_systems(OnEnter(CombatState::TurnSetup), prep_turn_order)
+        .add_systems(OnEnter(CombatState::MoveToCenter), move_to_center)
+        .add_systems(OnEnter(CombatState::MoveBack), move_back)
+        .add_systems(
+            Update,
+            (move_to_target, move_to_center_check).run_if(in_state(CombatState::MoveToCenter)),
+        )
+        .add_systems(OnEnter(CombatState::ChooseAction), choose_action)
+        //.add_systems(OnEnter(CombatState::PerformAction), perform_action),
+        .add_systems(
+            Update,
+            (move_to_target, move_back_check).run_if(in_state(CombatState::MoveBack)),
+        )
+        .add_systems(OnEnter(CombatState::EndOfTurn), end_turn)
+        .add_systems(OnExit(GameState::Combat), cleanup_positions);
     }
 }
+
+////////////////////////ENUMS////////////////////////////
 
 /// OnEnter: Set [`TurnOrder`]
 ///          Place actors where they should go
@@ -77,9 +84,66 @@ pub enum CombatState {
     /// Rotate Left [`TurnOrder`]
     EndOfTurn,
 }
+
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub enum TeamAlive {
+    Both,
+    Player,
+    Enemy,
+    Neither,
+}
+
+impl TeamAlive {
+    pub fn found(&self, team: &Team) -> Self {
+        match (team, self) {
+            (_, Self::Both) => Self::Both,
+            (Team::Player, Self::Player) => Self::Player,
+            (Team::Enemy, Self::Enemy) => Self::Enemy,
+            (Team::Enemy, Self::Player) => Self::Both,
+            (Team::Player, Self::Enemy) => Self::Both,
+            (Team::Player, Self::Neither) => Self::Player,
+            (Team::Enemy, Self::Neither) => Self::Enemy,
+        }
+    }
+}
+
+/// The action the [`ActingActor`] is taking
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub enum Action {
+    /// The actor does damage to the `target`
+    Attack {
+        target: Entity,
+    },
+    // TBD
+    SpecialAction {
+        target: Entity,
+    },
+    /// The actor does damage to the `target`
+    UseItem {
+        item: (),
+        target: Entity,
+    },
+    SkipTurn,
+}
+
+////////////COMPONENTS//////////////////
+
 //The current acting actor
 #[derive(Component)]
 pub struct ActingActor;
+
+//Stores the original positions of all actors
+#[derive(Component, Deref, DerefMut)]
+pub struct ActorOriginalPosition(pub Vec2);
+
+//Stores the position that actor is going to
+#[derive(Component, Deref, DerefMut)]
+pub struct ActorTargetPosition(pub Vec2);
+
+////////////RESOURCES//////////////////
+/// The action being taken by the acting actor
+#[derive(Resource, Deref, DerefMut)]
+pub struct ActingActorAction(pub Action);
 
 /// The combat queue of actors
 #[derive(Resource)]
@@ -137,39 +201,7 @@ impl TurnOrder {
     }
 }
 
-/// The action being taken by the acting actor
-#[derive(Resource, Deref, DerefMut)]
-pub struct ActingActorAction(pub Action);
-
-#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
-pub enum TeamAlive {
-    Both,
-    Player,
-    Enemy,
-    Neither,
-}
-
-impl TeamAlive {
-    pub fn found(&self, team: &Team) -> Self {
-        match (team, self) {
-            (_, Self::Both) => Self::Both,
-            (Team::Player, Self::Player) => Self::Player,
-            (Team::Enemy, Self::Enemy) => Self::Enemy,
-            (Team::Enemy, Self::Player) => Self::Both,
-            (Team::Player, Self::Enemy) => Self::Both,
-            (Team::Player, Self::Neither) => Self::Player,
-            (Team::Enemy, Self::Neither) => Self::Enemy,
-        }
-    }
-}
-
-//Stores the original positions of all actors
-#[derive(Component, Deref, DerefMut)]
-pub struct ActorOriginalPosition(pub Vec2);
-
-//Stores the position that actor is going to
-#[derive(Component, Deref, DerefMut)]
-pub struct ActorTargetPosition(pub Vec2);
+////////////////EVENTS///////////////////
 
 //An event for when an action is done
 #[derive(Event)]
@@ -177,25 +209,6 @@ pub struct ActionEvent {
     pub actor: Entity,
     pub action: Action,
     pub target: Entity,
-}
-
-/// The action the [`ActingActor`] is taking
-#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
-pub enum Action {
-    /// The actor does damage to the `target`
-    Attack {
-        target: Entity,
-    },
-    // TBD
-    SpecialAction {
-        target: Entity,
-    },
-    /// The actor does damage to the `target`
-    UseItem {
-        item: (),
-        target: Entity,
-    },
-    SkipTurn,
 }
 
 //sets up the turn queue
@@ -237,7 +250,7 @@ fn prep_turn_order(
 ) {
     match queue.teams_alive(actor_q) {
         TeamAlive::Both => {
-            commands.entity(queue.active()).remove::<ActingActor>();
+            //commands.entity(queue.active()).remove::<ActingActor>();
             queue.skip_to_next(health_q);
             commands.entity(queue.active()).insert(ActingActor);
             next_state.set(CombatState::MoveToCenter);
@@ -247,6 +260,8 @@ fn prep_turn_order(
             commands.entity(queue.active()).remove::<ActingActor>();
         }
     }
+
+    debug!("this is {:?} turn", queue.active());
 }
 
 //////////FROM HERE ARE MOVEMENT SYSTEMS//////////////////
@@ -293,6 +308,7 @@ fn move_to_center_check(
     if transform.translation.xy() == target.0 {
         commands.entity(entity).remove::<ActorTargetPosition>();
         next_state.set(CombatState::ChooseAction);
+        //next_state.set(CombatState::MoveBack);
     }
 }
 
@@ -336,51 +352,80 @@ fn move_to_target(
 }
 
 ////////////////Choose action/////////////////////
-
-fn choose_player_action() {}
-
-fn choose_monster_action<Rand: Resource + DerefMut<Target: Rng>>(
+fn choose_action(
     mut commands: Commands,
     mut next_state: ResMut<NextState<CombatState>>,
     queue: ResMut<TurnOrder>,
-    active_actor: Single<Entity, With<ActingActor>>,
-    mut actor_action: EventWriter<ActionEvent>,
-    mut rng: ResMut<Rand>,
+    active_actor: Single<(Entity, &Team), With<ActingActor>>,
     actor_q: Query<(&Health, &Team)>,
 ) {
-    
-    let active_act = *active_actor;
-    let targets: Vec<Entity> = queue.queue()
+    let (_, team) = *active_actor;
+    let targets: Vec<Entity> = queue
+        .queue()
         .iter()
         .filter_map(|&entity| {
             if let Ok((health, target_team)) = actor_q.get(entity) {
-                if health.is_alive() && *target_team == Team::Player {
+                if health.is_alive() && *target_team != *team {
                     Some(entity)
                 } else {
-                    None 
+                    None
                 }
             } else {
-                None 
+                None
             }
         })
         .collect();
 
-    let chosen_target = targets[rng.random_range(0..targets.len())];
-    let monster_action = Action::Attack { target: chosen_target };
-    
-    commands.insert_resource(ActingActorAction(monster_action));
-    actor_action.write(ActionEvent {
-        actor: active_act,
-        action: monster_action.clone(),
+    let chosen_target = targets[rand::rng().random_range(0..targets.len())];
+    let monster_action = Action::Attack {
         target: chosen_target,
-    });
+    };
+    info!("CHOSEN TARGET {:?}", chosen_target);
 
+    commands.insert_resource(ActingActorAction(monster_action));
     next_state.set(CombatState::PerformAction);
 }
 
-
-
 ///////////////Perform Action///////////////////
 
+/*
+fn perform_action(
+    mut commands: Commands,
+    mut next_state: ResMut<NextState<CombatState>>,
+    actor_q: Query<Entity, With<Actor>>,
+    mut actor_action: EventWriter<ActionEvent>,
+) {
+    /*
+    let active_act = *active_actor;
+    actor_action.write(ActionEvent {
+        actor: active_act,
+        action: current_action.clone(),
+        target: chosen_target,
+    });
+    */
+}
+*/
 
+fn end_turn(
+    mut commands: Commands,
+    mut queue: ResMut<TurnOrder>,
+    mut next_state: ResMut<NextState<CombatState>>,
+    actor_q: Query<(&Health, &Team)>,
+) {
+    commands.entity(queue.active()).remove::<ActingActor>();
 
+    match queue.teams_alive(actor_q) {
+        TeamAlive::Both => {
+            next_state.set(CombatState::TurnSetup);
+        }
+        TeamAlive::Player => {
+            print!("Players won")
+        }
+        TeamAlive::Enemy => {
+            print!("ENEMY WON")
+        }
+        TeamAlive::Neither => {
+            print!("Everyone is dead!!!!!")
+        }
+    }
+}
