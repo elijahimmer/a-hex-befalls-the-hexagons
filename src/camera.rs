@@ -65,6 +65,7 @@ fn camera_setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
             image: image_handle.clone().into(),
             ..default()
         },
+        Pickable::IGNORE,
         Node {
             justify_self: JustifySelf::End,
             ..default()

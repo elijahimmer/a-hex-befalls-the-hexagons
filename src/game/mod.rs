@@ -120,7 +120,6 @@ pub struct EventRng(pub RandomSource);
 // despawn all that are in the old room.
 
 /// The default player positons in Axial coordinate space
-
 const PLAYER_POSITIONS: [IVec2; 3] = [IVec2::new(-1, -1), IVec2::new(1, -2), IVec2::new(2, -1)];
 
 fn place_player_actors(
@@ -314,8 +313,34 @@ fn navigation_enter(
                         ..Default::default()
                     },
                 ))
+                .observe(click_door)
                 .id();
             room_storage.set(&tile_pos, id);
         }
     });
+}
+
+fn click_door(
+    event: Trigger<Pointer<Click>>,
+    mut commands: Commands,
+    current_room: Single<(Entity, &TilePos), With<CurrentRoom>>,
+    map_map: Single<&TileStorage, (With<MapTilemap>, Without<RoomTilemap>)>,
+    direction_q: Query<&EntranceDirection>,
+    mut next_state: ResMut<NextState<GameState>>,
+) {
+    let (current_room_entity, current_room_pos) = *current_room;
+    let map_storage = *map_map;
+    let move_dir = direction_q.get(event.target).unwrap();
+
+    let new_room_pos = TilePos {
+        x: (current_room_pos.x as i32 + move_dir.axial_offset().q) as u32,
+        y: (current_room_pos.y as i32 + move_dir.axial_offset().r) as u32,
+    };
+
+    let new_room_entity = map_storage.get(&new_room_pos).unwrap();
+    commands.entity(new_room_entity).insert(CurrentRoom);
+
+    commands.entity(current_room_entity).remove::<CurrentRoom>();
+
+    next_state.set(GameState::EnterRoom);
 }

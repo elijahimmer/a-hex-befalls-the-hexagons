@@ -1,4 +1,8 @@
+mod picking_backend;
+
 use crate::embed_asset;
+#[cfg(feature = "debug")]
+use bevy::dev_tools::picking_debug::{DebugPickingMode, DebugPickingPlugin};
 use bevy::ecs::query::QueryFilter;
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::HexCoordSystem;
@@ -23,6 +27,22 @@ impl Plugin for TilePlugin {
         // Embed the sprite assets.
         embed_asset!(app, "assets/sprites/basic_sheet.png");
         app.add_systems(PreStartup, setup_hex_tile_image);
+
+        #[cfg(feature = "debug")]
+        app.add_plugins(DebugPickingPlugin).add_systems(
+            PreUpdate,
+            (|mut mode: ResMut<DebugPickingMode>| {
+                *mode = match *mode {
+                    DebugPickingMode::Disabled => DebugPickingMode::Normal,
+                    _ => DebugPickingMode::Disabled,
+                };
+            })
+            .run_if(bevy::input::common_conditions::input_just_pressed(
+                KeyCode::F3,
+            )),
+        );
+        app.add_plugins(picking_backend::TilemapBackend)
+            .add_systems(PreStartup, setup_hex_tile_image);
     }
 }
 

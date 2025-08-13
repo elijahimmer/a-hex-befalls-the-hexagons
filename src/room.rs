@@ -135,6 +135,7 @@ pub fn spawn_room(mut commands: Commands, tile_texture: Res<HexTileImage>) {
 
     commands.entity(tilemap_entity).insert((
         RoomTilemap,
+        Pickable::default(),
         TilemapBundle {
             grid_size: TILE_SIZE.into(),
             map_type: TilemapType::Hexagon(HexCoordSystem::Row),
@@ -239,11 +240,11 @@ impl EntranceDirection {
     pub fn axial_offset(&self) -> AxialPos {
         match self {
             EntranceDirection::NorthEast => AxialPos::new(1, 1),
-            EntranceDirection::North => AxialPos::new(-1, 2),
-            EntranceDirection::NorthWest => AxialPos::new(-2, 1),
+            EntranceDirection::North => AxialPos::new(0, 1),
+            EntranceDirection::NorthWest => AxialPos::new(-1, 1),
             EntranceDirection::SouthWest => AxialPos::new(-1, -1),
-            EntranceDirection::South => AxialPos::new(1, -2),
-            EntranceDirection::SouthEast => AxialPos::new(2, -1),
+            EntranceDirection::South => AxialPos::new(1, 0),
+            EntranceDirection::SouthEast => AxialPos::new(1, -1),
         }
     }
 
@@ -254,7 +255,14 @@ impl EntranceDirection {
         coord_sys: HexCoordSystem,
     ) -> TilePos {
         let pos = AxialPos::from_tile_pos_given_coord_system(origin, coord_sys);
-        let offset = self.axial_offset();
+        let offset = match self {
+            EntranceDirection::NorthEast => AxialPos::new(1, 1),
+            EntranceDirection::North => AxialPos::new(-1, 2),
+            EntranceDirection::NorthWest => AxialPos::new(-2, 1),
+            EntranceDirection::SouthWest => AxialPos::new(-1, -1),
+            EntranceDirection::South => AxialPos::new(1, -2),
+            EntranceDirection::SouthEast => AxialPos::new(2, -1),
+        };
         let pos = AxialPos {
             q: pos.q + offset.q * distance.div_ceil(2) as i32,
             r: pos.r + offset.r * distance.div_ceil(2) as i32,
