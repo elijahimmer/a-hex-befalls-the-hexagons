@@ -2,7 +2,6 @@ use crate::embed_asset;
 use crate::menu::new_game::GenerationProgress;
 use crate::menu::new_game::NewGameState;
 use crate::prelude::*;
-use crate::tile::spawn_tile_labels;
 use bevy::prelude::*;
 use bevy_ecs_tilemap::helpers::hex_grid::axial::AxialPos;
 use bevy_ecs_tilemap::helpers::hex_grid::neighbors::HexNeighbors;
@@ -73,12 +72,10 @@ pub struct GenerationSettings {
 #[derive(Resource, Deref, DerefMut)]
 struct GenerationRand(pub RandomSource);
 
-#[derive(Component, Reflect)]
-#[reflect(Component)]
+#[derive(Component)]
 pub struct MapTile;
 
-#[derive(Component, Reflect)]
-#[reflect(Component)]
+#[derive(Component)]
 pub struct MapTilemap;
 
 /// Enum to represent all possible collapsed components
