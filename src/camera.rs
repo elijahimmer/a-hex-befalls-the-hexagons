@@ -41,8 +41,8 @@ fn camera_setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     ));
 
     let size = Extent3d {
-        width: 256,
-        height: 256,
+        width: 300,
+        height: 300,
         ..default()
     };
 
