@@ -158,6 +158,9 @@ impl AnimationConfig {
     }
 }
 
+#[derive(Clone, Serialize, Deserialize)]
+pub struct HealthBar(usize);
+
 pub fn name_to_sprite(asset_server: &AssetServer, name: ActorName) -> Sprite {
     let asset = asset_server.load(name_to_sprite_path(name));
     let atlas_layout = name_to_atlas_layout(name);
