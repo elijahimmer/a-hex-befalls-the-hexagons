@@ -5,6 +5,7 @@ mod controls;
 mod database;
 mod game;
 mod generate_map;
+mod health_bar;
 mod items;
 mod menu;
 mod room;
@@ -40,6 +41,7 @@ pub mod prelude {
     pub use crate::controls::{Control, ControlState, Controls, Keybind};
     pub use crate::database::{Database, Error as DatabaseError, FromDatabase, ToDatabase};
     pub use crate::generate_map::MapTilemap;
+    pub use crate::health_bar::*;
     pub use crate::items::{Item, Items};
     pub use crate::room::{RoomInfo, RoomTile, RoomTilemap, RoomType};
     #[cfg(feature = "sqlite")]
@@ -55,6 +57,7 @@ use controls::ControlsPlugin;
 use database::DatabasePlugin;
 use game::GamePlugin;
 use generate_map::GenerateMapPlugin;
+use health_bar::HpPlugin;
 use menu::MenuPlugin;
 use prelude::*;
 use sky::SkyPlugin;
@@ -119,7 +122,8 @@ fn main() {
         .add_plugins(MenuPlugin)
         .add_plugins(SkyPlugin)
         .add_plugins(CameraPlugin)
-        .add_plugins(GenerateMapPlugin);
+        .add_plugins(GenerateMapPlugin)
+        .add_plugins(HpPlugin);
 
     app.add_systems(
         Update,
