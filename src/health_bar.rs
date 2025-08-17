@@ -23,7 +23,10 @@ impl Plugin for HpPlugin {
         embed_asset!(app, "assets/sprites/Priestess_name.png");
         embed_asset!(app, "assets/sprites/Thief_name.png");
         embed_asset!(app, "assets/sprites/Warrior_name.png");
-        app.add_systems(OnEnter(AppState::Game), (create_hp_bars, spawn_hp, update_hp_bar).chain());
+        app.add_systems(
+            OnEnter(AppState::Game),
+            (create_hp_bars, spawn_hp, update_hp_bar).chain(),
+        );
     }
 }
 
@@ -33,10 +36,11 @@ pub struct HPBar;
 fn create_hp_bars(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Left HP
     commands
-        .spawn((Node {
-            align_items: AlignItems::Start,
-            flex_direction: FlexDirection::Column,
-            ..default()
+        .spawn((
+            Node {
+                align_items: AlignItems::Start,
+                flex_direction: FlexDirection::Column,
+                ..default()
             },
             Transform::from_translation(Vec3::new(0.0, 0.0, -10.0)),
         ))
@@ -61,7 +65,7 @@ fn create_hp_bars(mut commands: Commands, asset_server: Res<AssetServer>) {
                             ..default()
                         },
                     ));
-                    
+
                     builder.spawn((
                         ImageNode {
                             image: asset_server.load(PRIESTESS_IMAGE_PATH),
@@ -90,10 +94,11 @@ fn create_hp_bars(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ));
                 });
             builder
-                .spawn((Node {
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Start,
-                    ..default()
+                .spawn((
+                    Node {
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Start,
+                        ..default()
                     },
                     Transform::from_translation(Vec3::new(0.0, 0.0, -1.0)),
                 ))
@@ -139,12 +144,10 @@ fn create_hp_bars(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn spawn_hp(
-    mut commands: Commands, 
+    mut commands: Commands,
     mut actors_health_q: Query<&Health, With<Actor>>,
-    asset_server: Res<AssetServer>) {
- 
-    
-
+    asset_server: Res<AssetServer>,
+) {
     let mut actors_health: Vec<&Health> = Vec::new();
 
     for health in actors_health_q {
@@ -152,23 +155,28 @@ fn spawn_hp(
     }
 
     commands
-        .spawn((Node {
+        .spawn((
+            Node {
                 top: Val::Px(57.5),
                 left: Val::Px(46.5),
                 position_type: PositionType::Absolute,
                 justify_content: JustifyContent::Start,
                 align_items: AlignItems::Center,
-                ..default() 
+                ..default()
             },
             HPBar,
         ))
         .with_children(|builder| {
             builder.spawn((
-                Node { 
+                Node {
                     margin: UiRect::all(Val::Px(10.0)),
                     ..default()
                 },
-                Text::new(format!("{}/{}", actors_health.get(0).unwrap().current().unwrap(), actors_health.get(0).unwrap().max())),
+                Text::new(format!(
+                    "{}/{}",
+                    actors_health.get(0).unwrap().current().unwrap(),
+                    actors_health.get(0).unwrap().max()
+                )),
                 TextFont {
                     font_size: 11.0,
                     ..default()
@@ -177,23 +185,28 @@ fn spawn_hp(
             ));
         });
     commands
-        .spawn((Node {
+        .spawn((
+            Node {
                 top: Val::Px(57.5),
                 left: Val::Px(167.5),
                 position_type: PositionType::Absolute,
                 justify_content: JustifyContent::Start,
                 align_items: AlignItems::Center,
-                ..default() 
+                ..default()
             },
             HPBar,
         ))
         .with_children(|builder| {
             builder.spawn((
-                Node { 
+                Node {
                     margin: UiRect::all(Val::Px(10.0)),
                     ..default()
                 },
-                Text::new(format!("{}/{}", actors_health.get(1).unwrap().current().unwrap(), actors_health.get(1).unwrap().max())),
+                Text::new(format!(
+                    "{}/{}",
+                    actors_health.get(1).unwrap().current().unwrap(),
+                    actors_health.get(1).unwrap().max()
+                )),
                 TextFont {
                     font_size: 11.0,
                     ..default()
@@ -203,23 +216,28 @@ fn spawn_hp(
         });
 
     commands
-        .spawn((Node {
+        .spawn((
+            Node {
                 top: Val::Px(57.5),
                 left: Val::Px(287.5),
                 position_type: PositionType::Absolute,
                 justify_content: JustifyContent::Start,
                 align_items: AlignItems::Center,
-                ..default() 
+                ..default()
             },
             HPBar,
         ))
         .with_children(|builder| {
             builder.spawn((
-                Node { 
+                Node {
                     margin: UiRect::all(Val::Px(10.0)),
                     ..default()
                 },
-                Text::new(format!("{}/{}", actors_health.get(2).unwrap().current().unwrap(), actors_health.get(2).unwrap().max())),
+                Text::new(format!(
+                    "{}/{}",
+                    actors_health.get(2).unwrap().current().unwrap(),
+                    actors_health.get(2).unwrap().max()
+                )),
                 TextFont {
                     font_size: 11.0,
                     ..default()
@@ -229,9 +247,4 @@ fn spawn_hp(
         });
 }
 
-fn update_hp_bar(
-    commands: Commands,
-    hp_q: Query<&Text, With<HPBar>>,
-) {
-
-}
+fn update_hp_bar(commands: Commands, hp_q: Query<&Text, With<HPBar>>) {}

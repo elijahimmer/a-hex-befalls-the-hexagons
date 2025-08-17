@@ -4,7 +4,6 @@ use bevy::render::{
     camera::RenderTarget,
     render_asset::RenderAssetUsages,
     render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages},
-    view::RenderLayers,
 };
 
 pub const CAMERA_DEFAULT_SCALE: f32 = 1.00;

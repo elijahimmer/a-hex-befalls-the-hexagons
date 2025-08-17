@@ -239,11 +239,11 @@ impl EntranceDirection {
 
     pub fn axial_offset(&self) -> AxialPos {
         match self {
-            EntranceDirection::NorthEast => AxialPos::new(1, 1),
+            EntranceDirection::NorthEast => AxialPos::new(1, 0),
             EntranceDirection::North => AxialPos::new(0, 1),
             EntranceDirection::NorthWest => AxialPos::new(-1, 1),
-            EntranceDirection::SouthWest => AxialPos::new(-1, -1),
-            EntranceDirection::South => AxialPos::new(1, 0),
+            EntranceDirection::SouthWest => AxialPos::new(-1, 0),
+            EntranceDirection::South => AxialPos::new(0, -1),
             EntranceDirection::SouthEast => AxialPos::new(1, -1),
         }
     }
