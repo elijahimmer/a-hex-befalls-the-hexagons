@@ -149,6 +149,52 @@ pub fn spawn_gameover_screen(mut commands: Commands, asset_server: Res<AssetServ
         });
 }
 
+pub fn spawn_victory_screen(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                align_items: AlignItems::Center,
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+            StateScoped(GameState::GameOver),
+        ))
+        .with_children(|builder| {
+            builder.spawn((
+                ImageNode {
+                    image: asset_server.load(GAMEOVER_IMAGE_PATH),
+                    ..default()
+                },
+                Node {
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    flex_basis: Val::Px(54.0),
+                    ..default()
+                },
+            ));
+
+            builder
+                .spawn((
+                    ImageNode {
+                        image: asset_server.load(BUTTON_IMAGE_PATH),
+                        ..default()
+                    },
+                    Node {
+                        top: Val::Px(100.0),
+                        align_items: AlignItems::Center,
+                        justify_content: JustifyContent::Center,
+                        flex_basis: Val::Px(100.0),
+                        ..default()
+                    },
+                    Button,
+                ))
+                .observe(exit_victory);
+        });
+}
+
 fn basic_attack(
     mut click: Trigger<Pointer<Click>>,
     mut commands: Commands,
@@ -278,5 +324,18 @@ fn exit_gameover(
         update_appstate.set(AppState::Menu);
 
         info!("exit_gameover working!!!");
+    }
+}
+
+fn exit_victory(
+    mut click: Trigger<Pointer<Click>>,
+    mut update_appstate: ResMut<NextState<AppState>>,
+) {
+    click.propagate(false);
+
+    if click.button == PointerButton::Primary {
+        update_appstate.set(AppState::Menu);
+
+        info!("exit_victory working!!!");
     }
 }

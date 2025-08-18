@@ -1,8 +1,10 @@
 mod attack_options;
 mod combat;
+mod pouch;
 
 pub use attack_options::*;
 pub use combat::*;
+pub use pouch::*;
 
 use crate::prelude::*;
 use crate::room::{
@@ -71,7 +73,8 @@ impl Plugin for GamePlugin {
         )
         .add_systems(OnEnter(GameState::GameOver), spawn_gameover_screen)
         .add_plugins(CombatPlugin)
-        .add_plugins(AttackOptionsPlugin);
+        .add_plugins(AttackOptionsPlugin)
+        .add_plugins(PouchPlugin);
     }
 }
 
@@ -160,8 +163,7 @@ fn place_player_actors(
 
         commands
             .entity(entity)
-            .insert((Pickable::default(), Visibility::Visible));
-    }
+            .insert((Pickable::default(), Visibility::Visible)); }
 }
 
 fn init_room_rng(mut commands: Commands, info: Single<&RoomInfo, With<CurrentRoom>>) {
@@ -193,10 +195,11 @@ fn display_trigger_or_skip(
     } else {
         use RoomType as R;
         let event_text = match r_type {
-            R::EmptyRoom | R::Entrance | R::Pillar => unreachable!(),
+            R::EmptyRoom | R::Entrance => unreachable!(),
             R::Combat(_) => format!("Monsters attack!"),
             R::Pit(damage) => format!("You fell in a Pit O' Doom!\n\t    -{} Health", damage),
-            R::Item(item) => format!("Found item: None"),
+            R::Item(item) => format!("Found item: {}", item),
+            R::Pillar => format!("You have a Pillar of OO!"),
         };
 
         commands.spawn((
@@ -256,7 +259,10 @@ fn trigger_event(
 
     use RoomType as R;
     match r_type {
-        R::EmptyRoom | R::Entrance => unreachable!(),
+        R::EmptyRoom => unreachable!(),
+        R::Entrance => {
+            pouch::pillar_count; 
+        },
         R::Combat(_) => {}
         R::Pit(damage) => {
             let actor_count = actor_q.iter().filter(|h| h.is_alive()).count();
@@ -273,7 +279,9 @@ fn trigger_event(
                 .damage_no_one_shot(*damage);
         }
         R::Item(item) => {}
-        R::Pillar => {}
+        R::Pillar => {
+            pouch::add_pillar;
+        }
     }
 }
 
