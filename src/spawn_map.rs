@@ -83,7 +83,8 @@ pub fn load_map(
             let cleared = row.get("cleared")?;
             let r_type = row.get::<_, String>("r_type")?;
             let r_type = ron::from_str(&r_type).unwrap_or(RoomType::EmptyRoom);
-            let rng_seed = row.get("rng_seed")?;
+            // cast as sqlite can only store i64s
+            let rng_seed = row.get::<&str, i64>("rng_seed")? as u64;
 
             Ok((
                 TilePos { x, y },
