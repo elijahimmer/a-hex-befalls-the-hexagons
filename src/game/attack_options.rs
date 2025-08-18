@@ -152,14 +152,19 @@ pub fn spawn_gameover_screen(mut commands: Commands, asset_server: Res<AssetServ
 fn basic_attack(
     mut click: Trigger<Pointer<Click>>,
     mut commands: Commands,
+    rng: ResMut<EventRng>,
+    queue: ResMut<TurnOrder>,
+    active_actor: Single<(Entity, &Team), With<ActingActor>>,
+    actor_q: Query<(&Health, &Team)>,
     mut next_state: ResMut<NextState<CombatState>>,
-    target_q: Single<Entity, With<TargetActor>>,
 ) {
     click.propagate(false);
 
     if click.button == PointerButton::Primary {
-        commands.insert_resource(ActingActorAction(Action::Attack { target: *target_q }));
-        next_state.set(CombatState::PerformAction);
+        commands.insert_resource(ActingActorAction(Action::Attack {
+            target: choose_target(rng, queue, active_actor, actor_q),
+        }));
+        next_state.set(CombatState::ChooseAction);
         info!("WORKING");
     }
 }
@@ -168,16 +173,98 @@ fn special_move(
     mut click: Trigger<Pointer<Click>>,
     mut commands: Commands,
     mut next_state: ResMut<NextState<CombatState>>,
-    target_q: Single<Entity, With<TargetActor>>,
+    rng: ResMut<EventRng>,
+    queue: ResMut<TurnOrder>,
+    active_actor: Single<(Entity, &Team, &ActorName), With<ActingActor>>,
+    actor_q: Query<(&Health, &Team)>,
 ) {
     click.propagate(false);
 
     if click.button == PointerButton::Primary {
         commands.insert_resource(ActingActorAction(Action::SpecialAction {
-            target: *target_q,
+            target: choose_special_target(rng, queue, active_actor, actor_q),
         }));
         next_state.set(CombatState::PerformAction);
         info!("Special Move Successful!!!");
+    }
+}
+
+pub fn choose_target(
+    mut rng: ResMut<EventRng>,
+    queue: ResMut<TurnOrder>,
+    active_actor: Single<(Entity, &Team), With<ActingActor>>,
+    actor_q: Query<(&Health, &Team)>,
+) -> Entity {
+    //remove any current action
+    let (_, team) = *active_actor;
+    let targets: Vec<Entity> = queue
+        .queue()
+        .iter()
+        .filter_map(|&entity| {
+            if let Ok((health, target_team)) = actor_q.get(entity) {
+                if health.is_alive() && *target_team != *team {
+                    Some(entity)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    targets[rng.random_range(0..targets.len())]
+}
+
+pub fn choose_special_target(
+    mut rng: ResMut<EventRng>,
+    queue: ResMut<TurnOrder>,
+    active_actor: Single<(Entity, &Team, &ActorName), With<ActingActor>>,
+    actor_q: Query<(&Health, &Team)>,
+) -> Entity {
+    let (_, team, name) = *active_actor;
+    match name {
+        ActorName::Priestess => {
+            let mut players: Vec<(Entity, u32)> = queue
+                .queue()
+                .iter()
+                .filter_map(|&entity| {
+                    if let Ok((health, target_team)) = actor_q.get(entity) {
+                        if *target_team == *team {
+                            let current_health = health.current().map(|h| h.get()).unwrap_or(0);
+                            Some((entity, current_health))
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            players.sort_by(|a, b| a.1.cmp(&b.1));
+
+            players[0].0
+        }
+        _ => {
+            let targets: Vec<Entity> = queue
+                .queue()
+                .iter()
+                .filter_map(|&entity| {
+                    if let Ok((health, target_team)) = actor_q.get(entity) {
+                        if health.is_alive() && *target_team != *team {
+                            Some(entity)
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            targets[rng.random_range(0..targets.len())]
+        }
     }
 }
 
