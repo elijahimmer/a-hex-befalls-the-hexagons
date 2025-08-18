@@ -403,7 +403,6 @@ pub fn choose_action(
     actor_q: Query<(&Health, &Team)>,
 ) {
     //remove any current action
-    commands.remove_resource::<ActingActorAction>();
     let (_, team) = *active_actor;
     let targets: Vec<Entity> = queue
         .queue()
@@ -522,8 +521,6 @@ fn perform_action(
                         info!("MISSED!!!!!!!!!!!!!!\n");
                     }
                 }
-                next_state.set(CombatState::MoveToCenter);
-                return;
             }
             _ => {}
         },
@@ -540,10 +537,18 @@ pub fn end_turn(
     mut update_gamestate: ResMut<NextState<GameState>>,
     actor_q: Query<(&Health, &Team)>,
     health_q: Query<&Health>,
+    actor_name: Single<&ActorName, With<ActingActor>>,
+    actor_action: Res<ActingActorAction>,
 ) {
-    commands.entity(queue.active()).remove::<ActingActor>();
+    if matches!(**actor_name, ActorName::Theif)
+        && matches!(actor_action.0, Action::SpecialAction { .. })
+    {
+    } else {
+        commands.entity(queue.active()).remove::<ActingActor>();
+        queue.skip_to_next(health_q);
+    }
     commands.remove_resource::<ActingActorAction>();
-    queue.skip_to_next(health_q);
+
     match queue.teams_alive(actor_q) {
         TeamAlive::Both => {
             next_state.set(CombatState::TurnSetup);
