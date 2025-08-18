@@ -196,7 +196,6 @@ fn display_trigger_or_skip(
             R::EmptyRoom | R::Entrance | R::Pillar => unreachable!(),
             R::Combat(_) => format!("Monsters attack!"),
             R::Pit(damage) => format!("You fell in a Pit O' Doom!\n\t    -{} Health", damage),
-            // TODO: Display item name when we can
             R::Item(item) => format!("Found item: None"),
         };
 
