@@ -47,7 +47,7 @@ pub fn save_map(
     {
         let r_type = ron::to_string(&r_type).unwrap();
 
-        query.execute((game_id, pos_x, pos_y, cleared, r_type, rng_seed))?;
+        query.execute((game_id, pos_x, pos_y, cleared, r_type, *rng_seed as i64))?;
     }
 
     Ok(())

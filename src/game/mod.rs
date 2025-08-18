@@ -28,11 +28,14 @@ impl Plugin for GamePlugin {
             OnEnter(AppState::Game),
             (init_room_rng, spawn_room, place_player_actors).chain(),
         )
-        .add_systems(Update, set_room_rng.run_if(in_state(AppState::Game)))
         .add_systems(
             OnEnter(GameState::EnterRoom),
             (
-                (despawn_filtered::<With<InRoom>>, spawn_room_entities).chain(),
+                (
+                    (despawn_filtered::<With<InRoom>>, set_room_rng),
+                    spawn_room_entities,
+                )
+                    .chain(),
                 change_state(GameState::TriggerEvent),
             ),
         )
