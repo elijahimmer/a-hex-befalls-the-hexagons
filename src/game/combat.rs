@@ -509,7 +509,7 @@ pub fn end_turn(
             update_gamestate.set(GameState::GameOver);
         }
         TeamAlive::Neither => {
-            info!("Everyone is dead!!!!!")
+            info!("Everyone is dead!!!!!");
             update_gamestate.set(GameState::GameOver);
         }
     }
