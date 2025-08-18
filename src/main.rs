@@ -16,7 +16,6 @@ mod spawn_map;
 mod style;
 mod tile;
 mod util;
-//mod attack_options;
 
 pub mod prelude {
     pub use bevy::prelude::*;
@@ -126,7 +125,6 @@ fn main() {
         .add_plugins(CameraPlugin)
         .add_plugins(GenerateMapPlugin)
         .add_plugins(HpPlugin);
-    //       .add_plugins(AttackOptionsPlugin);
 
     app.add_systems(
         Update,
