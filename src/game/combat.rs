@@ -402,6 +402,8 @@ pub fn choose_action(
     active_actor: Single<(Entity, &Team), With<ActingActor>>,
     actor_q: Query<(&Health, &Team)>,
 ) {
+    //remove any current action
+    commands.remove_resource::<ActingActorAction>();
     let (_, team) = *active_actor;
     let targets: Vec<Entity> = queue
         .queue()
@@ -440,7 +442,6 @@ fn perform_action(
     actor_action: Res<ActingActorAction>,
     mut actor_q: Query<(&mut Health, &BlockChance), With<Actor>>,
     actor_name: Single<&ActorName, With<ActingActor>>,
-    //mut actor_action_event: EventWriter<ActionEvent>,
 ) {
     let (_, a_attack) = *active_actor;
     match **actor_action {
@@ -492,26 +493,44 @@ fn perform_action(
             }
             ActorName::Priestess => {
                 if let Ok((mut target_health, _)) = actor_q.get_mut(target) {
+                    let health_before = target_health.current().map(|h| h.get()).unwrap_or(0);
+                    info!("target {} health is {}", target, health_before);
                     let heal_num = rng.random_range(15..30);
                     target_health.heal_or_revive(heal_num);
+                    let health_after = target_health.current().map(|h| h.get()).unwrap_or(0);
+                    info!(
+                        "{} has healed {} points, health is now {}",
+                        target, heal_num, health_after
+                    );
                 }
             }
-            ActorName::Theif => {}
+            ActorName::Theif => {
+                let theif_attack = a_attack.clone();
+
+                let attack_result = theif_attack.conduct(&mut *rng);
+
+                match attack_result {
+                    AttackDamage::Hit(damage) => {
+                        if let Ok((mut target_health, block_chance)) = actor_q.get_mut(target) {
+                            let blocked = rng.random_bool(block_chance.0.into());
+                            if !blocked {
+                                target_health.damage(damage.get());
+                            }
+                        }
+                    }
+                    AttackDamage::Miss => {
+                        info!("MISSED!!!!!!!!!!!!!!\n");
+                    }
+                }
+                next_state.set(CombatState::MoveToCenter);
+                return;
+            }
             _ => {}
         },
         Action::UseItem { target, item } => {}
-        Action::SkipTurn => {
-            next_state.set(CombatState::MoveBack);
-        }
+        Action::SkipTurn => {}
     }
     next_state.set(CombatState::MoveBack);
-    /*
-    actor_action.write(ActionEvent {
-        actor: active_a,
-        action: **actor_action,
-        target,
-    });
-    */
 }
 
 pub fn end_turn(
@@ -523,6 +542,7 @@ pub fn end_turn(
     health_q: Query<&Health>,
 ) {
     commands.entity(queue.active()).remove::<ActingActor>();
+    commands.remove_resource::<ActingActorAction>();
     queue.skip_to_next(health_q);
     match queue.teams_alive(actor_q) {
         TeamAlive::Both => {
