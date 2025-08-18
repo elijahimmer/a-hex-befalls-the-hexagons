@@ -210,7 +210,7 @@ fn basic_attack(
         commands.insert_resource(ActingActorAction(Action::Attack {
             target: choose_target(rng, queue, active_actor, actor_q),
         }));
-        next_state.set(CombatState::ChooseAction);
+        next_state.set(CombatState::PerformAction);
         info!("WORKING");
     }
 }

@@ -32,11 +32,7 @@ impl Plugin for CombatPlugin {
             OnEnter(CombatState::SpawnMenu),
             attack_options::create_attack_menu,
         )
-        .add_systems(
-            OnEnter(CombatState::ChooseAction),
-            (attack_options::despawn_attack_menu, choose_action).chain(),
-        )
-        .add_systems(OnEnter(CombatState::PerformAction), perform_action)
+        .add_systems(OnEnter(CombatState::PerformAction), (despawn_attack_menu, perform_action).chain())
         .add_systems(
             Update,
             (move_to_target, move_back_check).run_if(in_state(CombatState::MoveBack)),
@@ -74,13 +70,6 @@ pub enum CombatState {
     CheckTeam,
     /// Monster Attack
     MonsterAttack,
-    /// The player is prompted or the monster
-    /// randomizes the attack
-    ///
-    /// OnEnter: if [`ActingActor`] is automated, decide the attack and move on
-    ///          OTHERWISE Show UI
-    /// Update:  User interaction, if user picks action, set it as [`ActingActorAction`]
-    ChooseAction,
     /// The attacking actor does the attack
     /// and the attackee gets hurt
     ///
@@ -523,6 +512,8 @@ fn perform_action(
                 }
             }
             _ => {}
+
+            
         },
         Action::UseItem { target, item } => {}
         Action::SkipTurn => {}

@@ -214,8 +214,9 @@ pub fn spawn_room_entities(
 
 /// Should be run after the room
 pub fn mark_room_cleared(mut info: Single<&mut RoomInfo, With<CurrentRoom>>) {
-    if info.r_type != RoomType::Entrance {
-        info.cleared = true;
+    match info.r_type {
+        RoomType::Entrance => {}
+        _ => info.cleared = true,
     }
 }
 

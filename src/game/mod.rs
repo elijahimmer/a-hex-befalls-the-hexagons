@@ -72,6 +72,7 @@ impl Plugin for GamePlugin {
             despawn_filtered::<With<EntranceDirection>>,
         )
         .add_systems(OnEnter(GameState::GameOver), spawn_gameover_screen)
+        .add_systems(OnEnter(GameState::Victory), spawn_victory_screen)
         .add_plugins(CombatPlugin)
         .add_plugins(AttackOptionsPlugin)
         .add_plugins(PouchPlugin);
@@ -190,12 +191,13 @@ fn display_trigger_or_skip(
         cleared, r_type, ..
     } = *info;
 
-    if *cleared || *r_type == RoomType::EmptyRoom || *r_type == RoomType::Entrance {
+    if *cleared || *r_type == RoomType::EmptyRoom {
         game_state.set(GameState::Navigation);
     } else {
         use RoomType as R;
         let event_text = match r_type {
-            R::EmptyRoom | R::Entrance => unreachable!(),
+            R::EmptyRoom => unreachable!(),
+            R::Entrance => format!("The Entrance"),
             R::Combat(_) => format!("Monsters attack!"),
             R::Pit(damage) => format!("You fell in a Pit O' Doom!\n\t    -{} Health", damage),
             R::Item(item) => format!("Found item: {}", item),
@@ -248,6 +250,7 @@ fn wait_for_trigger(
 }
 
 fn trigger_event(
+    mut commands: Commands,
     info: Single<&RoomInfo, With<CurrentRoom>>,
     mut actor_q: Query<&mut Health>,
     mut event_rng: ResMut<EventRng>,
@@ -261,7 +264,7 @@ fn trigger_event(
     match r_type {
         R::EmptyRoom => unreachable!(),
         R::Entrance => {
-            pouch::pillar_count; 
+            commands.run_system_cached(pouch::pillar_count);
         },
         R::Combat(_) => {}
         R::Pit(damage) => {
@@ -280,7 +283,7 @@ fn trigger_event(
         }
         R::Item(item) => {}
         R::Pillar => {
-            pouch::add_pillar;
+            commands.run_system_cached(pouch::add_pillar);
         }
     }
 }

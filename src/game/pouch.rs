@@ -32,6 +32,7 @@ pub fn add_pillar(
     mut commands: Commands,
     pouch_q: Query<&mut Pouch>,
 ) {
+    info!("working");
     for mut pillar in pouch_q {
         info!(pillar.count);
         pillar.count += 1;
