@@ -6,6 +6,7 @@ use bevy_ecs_tilemap::prelude::*;
 use rand::Rng;
 use std::fmt;
 
+use crate::menu::*;
 
 pub const BASIC_BUTTON_IMAGE_PATH: &str = "embedded://assets/sprites/Basic-button.png";
 pub const MOVE_BANNER_IMAGE_PATH: &str = "embedded://assets/sprites/Move Banner.png";
@@ -114,6 +115,7 @@ pub fn spawn_gameover_screen(
                 justify_content: JustifyContent::Center,
                 ..default()
             },
+            StateScoped(GameState::GameOver),
         ))
         .with_children(|builder| {
             builder.spawn((
@@ -170,14 +172,12 @@ fn special_move(mut click: Trigger<Pointer<Click>>) {
 
 fn exit_gameover(
     mut click: Trigger<Pointer<Click>>,
-    //mut update_gamestate: ResMut<NextState<MenuState>>,
+    mut update_appstate: ResMut<NextState<AppState>>,
 ) {
     click.propagate(false);
 
     if click.button == PointerButton::Primary {
-        /*
-            update_gamestate.set(MenuState::Main);
-        */
+        update_appstate.set(AppState::Menu);
 
         info!("exit_gameover working!!!");
     }
