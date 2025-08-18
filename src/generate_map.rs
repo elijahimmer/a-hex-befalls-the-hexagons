@@ -243,27 +243,27 @@ fn create_origin_and_pillars(
 
         commands.entity(start).insert((
             collapsed,
-            RoomInfo::from_type(RoomType::Entrance, 0xDeadBeef),
+            RoomInfo::from_type(RoomType::Entrance, tile_rand.random_range(..u64::MAX)),
         ));
         commands.entity(north).insert((
             Pillars::North,
             collapsed,
-            RoomInfo::from_type(RoomType::Pillar, 0xDeadBeef),
+            RoomInfo::from_type(RoomType::Pillar, tile_rand.random_range(..u64::MAX)),
         ));
         commands.entity(east).insert((
             Pillars::East,
             collapsed,
-            RoomInfo::from_type(RoomType::Pillar, 0xDeadBeef),
+            RoomInfo::from_type(RoomType::Pillar, tile_rand.random_range(..u64::MAX)),
         ));
         commands.entity(south).insert((
             Pillars::South,
             collapsed,
-            RoomInfo::from_type(RoomType::Pillar, 0xDeadBeef),
+            RoomInfo::from_type(RoomType::Pillar, tile_rand.random_range(..u64::MAX)),
         ));
         commands.entity(west).insert((
             Pillars::West,
             collapsed,
-            RoomInfo::from_type(RoomType::Pillar, 0xDeadBeef),
+            RoomInfo::from_type(RoomType::Pillar, tile_rand.random_range(..u64::MAX)),
         ));
     }
 }

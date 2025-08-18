@@ -476,7 +476,7 @@ fn perform_action(
                     info!("MISSED!!!!!!!!!!!!!!\n");
                 }
             }
-        }
+        },
         Action::SpecialAction { target } => match **actor_name {
             ActorName::Warrior => {
                 if let Ok((mut target_health, _)) = actor_q.get_mut(target) {

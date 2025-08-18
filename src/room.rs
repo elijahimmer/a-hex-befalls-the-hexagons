@@ -208,7 +208,9 @@ pub fn spawn_room_entities(
             Item::VisionPotion => {}
         },
         R::Pit(damage) => {}
-        R::Pillar => {}
+        R::Pillar => {
+            
+        }
     }
 }
 
