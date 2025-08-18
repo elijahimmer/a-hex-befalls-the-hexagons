@@ -1,12 +1,11 @@
 use super::*;
 use crate::embed_asset;
+use crate::menu::*;
 use crate::prelude::*;
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 use rand::Rng;
 use std::fmt;
-
-use crate::menu::*;
 
 pub const BASIC_BUTTON_IMAGE_PATH: &str = "embedded://assets/sprites/Basic-button.png";
 pub const MOVE_BANNER_IMAGE_PATH: &str = "embedded://assets/sprites/Move Banner.png";
@@ -28,6 +27,9 @@ impl Plugin for AttackOptionsPlugin {
 
 #[derive(Component)]
 pub struct AttackMenu;
+
+#[derive(Component)]
+pub struct TargetActor;
 
 pub fn create_attack_menu(
     mut commands: Commands,
@@ -101,10 +103,7 @@ pub fn despawn_attack_menu(
     commands.entity(*menu_entity).despawn();
 }
 
-pub fn spawn_gameover_screen(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-) {
+pub fn spawn_gameover_screen(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn((
             Node {
@@ -152,20 +151,32 @@ pub fn spawn_gameover_screen(
 
 fn basic_attack(
     mut click: Trigger<Pointer<Click>>,
+    mut commands: Commands,
     mut next_state: ResMut<NextState<CombatState>>,
+    target_q: Single<Entity, With<TargetActor>>,
 ) {
     click.propagate(false);
 
     if click.button == PointerButton::Primary {
-        next_state.set(CombatState::ChooseAction);
+        commands.insert_resource(ActingActorAction(Action::Attack { target: *target_q }));
+        next_state.set(CombatState::PerformAction);
         info!("WORKING");
     }
 }
 
-fn special_move(mut click: Trigger<Pointer<Click>>) {
+fn special_move(
+    mut click: Trigger<Pointer<Click>>,
+    mut commands: Commands,
+    mut next_state: ResMut<NextState<CombatState>>,
+    target_q: Single<Entity, With<TargetActor>>,
+) {
     click.propagate(false);
 
     if click.button == PointerButton::Primary {
+        commands.insert_resource(ActingActorAction(Action::SpecialAction {
+            target: *target_q,
+        }));
+        next_state.set(CombatState::PerformAction);
         info!("Special Move Successful!!!");
     }
 }

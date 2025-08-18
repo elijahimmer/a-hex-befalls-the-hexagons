@@ -69,10 +69,7 @@ impl Plugin for GamePlugin {
             OnExit(GameState::Navigation),
             despawn_filtered::<With<EntranceDirection>>,
         )
-        .add_systems(
-                OnEnter(GameState::GameOver),
-                spawn_gameover_screen
-            )
+        .add_systems(OnEnter(GameState::GameOver), spawn_gameover_screen)
         .add_plugins(CombatPlugin)
         .add_plugins(AttackOptionsPlugin);
     }
