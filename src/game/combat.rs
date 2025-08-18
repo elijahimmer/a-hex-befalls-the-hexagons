@@ -7,6 +7,7 @@ use std::fmt;
 
 pub struct CombatPlugin;
 const ACTOR_SPEED: f32 = 300.0;
+const DAMAGE_MULTIPLIER: f32 = 1.2;
 
 impl Plugin for CombatPlugin {
     fn build(&self, app: &mut App) {
@@ -419,14 +420,14 @@ pub fn choose_action(
         .collect();
 
     let chosen_target = targets[rng.random_range(0..targets.len())];
-    let monster_action = Action::Attack {
+    let combat_action = Action::Attack {
         target: chosen_target,
     };
     info!("CHOSEN TARGET {:?}", chosen_target);
 
     // Get the Attack and do .conduct on that
 
-    commands.insert_resource(ActingActorAction(monster_action));
+    commands.insert_resource(ActingActorAction(combat_action));
     next_state.set(CombatState::PerformAction);
 }
 
@@ -438,39 +439,69 @@ fn perform_action(
     active_actor: Single<(Entity, &Attack), With<ActingActor>>,
     actor_action: Res<ActingActorAction>,
     mut actor_q: Query<(&mut Health, &BlockChance), With<Actor>>,
+    actor_name: Single<&ActorName, With<ActingActor>>,
     //mut actor_action_event: EventWriter<ActionEvent>,
 ) {
     let (_, a_attack) = *active_actor;
-    if let Action::Attack { target } = **actor_action {
-        let attack = a_attack.clone();
+    match **actor_action {
+        Action::Attack { target } => {
+            let attack = a_attack.clone();
 
-        let attack_result = attack.conduct(&mut *rng);
-        info!("ATTACK RESULT {:?}", attack_result);
+            let attack_result = attack.conduct(&mut *rng);
+            info!("ATTACK RESULT {:?}", attack_result);
 
-        match attack_result {
-            AttackDamage::Hit(damage) => {
-                if let Ok((mut target_health, block_chance)) = actor_q.get_mut(target) {
-                    info!("TARGETS BLOCK CHANCE: {}\n", block_chance.0);
-                    let blocked = rng.random_bool(block_chance.0.into());
-                    info!("Block chance: {:?}, Blocked: {}\n", block_chance.0, blocked);
-                    if !blocked {
-                        target_health.damage(damage.get());
-                        let current_health = target_health.current().map(|h| h.get()).unwrap_or(0);
-                        info!(
-                            "DAMAGE DEALT: {}, TARGET HEALTH: {}\n",
-                            damage.get(),
-                            current_health
-                        );
+            match attack_result {
+                AttackDamage::Hit(damage) => {
+                    if let Ok((mut target_health, block_chance)) = actor_q.get_mut(target) {
+                        info!("TARGETS BLOCK CHANCE: {}\n", block_chance.0);
+                        let blocked = rng.random_bool(block_chance.0.into());
+                        info!("Block chance: {:?}, Blocked: {}\n", block_chance.0, blocked);
+                        if !blocked {
+                            target_health.damage(damage.get());
+                            let current_health =
+                                target_health.current().map(|h| h.get()).unwrap_or(0);
+                            info!(
+                                "DAMAGE DEALT: {}, TARGET HEALTH: {}\n",
+                                damage.get(),
+                                current_health
+                            );
 
-                        if !target_health.is_alive() {
-                            info!("{:?} IS DEAD!!!!!!!!!!!!!!\n", target);
+                            if !target_health.is_alive() {
+                                info!("{:?} IS DEAD!!!!!!!!!!!!!!\n", target);
+                            }
                         }
                     }
                 }
+                AttackDamage::Miss => {
+                    info!("MISSED!!!!!!!!!!!!!!\n");
+                }
             }
-            AttackDamage::Miss => {
-                info!("MISSED!!!!!!!!!!!!!!\n");
+        }
+        Action::SpecialAction { target } => match **actor_name {
+            ActorName::Warrior => {
+                if let Ok((mut target_health, _)) = actor_q.get_mut(target) {
+                    let attack_result = a_attack.conduct(&mut *rng);
+                    match attack_result {
+                        AttackDamage::Hit(damage) => {
+                            let extra_damage = (damage.get() as f32 * DAMAGE_MULTIPLIER) as u32;
+                            target_health.damage(extra_damage);
+                        }
+                        AttackDamage::Miss => {}
+                    }
+                }
             }
+            ActorName::Priestess => {
+                if let Ok((mut target_health, _)) = actor_q.get_mut(target) {
+                    let heal_num = rng.random_range(15..30);
+                    target_health.heal_or_revive(heal_num);
+                }
+            }
+            ActorName::Theif => {}
+            _ => {}
+        },
+        Action::UseItem { target, item } => {}
+        Action::SkipTurn => {
+            next_state.set(CombatState::MoveBack);
         }
     }
     next_state.set(CombatState::MoveBack);
@@ -490,7 +521,6 @@ pub fn end_turn(
     mut update_gamestate: ResMut<NextState<GameState>>,
     actor_q: Query<(&Health, &Team)>,
     health_q: Query<&Health>,
-
 ) {
     commands.entity(queue.active()).remove::<ActingActor>();
     queue.skip_to_next(health_q);
@@ -499,7 +529,7 @@ pub fn end_turn(
             next_state.set(CombatState::TurnSetup);
         }
 
-        //TODO: If you have time, despawn enemies 
+        //TODO: If you have time, despawn enemies
         TeamAlive::Player => {
             info!("Players won");
             update_gamestate.set(GameState::Navigation);
