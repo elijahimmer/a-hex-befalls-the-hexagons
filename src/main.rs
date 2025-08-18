@@ -16,6 +16,7 @@ mod spawn_map;
 mod style;
 mod tile;
 mod util;
+//mod attack_options;
 
 pub mod prelude {
     pub use bevy::prelude::*;
@@ -63,6 +64,7 @@ use prelude::*;
 use sky::SkyPlugin;
 use style::StylePlugin;
 use tile::TilePlugin;
+//use attack_options::AttackOptionsPlugin;
 
 #[cfg(feature = "debug")]
 use bevy::{
@@ -124,6 +126,7 @@ fn main() {
         .add_plugins(CameraPlugin)
         .add_plugins(GenerateMapPlugin)
         .add_plugins(HpPlugin);
+    //       .add_plugins(AttackOptionsPlugin);
 
     app.add_systems(
         Update,

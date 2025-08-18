@@ -36,14 +36,11 @@ pub struct HPBar;
 fn create_hp_bars(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Left HP
     commands
-        .spawn((
-            Node {
-                align_items: AlignItems::Start,
-                flex_direction: FlexDirection::Column,
-                ..default()
-            },
-            Transform::from_translation(Vec3::new(0.0, 0.0, -10.0)),
-        ))
+        .spawn((Node {
+            align_items: AlignItems::Start,
+            flex_direction: FlexDirection::Column,
+            ..default()
+        },))
         .with_children(|builder| {
             builder
                 .spawn(Node {

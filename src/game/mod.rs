@@ -1,5 +1,7 @@
+mod attack_options;
 mod combat;
 
+pub use attack_options::*;
 pub use combat::*;
 
 use crate::prelude::*;
@@ -67,7 +69,12 @@ impl Plugin for GamePlugin {
             OnExit(GameState::Navigation),
             despawn_filtered::<With<EntranceDirection>>,
         )
-        .add_plugins(CombatPlugin);
+        .add_systems(
+                OnEnter(GameState::GameOver),
+                spawn_gameover_screen
+            )
+        .add_plugins(CombatPlugin)
+        .add_plugins(AttackOptionsPlugin);
     }
 }
 

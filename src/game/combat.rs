@@ -25,7 +25,16 @@ impl Plugin for CombatPlugin {
             Update,
             (move_to_target, move_to_center_check).run_if(in_state(CombatState::MoveToCenter)),
         )
-        .add_systems(OnEnter(CombatState::ChooseAction), choose_action)
+        .add_systems(OnEnter(CombatState::CheckTeam), check_team)
+        .add_systems(OnEnter(CombatState::MonsterAttack), choose_action)
+        .add_systems(
+            OnEnter(CombatState::SpawnMenu),
+            attack_options::create_attack_menu,
+        )
+        .add_systems(
+            OnEnter(CombatState::ChooseAction),
+            (attack_options::despawn_attack_menu, choose_action).chain(),
+        )
         .add_systems(OnEnter(CombatState::PerformAction), perform_action)
         .add_systems(
             Update,
@@ -58,6 +67,12 @@ pub enum CombatState {
     ///
     /// Update: Move [`AttackingActor`]
     MoveToCenter,
+    /// Spawns Menu
+    SpawnMenu,
+    /// Checks which Team is Attacking
+    CheckTeam,
+    /// Monster Attack
+    MonsterAttack,
     /// The player is prompted or the monster
     /// randomizes the attack
     ///
@@ -320,7 +335,7 @@ fn move_to_center_check(
     let (entity, transform, target) = active_actor.into_inner();
     if transform.translation.xy() == target.0 {
         commands.entity(entity).remove::<ActorTargetPosition>();
-        next_state.set(CombatState::ChooseAction);
+        next_state.set(CombatState::CheckTeam);
         //next_state.set(CombatState::MoveBack);
     }
 }
@@ -350,6 +365,19 @@ fn move_back_check(
     }
 }
 
+fn check_team(
+    mut next_state: ResMut<NextState<CombatState>>,
+    team_q: Query<&Team, With<ActingActor>>,
+) {
+    for team in team_q {
+        match team {
+            Team::Player => next_state.set(CombatState::SpawnMenu),
+            Team::Enemy => next_state.set(CombatState::MonsterAttack),
+            _ => info!("Unreachable!"),
+        }
+    }
+}
+
 //Moves the ActingActor to target position and then removes target position
 fn move_to_target(
     mut active_actor: Single<(&mut Transform, &ActorTargetPosition), With<ActingActor>>,
@@ -365,7 +393,7 @@ fn move_to_target(
 }
 
 ////////////////Choose action/////////////////////
-fn choose_action(
+pub fn choose_action(
     mut commands: Commands,
     mut next_state: ResMut<NextState<CombatState>>,
     mut rng: ResMut<EventRng>,
@@ -396,7 +424,7 @@ fn choose_action(
     };
     info!("CHOSEN TARGET {:?}", chosen_target);
 
-    // Get the Attack and do .conduct on thgat
+    // Get the Attack and do .conduct on that
 
     commands.insert_resource(ActingActorAction(monster_action));
     next_state.set(CombatState::PerformAction);
@@ -455,12 +483,14 @@ fn perform_action(
     */
 }
 
-fn end_turn(
+pub fn end_turn(
     mut commands: Commands,
     mut queue: ResMut<TurnOrder>,
     mut next_state: ResMut<NextState<CombatState>>,
+    mut update_gamestate: ResMut<NextState<GameState>>,
     actor_q: Query<(&Health, &Team)>,
     health_q: Query<&Health>,
+
 ) {
     commands.entity(queue.active()).remove::<ActingActor>();
     queue.skip_to_next(health_q);
@@ -468,14 +498,19 @@ fn end_turn(
         TeamAlive::Both => {
             next_state.set(CombatState::TurnSetup);
         }
+
+        //TODO: If you have time, despawn enemies 
         TeamAlive::Player => {
-            info!("Players won")
+            info!("Players won");
+            update_gamestate.set(GameState::Navigation);
         }
         TeamAlive::Enemy => {
-            info!("ENEMY WON")
+            info!("ENEMY WON");
+            update_gamestate.set(GameState::GameOver);
         }
         TeamAlive::Neither => {
             info!("Everyone is dead!!!!!")
+            update_gamestate.set(GameState::GameOver);
         }
     }
 }

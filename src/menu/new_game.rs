@@ -67,7 +67,7 @@ fn progress_check(
                     RoomInfo {
                         r_type: room_type, ..
                     },
-                )| (matches!(room_type, RoomType::Combat(_))).then_some(entity),
+                )| (matches!(room_type, RoomType::Entrance)).then_some(entity),
             )
             .unwrap();
 
