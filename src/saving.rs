@@ -57,15 +57,17 @@ impl SaveGame {
         let query =
             "SELECT world_seed,pillar_count FROM SaveGame WHERE SaveGame.game_id = :game_id";
 
-        let world_seed: i64 = db
+        let world_seed = db
             .connection
-            .query_one(query, (game_id.0,), |row| row.get(0))
+            .query_one(query, (game_id.0,), |row| {
+                Ok((row.get::<_, i64>(0)?, row.get(1)?))
+            })
             .unwrap();
 
         Self {
             game_id,
-            seed: world_seed as u64,
-            pillar_count: 0,
+            seed: world_seed.0 as u64,
+            pillar_count: world_seed.1,
         }
     }
 
@@ -83,8 +85,8 @@ impl SaveGame {
             (
                 current_room.x,
                 current_room.y,
-                self.game_id.0,
                 self.pillar_count,
+                self.game_id.0,
             ),
         )?;
         Ok(())
