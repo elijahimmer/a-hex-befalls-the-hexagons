@@ -71,8 +71,7 @@ pub fn load_map(
             FROM RoomInfo WHERE RoomInfo.game_id = :game;
         ";
 
-    let mut tilemap_commands = commands.spawn_empty();
-    let tilemap_entity = tilemap_commands.id();
+    let tilemap_entity = commands.spawn_empty().id();
     let mut tile_storage = TileStorage::empty(MAP_SIZE);
 
     db.connection
@@ -97,8 +96,8 @@ pub fn load_map(
         })?
         .map(|c| c.unwrap())
         .for_each(|(tile_pos, room_info)| {
-            let id = tilemap_commands
-                .with_child((
+            let id = commands
+                .spawn((
                     room_info,
                     TileBundle {
                         position: tile_pos,
@@ -109,10 +108,11 @@ pub fn load_map(
                     MapTile,
                 ))
                 .id();
+            commands.entity(tilemap_entity).add_child(id);
             tile_storage.set(&tile_pos, id);
         });
 
-    tilemap_commands.insert((
+    commands.entity(tilemap_entity).insert((
         MapTilemap,
         TilemapBundle {
             grid_size: TILE_SIZE.into(),

@@ -172,27 +172,17 @@ pub fn load_game(world: &mut World) {
         .unwrap()
         .unwrap();
 
-    world.flush();
-
     world
         .run_system_cached(crate::spawn_map::load_map)
         .unwrap()
         .unwrap();
-
-    world.flush();
 
     world
         .run_system_cached(crate::items::load_items)
         .unwrap()
         .unwrap();
 
-    world.flush();
-
     world.run_system_cached(load_game_inner).unwrap();
-
-    world.flush();
-
-    world.run_system_cached(validate_game).unwrap();
 
     world
         .get_resource_mut::<NextState<AppState>>()
@@ -207,8 +197,6 @@ fn load_game_inner(
     db: NonSend<Database>,
     save: Res<SaveGame>,
     storage: Single<&TileStorage, With<MapTilemap>>,
-    info_q: Query<(Has<RoomInfo>, Has<TilePos>)>,
-    current_q: Query<Has<CurrentRoom>>,
 ) {
     let query =
         "SELECT current_room_x,current_room_y FROM SaveGame WHERE SaveGame.game_id = :game_id";
@@ -225,33 +213,7 @@ fn load_game_inner(
 
     info!("current room: {pos:?}");
 
-    let mut count = 0;
-    for tile in storage.iter() {
-        if let Some(tile) = tile {
-            info!("tile");
-            let (room_info, tile_pos) = info_q.get(*tile).unwrap();
-            assert!(tile_pos, "doesn't have tile_pos");
-            assert!(room_info, "doesn't have room info");
-
-            if current_q.get(*tile).unwrap() {
-                count += 1;
-            }
-        }
-    }
-    assert!(count == 1);
-
     let entity = storage.get(&pos).unwrap();
 
     commands.get_entity(entity).unwrap().insert(CurrentRoom);
-}
-
-fn validate_game(info_q: Query<Has<CurrentRoom>, With<RoomInfo>>) {
-    let count = info_q
-        .iter()
-        .map(|has| (1, has as u32))
-        .reduce(|acc, h| (acc.0 + h.0, acc.1 + h.1))
-        .unwrap();
-    info!("count: {count:?}");
-
-    assert!(count.1 == 1);
 }
