@@ -47,6 +47,7 @@ impl Plugin for GenerateMapPlugin {
             (
                 setup,
                 spawn_map,
+                #[cfg(feature = "debug")]
                 spawn_tile_labels::<With<MapTilemap>, With<MapTile>>,
                 (create_origin_and_pillars, build_paths).chain(),
             )

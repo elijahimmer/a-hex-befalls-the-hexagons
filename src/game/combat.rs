@@ -369,7 +369,6 @@ fn check_team(
         match team {
             Team::Player => next_state.set(CombatState::SpawnMenu),
             Team::Enemy => next_state.set(CombatState::MonsterAttack),
-            _ => info!("Unreachable!"),
         }
     }
 }
@@ -419,7 +418,7 @@ pub fn choose_action(
     let combat_action = Action::Attack {
         target: chosen_target,
     };
-    info!("CHOSEN TARGET {:?}", chosen_target);
+    debug!("CHOSEN TARGET {:?}", chosen_target);
 
     // Get the Attack and do .conduct on that
 
@@ -444,32 +443,32 @@ fn perform_action(
             let attack = a_attack.clone();
 
             let attack_result = attack.conduct(&mut *rng);
-            info!("ATTACK RESULT {:?}", attack_result);
+            debug!("ATTACK RESULT {:?}", attack_result);
 
             match attack_result {
                 AttackDamage::Hit(damage) => {
                     if let Ok((mut target_health, block_chance)) = actor_q.get_mut(target) {
-                        info!("TARGETS BLOCK CHANCE: {}\n", block_chance.0);
+                        debug!("TARGETS BLOCK CHANCE: {}\n", block_chance.0);
                         let blocked = rng.random_bool(block_chance.0.into());
-                        info!("Block chance: {:?}, Blocked: {}\n", block_chance.0, blocked);
+                        debug!("Block chance: {:?}, Blocked: {}\n", block_chance.0, blocked);
                         if !blocked {
                             target_health.damage(damage.get());
                             let current_health =
                                 target_health.current().map(|h| h.get()).unwrap_or(0);
-                            info!(
+                            debug!(
                                 "DAMAGE DEALT: {}, TARGET HEALTH: {}\n",
                                 damage.get(),
                                 current_health
                             );
 
                             if !target_health.is_alive() {
-                                info!("{:?} IS DEAD!!!!!!!!!!!!!!\n", target);
+                                debug!("{:?} IS DEAD!!!!!!!!!!!!!!\n", target);
                             }
                         }
                     }
                 }
                 AttackDamage::Miss => {
-                    info!("MISSED!!!!!!!!!!!!!!\n");
+                    debug!("MISSED!!!!!!!!!!!!!!\n");
                 }
             }
         }
@@ -489,11 +488,11 @@ fn perform_action(
             ActorName::Priestess => {
                 if let Ok((mut target_health, _)) = actor_q.get_mut(target) {
                     let health_before = target_health.current().map(|h| h.get()).unwrap_or(0);
-                    info!("target {} health is {}", target, health_before);
+                    debug!("target {} health is {}", target, health_before);
                     let heal_num = rng.random_range(15..30);
                     target_health.heal_or_revive(heal_num);
                     let health_after = target_health.current().map(|h| h.get()).unwrap_or(0);
-                    info!(
+                    debug!(
                         "{} has healed {} points, health is now {}",
                         target, heal_num, health_after
                     );
@@ -514,7 +513,7 @@ fn perform_action(
                         }
                     }
                     AttackDamage::Miss => {
-                        info!("MISSED!!!!!!!!!!!!!!\n");
+                        debug!("MISSED!!!!!!!!!!!!!!\n");
                     }
                 }
             }
@@ -556,15 +555,15 @@ pub fn end_turn(
 
         //TODO: If you have time, despawn enemies
         TeamAlive::Player => {
-            info!("Players won");
+            debug!("Players won");
             update_gamestate.set(GameState::Navigation);
         }
         TeamAlive::Enemy => {
-            info!("ENEMY WON");
+            debug!("ENEMY WON");
             update_gamestate.set(GameState::GameOver);
         }
         TeamAlive::Neither => {
-            info!("Everyone is dead!!!!!");
+            debug!("Everyone is dead!!!!!");
             update_gamestate.set(GameState::GameOver);
         }
     }
