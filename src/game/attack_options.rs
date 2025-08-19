@@ -44,6 +44,7 @@ pub fn create_attack_menu(
                 align_items: AlignItems::Center,
                 flex_direction: FlexDirection::Column,
                 justify_content: JustifyContent::Center,
+                align_content: AlignContent::Center,
                 ..default()
             },
             AttackMenu,
@@ -133,11 +134,7 @@ pub fn spawn_gameover_screen(
             ));
 
             builder
-                .spawn((Node {
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
-                    ..default()
-                },))
+                .spawn((Node::default(),))
                 .with_children(|builder| {
                     style.display_keybind(builder, &Keybind(Control::Pause, keybinds.pause))
                 })
@@ -160,6 +157,7 @@ pub fn spawn_victory_screen(
                 align_items: AlignItems::Center,
                 flex_direction: FlexDirection::Column,
                 justify_content: JustifyContent::Center,
+                align_content: AlignContent::Center,
                 ..default()
             },
             StateScoped(GameState::Victory),
@@ -180,8 +178,7 @@ pub fn spawn_victory_screen(
 
             builder
                 .spawn((Node {
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
+                    align_content: AlignContent::Center,
                     ..default()
                 },))
                 .with_children(|builder| {

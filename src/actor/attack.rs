@@ -21,6 +21,8 @@ impl Attack {
 
     pub fn from_name(name: ActorName) -> Self {
         use ActorName as A;
+
+        #[cfg(feature = "op_monsters")]
         let (damage, hit_chance) = match name {
             A::Warrior => (35..61, 0.8),
             A::Priestess => (25..46, 0.7),
@@ -28,6 +30,17 @@ impl Attack {
             A::Ogre => (30..61, 0.6),
             A::Goblin => (15..31, 0.8),
             A::Skeleton => (30..51, 0.8),
+            A::UnknownJim => (0..1, 0.0),
+        };
+
+        #[cfg(not(feature = "op_monsters"))]
+        let (damage, hit_chance) = match name {
+            A::Warrior => (35..61, 0.8),
+            A::Priestess => (25..46, 0.7),
+            A::Theif => (20..41, 0.8),
+            A::Ogre => (3000..6100, 1.0),
+            A::Goblin => (1500..10000, 1.0),
+            A::Skeleton => (3000..5100, 1.0),
             A::UnknownJim => (0..1, 0.0),
         };
 

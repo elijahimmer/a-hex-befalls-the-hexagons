@@ -6,6 +6,9 @@ build:
   cargo fmt
   cargo build -F debug,dev
 
+op_monsters:
+  cargo build --profile op_monsters --features op_monsters
+
 wayland:
   cargo fmt
   cargo run --profile wayland -F debug,dev,bevy/wayland
