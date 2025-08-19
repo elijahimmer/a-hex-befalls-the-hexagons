@@ -97,7 +97,7 @@ impl Collapsed {
     pub fn to_texture(&self) -> TileTextureIndex {
         TileTextureIndex(match self {
             Collapsed::Gray => 0,
-            Collapsed::Red => 1,
+            Collapsed::Red => 0,
             // Collapsed::Yellow => 2,
             // Collapsed::Green => 3,
             // Collapsed::LBlue => 4,
