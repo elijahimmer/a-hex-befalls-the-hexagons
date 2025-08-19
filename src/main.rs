@@ -49,6 +49,7 @@ pub mod prelude {
     pub use crate::style::{Icons, Style};
     pub use crate::tile::*;
     pub use crate::util::*;
+    pub use crate::health_bar::*;
 }
 
 use animation::AnimationPlugin;

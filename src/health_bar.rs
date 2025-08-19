@@ -1,5 +1,6 @@
 use crate::embed_asset;
 use crate::prelude::*;
+use crate::game::*;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -25,7 +26,7 @@ impl Plugin for HpPlugin {
         embed_asset!(app, "assets/sprites/Warrior_name.png");
         app.add_systems(
             OnEnter(AppState::Game),
-            (create_hp_bars, spawn_hp, update_hp_bar).chain(),
+            (create_hp_bars, spawn_hp).chain(),
         );
     }
 }
@@ -154,94 +155,154 @@ fn spawn_hp(
     commands
         .spawn((
             Node {
-                top: Val::Px(57.5),
-                left: Val::Px(46.5),
+                top: Val::Px(67.5),
+                left: Val::Px(56.5),
                 position_type: PositionType::Absolute,
                 justify_content: JustifyContent::Start,
                 align_items: AlignItems::Center,
                 ..default()
             },
             HPBar,
-        ))
-        .with_children(|builder| {
-            builder.spawn((
-                Node {
-                    margin: UiRect::all(Val::Px(10.0)),
-                    ..default()
-                },
-                Text::new(format!(
-                    "{}/{}",
-                    actors_health.get(0).unwrap().current().unwrap(),
-                    actors_health.get(0).unwrap().max()
-                )),
-                TextFont {
-                    font_size: 11.0,
-                    ..default()
-                },
-                TextLayout::new_with_justify(JustifyText::Left),
-            ));
-        });
+            ActorName::Warrior,
+            Text::new(format!(
+                "{}/{}",
+                actors_health.get(0).unwrap().current().unwrap(),
+                actors_health.get(0).unwrap().max()
+            )),
+            TextFont {
+                font_size: 11.0,
+                ..default()
+            },
+            TextLayout::new_with_justify(JustifyText::Left),
+        ));
     commands
         .spawn((
             Node {
-                top: Val::Px(57.5),
-                left: Val::Px(167.5),
+                top: Val::Px(67.5),
+                left: Val::Px(177.5),
                 position_type: PositionType::Absolute,
                 justify_content: JustifyContent::Start,
                 align_items: AlignItems::Center,
                 ..default()
             },
             HPBar,
-        ))
-        .with_children(|builder| {
-            builder.spawn((
-                Node {
-                    margin: UiRect::all(Val::Px(10.0)),
-                    ..default()
-                },
-                Text::new(format!(
-                    "{}/{}",
-                    actors_health.get(1).unwrap().current().unwrap(),
-                    actors_health.get(1).unwrap().max()
-                )),
-                TextFont {
-                    font_size: 11.0,
-                    ..default()
-                },
-                TextLayout::new_with_justify(JustifyText::Left),
-            ));
-        });
+            ActorName::Priestess,
+            Text::new(format!(
+                "{}/{}",
+                actors_health.get(1).unwrap().current().unwrap(),
+                actors_health.get(1).unwrap().max()
+            )),
+            TextFont {
+                font_size: 11.0,
+                ..default()
+            },
+            TextLayout::new_with_justify(JustifyText::Left),
+        ));
 
     commands
         .spawn((
             Node {
-                top: Val::Px(57.5),
-                left: Val::Px(287.5),
+                top: Val::Px(67.5),
+                left: Val::Px(297.5),
                 position_type: PositionType::Absolute,
                 justify_content: JustifyContent::Start,
                 align_items: AlignItems::Center,
                 ..default()
             },
             HPBar,
-        ))
-        .with_children(|builder| {
-            builder.spawn((
-                Node {
-                    margin: UiRect::all(Val::Px(10.0)),
-                    ..default()
-                },
-                Text::new(format!(
-                    "{}/{}",
-                    actors_health.get(2).unwrap().current().unwrap(),
-                    actors_health.get(2).unwrap().max()
-                )),
-                TextFont {
-                    font_size: 11.0,
-                    ..default()
-                },
-                TextLayout::new_with_justify(JustifyText::Left),
-            ));
-        });
+            ActorName::Theif,
+            Text::new(format!(
+                "{}/{}",
+                actors_health.get(2).unwrap().current().unwrap(),
+                actors_health.get(2).unwrap().max()
+            )),
+            TextFont {
+                font_size: 11.0,
+                ..default()
+            },
+            TextLayout::new_with_justify(JustifyText::Left),
+        ));
 }
 
-fn update_hp_bar(commands: Commands, hp_q: Query<&Text, With<HPBar>>) {}
+pub fn update_player_hp_bar(
+    mut commands: Commands,
+    active_actor_team: Single<&Team, With<ActingActor>>,
+    active_actor_name: Single<&ActorName, With<ActingActor>>,
+    mut actor_q: Query<(&ActorName, &Health), With<Actor>>,
+    mut text_q: Query<(Entity, &ActorName), With<HPBar>>,
+    actor_action: Res<ActingActorAction>,
+) {
+    match *active_actor_team {
+        Team::Enemy => {
+            match **actor_action {
+                Action::Attack { target } => {
+                    if let Ok((actor_name, target_health)) = actor_q.get(target) {
+
+                        let mut health_str: String = format!("");
+                        if let Some(current_health) = target_health.current() {
+                            health_str = format!("{}/{}", current_health, target_health.max());
+                        } else {
+                            health_str = format!("0/{}", target_health.max());
+                        }
+
+                        for (text_entity, text_actorname) in text_q {
+                            if text_actorname == actor_name {
+                                commands.entity(text_entity)
+                                    .remove::<(Text, TextFont, TextLayout)>()
+                                    .insert((
+                                        Text::new(health_str), 
+                                        TextFont {
+                                            font_size: 11.0,
+                                            ..default()
+                                        },
+                                        TextLayout::new_with_justify(JustifyText::Left),
+                                    ));
+                                break;
+                            }
+                        }
+                    }
+                },
+                _ => {},
+            }
+        },
+        Team::Player => {
+            match **actor_action {
+                Action::SpecialAction { target } => {
+                    match *active_actor_name {
+                        ActorName::Priestess => {
+                        
+                            if let Ok((actor_name, target_health)) = actor_q.get(target) {
+
+                                let mut health_str: String = format!("");
+                                if let Some(current_health) = target_health.current() {
+                                    health_str = format!("{}/{}", current_health, target_health.max());
+                                } else {
+                                    health_str = format!("0/{}", target_health.max());
+                                }
+
+                                for (text_entity, text_actorname) in text_q {
+                                    if text_actorname == actor_name {
+                                        commands.entity(text_entity)
+                                            .remove::<(Text, TextFont, TextLayout)>()
+                                            .insert((
+                                                Text::new(health_str), 
+                                                TextFont {
+                                                    font_size: 11.0,
+                                                    ..default()
+                                                },
+                                                TextLayout::new_with_justify(JustifyText::Left),
+                                            ));
+                                        break;
+                                    }
+                                }
+                            }
+                        }, 
+                        _ => {},
+                    }
+                },
+                _ => {},
+            }
+        },
+    }
+}
+

@@ -4,6 +4,7 @@ use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 use rand::Rng;
 use std::fmt;
+use crate::update_player_hp_bar;
 
 pub struct CombatPlugin;
 const ACTOR_SPEED: f32 = 300.0;
@@ -424,6 +425,7 @@ pub fn choose_action(
 ///////////////Perform Action///////////////////
 
 fn perform_action(
+    mut commands: Commands,
     mut next_state: ResMut<NextState<CombatState>>,
     mut rng: ResMut<EventRng>,
     active_actor: Single<(Entity, &Attack), With<ActingActor>>,
@@ -474,6 +476,7 @@ fn perform_action(
                         AttackDamage::Hit(damage) => {
                             let extra_damage = (damage.get() as f32 * DAMAGE_MULTIPLIER) as u32;
                             target_health.damage(extra_damage);
+
                         }
                         AttackDamage::Miss => {}
                     }
@@ -511,13 +514,16 @@ fn perform_action(
                     }
                 }
             }
-            _ => {}
-
-            
+            _ => {},
         },
+
         Action::UseItem { target, item } => {}
         Action::SkipTurn => {}
     }
+
+
+    commands.run_system_cached(update_player_hp_bar);
+
     next_state.set(CombatState::MoveBack);
 }
 
