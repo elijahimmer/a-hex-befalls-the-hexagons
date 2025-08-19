@@ -211,8 +211,6 @@ fn load_game_inner(
         })
         .unwrap();
 
-    info!("current room: {pos:?}");
-
     let entity = storage.get(&pos).unwrap();
 
     commands.get_entity(entity).unwrap().insert(CurrentRoom);

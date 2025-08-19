@@ -190,8 +190,6 @@ fn display_trigger_or_skip(
     mut game_state: ResMut<NextState<GameState>>,
     style: Res<Style>,
 ) {
-    info!("display trigger");
-
     let RoomInfo {
         cleared, r_type, ..
     } = info.single().unwrap();

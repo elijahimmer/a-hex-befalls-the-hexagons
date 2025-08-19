@@ -207,7 +207,6 @@ fn basic_attack(
             target: choose_target(rng, queue, active_actor, actor_q),
         }));
         next_state.set(CombatState::PerformAction);
-        info!("WORKING");
     }
 }
 
@@ -227,7 +226,6 @@ fn special_move(
             target: choose_special_target(rng, queue, active_actor, actor_q),
         }));
         next_state.set(CombatState::PerformAction);
-        info!("Special Move Successful!!!");
     }
 }
 
@@ -318,8 +316,6 @@ fn exit_gameover(
 
     if click.button == PointerButton::Primary {
         update_appstate.set(AppState::Menu);
-
-        info!("exit_gameover working!!!");
     }
 }
 
@@ -331,7 +327,5 @@ fn exit_victory(
 
     if click.button == PointerButton::Primary {
         update_appstate.set(AppState::Menu);
-
-        info!("exit_victory working!!!");
     }
 }

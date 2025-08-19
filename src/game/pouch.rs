@@ -1,9 +1,5 @@
 use super::*;
-use crate::prelude::*;
 use bevy::prelude::*;
-use rand::Rng;
-use serde::{Deserialize, Serialize};
-use std::ops::Range;
 
 pub struct PouchPlugin;
 
@@ -22,21 +18,14 @@ pub fn spawn_pouch(mut commands: Commands) {
     commands.spawn(Pouch { count: 0 });
 }
 
-pub fn add_pillar(mut commands: Commands, pouch_q: Query<&mut Pouch>) {
-    info!("working");
+pub fn add_pillar(pouch_q: Query<&mut Pouch>) {
     for mut pillar in pouch_q {
-        info!(pillar.count);
         pillar.count += 1;
-        info!(pillar.count);
     }
 }
 
-pub fn pillar_count(
-    mut commands: Commands,
-    pouch_q: Query<&mut Pouch>,
-    mut next_state: ResMut<NextState<GameState>>,
-) {
-    for mut pillar in pouch_q {
+pub fn pillar_count(pouch_q: Query<&mut Pouch>, mut next_state: ResMut<NextState<GameState>>) {
+    for pillar in pouch_q {
         if pillar.count == 4 {
             next_state.set(GameState::Victory);
         }
