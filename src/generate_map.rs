@@ -6,6 +6,7 @@ use bevy::prelude::*;
 use bevy_ecs_tilemap::helpers::hex_grid::axial::AxialPos;
 use bevy_ecs_tilemap::helpers::hex_grid::neighbors::HexNeighbors;
 use bevy_ecs_tilemap::prelude::*;
+use serde::{Deserialize, Serialize};
 use rand::{Rng, SeedableRng};
 
 pub struct GenerateMapPlugin;
@@ -80,7 +81,7 @@ pub struct MapTile;
 pub struct MapTilemap;
 
 /// Enum to represent all possible collapsed components
-#[derive(Component, Clone, Copy)]
+#[derive(Component, Clone, Copy, Serialize, Deserialize)]
 pub enum Collapsed {
     Gray,
     Red,
@@ -104,7 +105,7 @@ impl Collapsed {
     }
 }
 
-#[derive(Component, Clone, Copy)]
+#[derive(Component, Clone, Copy, Serialize, Deserialize)]
 pub enum Pillars {
     North,
     East,
@@ -147,6 +148,7 @@ fn spawn_map(mut commands: Commands, asset_server: Res<AssetServer>) {
                         texture_index: TileTextureIndex(OUTLINE_TILE),
                         ..Default::default()
                     },
+                    StateScoped(AppState::Game),
                 ))
                 .id();
             tile_storage.checked_set(&tile_pos, id);
@@ -166,6 +168,7 @@ fn spawn_map(mut commands: Commands, asset_server: Res<AssetServer>) {
             transform: Transform::from_translation(WORLD_MAP_ORIGIN),
             ..Default::default()
         },
+        StateScoped(AppState::Game),
     ));
 }
 
@@ -245,26 +248,31 @@ fn create_origin_and_pillars(
         commands.entity(start).insert((
             collapsed,
             RoomInfo::from_type(RoomType::Entrance, tile_rand.random_range(..u64::MAX)),
+            StateScoped(AppState::Game),
         ));
         commands.entity(north).insert((
             Pillars::North,
             collapsed,
             RoomInfo::from_type(RoomType::Pillar, tile_rand.random_range(..u64::MAX)),
+            StateScoped(AppState::Game),
         ));
         commands.entity(east).insert((
             Pillars::East,
             collapsed,
             RoomInfo::from_type(RoomType::Pillar, tile_rand.random_range(..u64::MAX)),
+            StateScoped(AppState::Game),
         ));
         commands.entity(south).insert((
             Pillars::South,
             collapsed,
             RoomInfo::from_type(RoomType::Pillar, tile_rand.random_range(..u64::MAX)),
+            StateScoped(AppState::Game),
         ));
         commands.entity(west).insert((
             Pillars::West,
             collapsed,
             RoomInfo::from_type(RoomType::Pillar, tile_rand.random_range(..u64::MAX)),
+            StateScoped(AppState::Game),
         ));
     }
 }
@@ -334,6 +342,7 @@ fn build_paths(
                             RoomType::from_rng(&mut *rng),
                             rng.random_range(..u64::MAX),
                         ),
+                        StateScoped(AppState::Game),
                     ));
                 }
             }
