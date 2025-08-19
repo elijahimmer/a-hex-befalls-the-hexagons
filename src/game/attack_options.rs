@@ -96,14 +96,16 @@ pub fn create_attack_menu(
         });
 }
 
-pub fn despawn_attack_menu(
-    mut commands: Commands,
-    mut menu_entity: Single<Entity, With<AttackMenu>>,
-) {
+pub fn despawn_attack_menu(mut commands: Commands, menu_entity: Single<Entity, With<AttackMenu>>) {
     commands.entity(*menu_entity).despawn();
 }
 
-pub fn spawn_gameover_screen(mut commands: Commands, asset_server: Res<AssetServer>) {
+pub fn spawn_gameover_screen(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    style: Res<Style>,
+    keybinds: Res<Controls>,
+) {
     commands
         .spawn((
             Node {
@@ -131,25 +133,25 @@ pub fn spawn_gameover_screen(mut commands: Commands, asset_server: Res<AssetServ
             ));
 
             builder
-                .spawn((
-                    ImageNode {
-                        image: asset_server.load(BUTTON_IMAGE_PATH),
-                        ..default()
-                    },
-                    Node {
-                        top: Val::Px(100.0),
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::Center,
-                        flex_basis: Val::Px(50.0),
-                        ..default()
-                    },
-                    Button,
-                ))
+                .spawn((Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    ..default()
+                },))
+                .with_children(|builder| {
+                    style.display_keybind(builder, &Keybind(Control::Pause, keybinds.pause))
+                })
                 .observe(exit_gameover);
         });
 }
 
-pub fn spawn_victory_screen(mut commands: Commands, asset_server: Res<AssetServer>) {
+pub fn spawn_victory_screen(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+
+    style: Res<Style>,
+    keybinds: Res<Controls>,
+) {
     commands
         .spawn((
             Node {
@@ -177,20 +179,14 @@ pub fn spawn_victory_screen(mut commands: Commands, asset_server: Res<AssetServe
             ));
 
             builder
-                .spawn((
-                    ImageNode {
-                        image: asset_server.load(BUTTON_IMAGE_PATH),
-                        ..default()
-                    },
-                    Node {
-                        top: Val::Px(100.0),
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::Center,
-                        flex_basis: Val::Px(100.0),
-                        ..default()
-                    },
-                    Button,
-                ))
+                .spawn((Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    ..default()
+                },))
+                .with_children(|builder| {
+                    style.display_keybind(builder, &Keybind(Control::Pause, keybinds.pause))
+                })
                 .observe(exit_victory);
         });
 }

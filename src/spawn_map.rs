@@ -58,8 +58,10 @@ pub fn load_map(
     mut commands: Commands,
     db: NonSend<Database>,
     save_game: Res<SaveGame>,
-    tile_texture: Res<HexTileImage>,
+    asset_server: Res<AssetServer>,
 ) -> Result<(), DatabaseError> {
+    let tile_sprite = asset_server.load(MAP_TILE_ASSET_LOAD_PATH);
+
     let game_id = save_game.game_id;
     let query = "
             SELECT
@@ -116,10 +118,10 @@ pub fn load_map(
         MapTilemap,
         TilemapBundle {
             grid_size: TILE_SIZE.into(),
-            map_type: TilemapType::Hexagon(HexCoordSystem::Row),
+            map_type: TilemapType::Hexagon(HexCoordSystem::Column),
             size: MAP_SIZE,
             storage: tile_storage,
-            texture: TilemapTexture::Single(tile_texture.image.clone()),
+            texture: TilemapTexture::Single(tile_sprite.clone()),
             tile_size: TILE_SIZE,
             anchor: TilemapAnchor::Center,
             transform: Transform::from_translation(WORLD_MAP_ORIGIN),

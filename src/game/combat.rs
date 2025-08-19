@@ -187,15 +187,17 @@ impl TurnOrder {
         let idx = self
             .queue
             .iter()
-            // skip the one that was alive last round
-            .skip(1)
-            .filter_map(|entity| health_q.get(*entity).ok())
+            .rev()
             .enumerate()
+            .skip(1)
+            .filter_map(|(idx, entity)| health_q.get(*entity).ok().map(|a| (idx, a)))
             .find_map(|(idx, health)| health.is_alive().then_some(idx))
             .unwrap();
 
         // + 1 because we skipped one
-        self.queue.rotate_right(idx + 1);
+        self.queue.rotate_right(idx);
+
+        assert!(health_q.get(self.active()).unwrap().is_alive());
     }
 
     pub fn teams_alive(&mut self, actor_q: Query<(&Health, &Team)>) -> TeamAlive {
