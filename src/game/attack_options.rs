@@ -160,7 +160,7 @@ pub fn spawn_victory_screen(mut commands: Commands, asset_server: Res<AssetServe
                 justify_content: JustifyContent::Center,
                 ..default()
             },
-            StateScoped(GameState::GameOver),
+            StateScoped(GameState::Victory),
         ))
         .with_children(|builder| {
             builder.spawn((

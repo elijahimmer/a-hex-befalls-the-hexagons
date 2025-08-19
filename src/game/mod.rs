@@ -1,5 +1,5 @@
 mod attack_options;
-mod combat;
+pub mod combat;
 mod pouch;
 
 pub use attack_options::*;
@@ -7,6 +7,7 @@ pub use combat::*;
 pub use pouch::*;
 
 use crate::prelude::*;
+pub use crate::health_bar::{update_player_hp_bar};
 use crate::room::{
     CurrentRoom, EntranceDirection, InRoom, ROOM_CENTER, ROOM_RADIUS, mark_room_cleared,
     spawn_room, spawn_room_entities,
