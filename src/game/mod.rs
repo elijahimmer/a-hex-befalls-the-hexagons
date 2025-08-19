@@ -281,6 +281,8 @@ fn trigger_event(
                 .next()
                 .unwrap()
                 .damage_no_one_shot(*damage);
+
+            commands.run_system_cached(update_player_hp_bar_pit);
         }
         R::Item(item) => {}
         R::Pillar => {

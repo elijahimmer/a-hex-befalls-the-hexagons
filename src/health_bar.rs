@@ -306,3 +306,33 @@ pub fn update_player_hp_bar(
     }
 }
 
+pub fn update_player_hp_bar_pit(
+    mut commands: Commands,
+    mut actor_q: Query<(&ActorName, &Health), With<Actor>>,
+    mut text_q: Query<(Entity, &ActorName), With<HPBar>>,
+) {
+    for (actor_name, health) in actor_q {
+        let mut health_str: String = format!("");
+        if let Some(current_health) = health.current() {
+            health_str = format!("{}/{}", current_health, health.max());
+        } else {
+            health_str = format!("0/{}", health.max());
+        }
+
+        for (entity, text_actor_name) in text_q {
+            if actor_name == text_actor_name {
+                commands.entity(entity)
+                    .remove::<(Text, TextFont, TextLayout)>()
+                    .insert((
+                        Text::new(health_str), 
+                        TextFont {
+                            font_size: 11.0,
+                            ..default()
+                        },
+                        TextLayout::new_with_justify(JustifyText::Left),
+                    ));
+                break;
+            }
+        }
+    }
+}

@@ -73,13 +73,13 @@ pub enum RoomType {
 
 impl RoomType {
     pub fn from_rng(rng: &mut impl Rng) -> RoomType {
-        let val = rng.random_range(0..4);
+        let val = rng.random_range(0..3);
 
         match val {
             0 => RoomType::EmptyRoom,
             1 => RoomType::Combat(ActorName::get_enemies(rng)),
             2 => RoomType::Pit(rng.random_range(0..21)),
-            3 => RoomType::Item(Item::get_rand_item(rng)),
+            //3 => RoomType::Item(Item::get_rand_item(rng)),
             _ => unreachable!(),
         }
     }
