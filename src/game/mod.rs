@@ -233,19 +233,15 @@ fn wait_for_trigger(
     mut game_state: ResMut<NextState<GameState>>,
     info: Single<&RoomInfo, With<CurrentRoom>>,
 ) {
-    info!("wait for trigger");
-
     let RoomInfo { r_type, .. } = *info;
 
     let trigger = &mut timer.trigger_timer;
     if !trigger.finished() {
-        info!("trigger loop");
         trigger.tick(time.delta());
         if trigger.just_finished() {
             commands.run_system_cached(trigger_event);
         }
     } else {
-        info!("paused loop");
         let pause = &mut timer.pause_timer;
         pause.tick(time.delta());
         if pause.just_finished() {
