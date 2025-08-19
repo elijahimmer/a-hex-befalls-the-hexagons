@@ -16,7 +16,7 @@ pub type Error = rusqlite::Error;
 
 type Version = i64;
 
-const DB_VERSION: Version = 11;
+const DB_VERSION: Version = 12;
 
 const ADD_SCHEMA: &str = formatcp!(
     "
@@ -45,6 +45,7 @@ const ADD_SCHEMA: &str = formatcp!(
         world_seed     INTEGER NOT NULL,
         current_room_x INTEGER DEFAULT NULL,
         current_room_y INTEGER DEFAULT NULL,
+        pillar_count   INTEGER DEFAULT 0,
         FOREIGN KEY(game_id, current_room_x, current_room_y)
             REFERENCES RoomInfo(game_id, position_x, position_y)
             DEFERRABLE INITIALLY DEFERRED
@@ -277,7 +278,7 @@ pub enum ValidateSchemaError {
     Error(#[from] Error),
 }
 
-const _: () = assert!(DB_VERSION == 11, "UPDATE VALIDATE SCRIPT");
+const _: () = assert!(DB_VERSION == 12, "UPDATE VALIDATE SCRIPT");
 fn validate_schema(db: &Database) -> Result<(), ValidateSchemaError> {
     db.connection
         .execute_batch("PRAGMA integrity_check; PRAGMA optimize; PRAGMA journal_mode=WAL;")?;
@@ -297,6 +298,7 @@ fn validate_schema(db: &Database) -> Result<(), ValidateSchemaError> {
             ("world_seed", "INTEGER"),
             ("current_room_x", "INTEGER"),
             ("current_room_y", "INTEGER"),
+            ("pillar_count", "INTEGER"),
         ],
     )?;
     validate_table(
@@ -412,7 +414,7 @@ pub enum MigrationError {
 
 const MIN_VERSION_MIGRATEABLE: Version = 11;
 /// Make sure the migrations are set up properly
-const _: () = assert!(DB_VERSION == 11, "UPDATE THE MIGRATION SCRIPT");
+const _: () = assert!(DB_VERSION == 12, "UPDATE THE MIGRATION SCRIPT");
 
 /// MAINTENANCE: UPDATE EVERY DATABASE UPDGRADE
 fn migrate_database(db: &Database, from: Version) -> Result<(), MigrationError> {
@@ -420,12 +422,12 @@ fn migrate_database(db: &Database, from: Version) -> Result<(), MigrationError> 
 
     db.connection.execute_batch("BEGIN TRANSACTION")?;
 
-    // let mut from = from;
+    let mut from = from;
 
-    // if from == 10 {
-    //     db.connection.execute_batch(MIGRATE_FROM_10_TO_11)?;
-    //     from = 11;
-    // }
+    if from == 11 {
+        db.connection.execute_batch(MIGRATE_FROM_11_TO_12)?;
+        from = 12;
+    }
 
     assert_eq!(
         from, DB_VERSION,
@@ -443,69 +445,74 @@ fn migrate_database(db: &Database, from: Version) -> Result<(), MigrationError> 
     Ok(())
 }
 
+const MIGRATE_FROM_11_TO_12: &str = "
+    UPDATE Version SET version = 12;
+    ALTER TABLE SaveGame ADD COLUMN pillar_count INTEGER DEFAULT 0;
+";
+
 #[cfg(test)]
 mod test {
     use super::*;
 
-    // const VERSION_11_SCHEMA: &str = "
-    // BEGIN TRANSACTION;
+    const VERSION_11_SCHEMA: &str = "
+    BEGIN TRANSACTION;
 
-    // CREATE TABLE Version(
-    //   version INTEGER PRIMARY KEY
-    // ) STRICT;
+    CREATE TABLE Version(
+      version INTEGER PRIMARY KEY
+    ) STRICT;
 
-    // INSERT INTO Version VALUES({DB_VERSION});
+    INSERT INTO Version VALUES(11);
 
-    // CREATE TABLE Keybinds(
-    //     key   TEXT PRIMARY KEY,
-    //     value TEXT NOT NULL
-    // ) STRICT;
+    CREATE TABLE Keybinds(
+        key   TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+    ) STRICT;
 
-    // CREATE TABLE Style(
-    //     key   TEXT PRIMARY KEY,
-    //     value ANY NOT NULL
-    // ) STRICT;
+    CREATE TABLE Style(
+        key   TEXT PRIMARY KEY,
+        value ANY NOT NULL
+    ) STRICT;
 
-    // CREATE TABLE SaveGame(
-    //     game_id        INTEGER PRIMARY KEY AUTOINCREMENT,
-    //     created        TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    //     last_saved     TEXT NOT NULL,
-    //     world_seed     INTEGER NOT NULL,
-    //     current_room_x INTEGER DEFAULT NULL,
-    //     current_room_y INTEGER DEFAULT NULL,
-    //     FOREIGN KEY(game_id, current_room_x, current_room_y)
-    //         REFERENCES RoomInfo(game_id, position_x, position_y)
-    //         DEFERRABLE INITIALLY DEFERRED
-    // ) STRICT;
+    CREATE TABLE SaveGame(
+        game_id        INTEGER PRIMARY KEY AUTOINCREMENT,
+        created        TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        last_saved     TEXT NOT NULL,
+        world_seed     INTEGER NOT NULL,
+        current_room_x INTEGER DEFAULT NULL,
+        current_room_y INTEGER DEFAULT NULL,
+        FOREIGN KEY(game_id, current_room_x, current_room_y)
+            REFERENCES RoomInfo(game_id, position_x, position_y)
+            DEFERRABLE INITIALLY DEFERRED
+    ) STRICT;
 
-    // CREATE TABLE PlayerActor(
-    //     game_id           INTEGER NOT NULL REFERENCES SaveGame(game_id) DEFERRABLE INITIALLY DEFERRED,
-    //     name              TEXT    NOT NULL,
-    //     health_max        INTEGER NOT NULL,
-    //     health_curr       INTEGER,
-    //     attack_damage_min INTEGER NOT NULL,
-    //     attack_damage_max INTEGER NOT NULL,
-    //     attack_speed      INTEGER NOT NULL,
-    //     hit_chance        REAL NOT NULL
-    // ) STRICT;
+    CREATE TABLE PlayerActor(
+        game_id           INTEGER NOT NULL REFERENCES SaveGame(game_id) DEFERRABLE INITIALLY DEFERRED,
+        name              TEXT    NOT NULL,
+        health_max        INTEGER NOT NULL,
+        health_curr       INTEGER,
+        attack_damage_min INTEGER NOT NULL,
+        attack_damage_max INTEGER NOT NULL,
+        attack_speed      INTEGER NOT NULL,
+        hit_chance        REAL NOT NULL
+    ) STRICT;
 
-    // CREATE TABLE RoomInfo(
-    //     game_id    INTEGER NOT NULL REFERENCES SaveGame(game_id) DEFERRABLE INITIALLY DEFERRED,
-    //     position_x INTEGER NOT NULL,
-    //     position_y INTEGER NOT NULL,
-    //     cleared    INTEGER NOT NULL,
-    //     r_type     TEXT    NOT NULL,
-    //     rng_seed   INTEGER NOT NULL,
-    //     PRIMARY KEY(game_id, position_x, position_y)
-    // ) STRICT;
+    CREATE TABLE RoomInfo(
+        game_id    INTEGER NOT NULL REFERENCES SaveGame(game_id) DEFERRABLE INITIALLY DEFERRED,
+        position_x INTEGER NOT NULL,
+        position_y INTEGER NOT NULL,
+        cleared    INTEGER NOT NULL,
+        r_type     TEXT    NOT NULL,
+        rng_seed   INTEGER NOT NULL,
+        PRIMARY KEY(game_id, position_x, position_y)
+    ) STRICT;
 
-    // CREATE TABLE Item(
-    //     game_id INTEGER NOT NULL REFERENCES SaveGame(game_id) DEFERRABLE INITIALLY DEFERRED,
-    //     type    Text    NOT NULL
-    // ) STRICT;
+    CREATE TABLE Item(
+        game_id INTEGER NOT NULL REFERENCES SaveGame(game_id) DEFERRABLE INITIALLY DEFERRED,
+        type    Text    NOT NULL
+    ) STRICT;
 
-    // COMMIT;
-    // ";
+    COMMIT;
+    ";
 
     #[test]
     pub fn test_validate() {
@@ -518,17 +525,16 @@ mod test {
         validate_schema(&db).unwrap();
     }
 
-    // TODO: Enable once we get another version to migrate from
-    // #[test]
-    // pub fn migrate_from_10() {
-    //     let db = Database {
-    //         connection: Connection::open_in_memory().unwrap(),
-    //     };
+    #[test]
+    pub fn migrate_from_10() {
+        let db = Database {
+            connection: Connection::open_in_memory().unwrap(),
+        };
 
-    //     db.connection.execute_batch(VERSION_10_SCHEMA).unwrap();
+        db.connection.execute_batch(VERSION_11_SCHEMA).unwrap();
 
-    //     migrate_database(&db, 10).unwrap();
+        migrate_database(&db, 11).unwrap();
 
-    //     validate_schema(&db).unwrap();
-    // }
+        validate_schema(&db).unwrap();
+    }
 }

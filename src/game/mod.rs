@@ -74,8 +74,7 @@ impl Plugin for GamePlugin {
         .add_systems(OnEnter(GameState::GameOver), spawn_gameover_screen)
         .add_systems(OnEnter(GameState::Victory), spawn_victory_screen)
         .add_plugins(CombatPlugin)
-        .add_plugins(AttackOptionsPlugin)
-        .add_plugins(PouchPlugin);
+        .add_plugins(AttackOptionsPlugin);
     }
 }
 

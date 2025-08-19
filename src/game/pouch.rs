@@ -1,33 +1,12 @@
 use super::*;
 use bevy::prelude::*;
 
-pub struct PouchPlugin;
-
-impl Plugin for PouchPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(Startup, spawn_pouch);
-    }
+pub fn add_pillar(mut save_game: ResMut<SaveGame>) {
+    save_game.pillar_count += 1;
 }
 
-#[derive(Component)]
-pub struct Pouch {
-    count: u32,
-}
-
-pub fn spawn_pouch(mut commands: Commands) {
-    commands.spawn(Pouch { count: 0 });
-}
-
-pub fn add_pillar(pouch_q: Query<&mut Pouch>) {
-    for mut pillar in pouch_q {
-        pillar.count += 1;
-    }
-}
-
-pub fn pillar_count(pouch_q: Query<&mut Pouch>, mut next_state: ResMut<NextState<GameState>>) {
-    for pillar in pouch_q {
-        if pillar.count == 4 {
-            next_state.set(GameState::Victory);
-        }
+pub fn pillar_count(save_game: Res<SaveGame>, mut next_state: ResMut<NextState<GameState>>) {
+    if save_game.pillar_count == 4 {
+        next_state.set(GameState::Victory);
     }
 }

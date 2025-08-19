@@ -35,6 +35,7 @@ pub struct SaveGame {
     pub game_id: GameID,
     /// The seed used to generate the world
     pub seed: u64,
+    pub pillar_count: u64,
 }
 
 #[cfg(feature = "sqlite")]
@@ -48,11 +49,13 @@ impl SaveGame {
         Self {
             game_id: GameID(game_id),
             seed,
+            pillar_count: 0,
         }
     }
 
     pub fn load(db: &Database, game_id: GameID) -> Self {
-        let query = "SELECT world_seed FROM SaveGame WHERE SaveGame.game_id = :game_id";
+        let query =
+            "SELECT world_seed,pillar_count FROM SaveGame WHERE SaveGame.game_id = :game_id";
 
         let world_seed: i64 = db
             .connection
@@ -62,6 +65,7 @@ impl SaveGame {
         Self {
             game_id,
             seed: world_seed as u64,
+            pillar_count: 0,
         }
     }
 
@@ -71,10 +75,18 @@ impl SaveGame {
         UPDATE SaveGame
             SET last_saved = datetime('now'),
                 current_room_x = :current_room_x,
-                current_room_y = :current_room_y
+                current_room_y = :current_room_y,
+                pillar_count = :pillar_count
             WHERE game_id = :game_id";
-        db.connection
-            .execute(query, (current_room.x, current_room.y, self.game_id.0))?;
+        db.connection.execute(
+            query,
+            (
+                current_room.x,
+                current_room.y,
+                self.game_id.0,
+                self.pillar_count,
+            ),
+        )?;
         Ok(())
     }
 }
