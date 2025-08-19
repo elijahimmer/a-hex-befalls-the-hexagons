@@ -1,6 +1,6 @@
 use crate::embed_asset;
-use crate::prelude::*;
 use crate::game::*;
+use crate::prelude::*;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -24,10 +24,7 @@ impl Plugin for HpPlugin {
         embed_asset!(app, "assets/sprites/Priestess_name.png");
         embed_asset!(app, "assets/sprites/Thief_name.png");
         embed_asset!(app, "assets/sprites/Warrior_name.png");
-        app.add_systems(
-            OnEnter(AppState::Game),
-            (create_hp_bars, spawn_hp).chain(),
-        );
+        app.add_systems(OnEnter(AppState::Game), (create_hp_bars, spawn_hp).chain());
     }
 }
 
@@ -152,76 +149,73 @@ fn spawn_hp(
         actors_health.push(health);
     }
 
-    commands
-        .spawn((
-            Node {
-                top: Val::Px(67.5),
-                left: Val::Px(56.5),
-                position_type: PositionType::Absolute,
-                justify_content: JustifyContent::Start,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            HPBar,
-            ActorName::Warrior,
-            Text::new(format!(
-                "{}/{}",
-                actors_health.get(0).unwrap().current().unwrap(),
-                actors_health.get(0).unwrap().max()
-            )),
-            TextFont {
-                font_size: 11.0,
-                ..default()
-            },
-            TextLayout::new_with_justify(JustifyText::Left),
-        ));
-    commands
-        .spawn((
-            Node {
-                top: Val::Px(67.5),
-                left: Val::Px(177.5),
-                position_type: PositionType::Absolute,
-                justify_content: JustifyContent::Start,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            HPBar,
-            ActorName::Priestess,
-            Text::new(format!(
-                "{}/{}",
-                actors_health.get(1).unwrap().current().unwrap(),
-                actors_health.get(1).unwrap().max()
-            )),
-            TextFont {
-                font_size: 11.0,
-                ..default()
-            },
-            TextLayout::new_with_justify(JustifyText::Left),
-        ));
+    commands.spawn((
+        Node {
+            top: Val::Px(67.5),
+            left: Val::Px(56.5),
+            position_type: PositionType::Absolute,
+            justify_content: JustifyContent::Start,
+            align_items: AlignItems::Center,
+            ..default()
+        },
+        HPBar,
+        ActorName::Warrior,
+        Text::new(format!(
+            "{}/{}",
+            actors_health.get(0).unwrap().current().unwrap(),
+            actors_health.get(0).unwrap().max()
+        )),
+        TextFont {
+            font_size: 11.0,
+            ..default()
+        },
+        TextLayout::new_with_justify(JustifyText::Left),
+    ));
+    commands.spawn((
+        Node {
+            top: Val::Px(67.5),
+            left: Val::Px(177.5),
+            position_type: PositionType::Absolute,
+            justify_content: JustifyContent::Start,
+            align_items: AlignItems::Center,
+            ..default()
+        },
+        HPBar,
+        ActorName::Priestess,
+        Text::new(format!(
+            "{}/{}",
+            actors_health.get(1).unwrap().current().unwrap(),
+            actors_health.get(1).unwrap().max()
+        )),
+        TextFont {
+            font_size: 11.0,
+            ..default()
+        },
+        TextLayout::new_with_justify(JustifyText::Left),
+    ));
 
-    commands
-        .spawn((
-            Node {
-                top: Val::Px(67.5),
-                left: Val::Px(297.5),
-                position_type: PositionType::Absolute,
-                justify_content: JustifyContent::Start,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            HPBar,
-            ActorName::Theif,
-            Text::new(format!(
-                "{}/{}",
-                actors_health.get(2).unwrap().current().unwrap(),
-                actors_health.get(2).unwrap().max()
-            )),
-            TextFont {
-                font_size: 11.0,
-                ..default()
-            },
-            TextLayout::new_with_justify(JustifyText::Left),
-        ));
+    commands.spawn((
+        Node {
+            top: Val::Px(67.5),
+            left: Val::Px(297.5),
+            position_type: PositionType::Absolute,
+            justify_content: JustifyContent::Start,
+            align_items: AlignItems::Center,
+            ..default()
+        },
+        HPBar,
+        ActorName::Theif,
+        Text::new(format!(
+            "{}/{}",
+            actors_health.get(2).unwrap().current().unwrap(),
+            actors_health.get(2).unwrap().max()
+        )),
+        TextFont {
+            font_size: 11.0,
+            ..default()
+        },
+        TextLayout::new_with_justify(JustifyText::Left),
+    ));
 }
 
 pub fn update_player_hp_bar(
@@ -233,11 +227,40 @@ pub fn update_player_hp_bar(
     actor_action: Res<ActingActorAction>,
 ) {
     match *active_actor_team {
-        Team::Enemy => {
-            match **actor_action {
-                Action::Attack { target } => {
-                    if let Ok((actor_name, target_health)) = actor_q.get(target) {
+        Team::Enemy => match **actor_action {
+            Action::Attack { target } => {
+                if let Ok((actor_name, target_health)) = actor_q.get(target) {
+                    let mut health_str: String = format!("");
+                    if let Some(current_health) = target_health.current() {
+                        health_str = format!("{}/{}", current_health, target_health.max());
+                    } else {
+                        health_str = format!("0/{}", target_health.max());
+                    }
 
+                    for (text_entity, text_actorname) in text_q {
+                        if text_actorname == actor_name {
+                            commands
+                                .entity(text_entity)
+                                .remove::<(Text, TextFont, TextLayout)>()
+                                .insert((
+                                    Text::new(health_str),
+                                    TextFont {
+                                        font_size: 11.0,
+                                        ..default()
+                                    },
+                                    TextLayout::new_with_justify(JustifyText::Left),
+                                ));
+                            break;
+                        }
+                    }
+                }
+            }
+            _ => {}
+        },
+        Team::Player => match **actor_action {
+            Action::SpecialAction { target } => match *active_actor_name {
+                ActorName::Priestess => {
+                    if let Ok((actor_name, target_health)) = actor_q.get(target) {
                         let mut health_str: String = format!("");
                         if let Some(current_health) = target_health.current() {
                             health_str = format!("{}/{}", current_health, target_health.max());
@@ -247,10 +270,11 @@ pub fn update_player_hp_bar(
 
                         for (text_entity, text_actorname) in text_q {
                             if text_actorname == actor_name {
-                                commands.entity(text_entity)
+                                commands
+                                    .entity(text_entity)
                                     .remove::<(Text, TextFont, TextLayout)>()
                                     .insert((
-                                        Text::new(health_str), 
+                                        Text::new(health_str),
                                         TextFont {
                                             font_size: 11.0,
                                             ..default()
@@ -261,47 +285,10 @@ pub fn update_player_hp_bar(
                             }
                         }
                     }
-                },
-                _ => {},
-            }
-        },
-        Team::Player => {
-            match **actor_action {
-                Action::SpecialAction { target } => {
-                    match *active_actor_name {
-                        ActorName::Priestess => {
-                        
-                            if let Ok((actor_name, target_health)) = actor_q.get(target) {
-
-                                let mut health_str: String = format!("");
-                                if let Some(current_health) = target_health.current() {
-                                    health_str = format!("{}/{}", current_health, target_health.max());
-                                } else {
-                                    health_str = format!("0/{}", target_health.max());
-                                }
-
-                                for (text_entity, text_actorname) in text_q {
-                                    if text_actorname == actor_name {
-                                        commands.entity(text_entity)
-                                            .remove::<(Text, TextFont, TextLayout)>()
-                                            .insert((
-                                                Text::new(health_str), 
-                                                TextFont {
-                                                    font_size: 11.0,
-                                                    ..default()
-                                                },
-                                                TextLayout::new_with_justify(JustifyText::Left),
-                                            ));
-                                        break;
-                                    }
-                                }
-                            }
-                        }, 
-                        _ => {},
-                    }
-                },
-                _ => {},
-            }
+                }
+                _ => {}
+            },
+            _ => {}
         },
     }
 }
@@ -321,10 +308,11 @@ pub fn update_player_hp_bar_pit(
 
         for (entity, text_actor_name) in text_q {
             if actor_name == text_actor_name {
-                commands.entity(entity)
+                commands
+                    .entity(entity)
                     .remove::<(Text, TextFont, TextLayout)>()
                     .insert((
-                        Text::new(health_str), 
+                        Text::new(health_str),
                         TextFont {
                             font_size: 11.0,
                             ..default()

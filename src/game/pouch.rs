@@ -18,20 +18,11 @@ pub struct Pouch {
     count: u32,
 }
 
-pub fn spawn_pouch(
-    mut commands: Commands,
-) {
-    commands.spawn(
-        Pouch {
-            count: 0,
-        }
-    );
+pub fn spawn_pouch(mut commands: Commands) {
+    commands.spawn(Pouch { count: 0 });
 }
 
-pub fn add_pillar(
-    mut commands: Commands,
-    pouch_q: Query<&mut Pouch>,
-) {
+pub fn add_pillar(mut commands: Commands, pouch_q: Query<&mut Pouch>) {
     info!("working");
     for mut pillar in pouch_q {
         info!(pillar.count);

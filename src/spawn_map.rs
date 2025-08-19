@@ -71,10 +71,10 @@ pub fn load_map(
             FROM RoomInfo WHERE RoomInfo.game_id = :game;
         ";
 
-    let tilemap_entity = commands.spawn_empty().id();
+    let mut tilemap_commands = commands.spawn_empty();
+    let tilemap_entity = tilemap_commands.id();
     let mut tile_storage = TileStorage::empty(MAP_SIZE);
 
-    let mut tilemap_commands = commands.entity(tilemap_entity);
     db.connection
         .prepare(query)?
         .query_map((game_id.0,), |row| {
@@ -84,7 +84,7 @@ pub fn load_map(
             let r_type = row.get::<_, String>("r_type")?;
             let r_type = ron::from_str(&r_type).unwrap_or(RoomType::EmptyRoom);
             // cast as sqlite can only store i64s
-            let rng_seed = row.get::<&str, i64>("rng_seed")? as u64;
+            let rng_seed = row.get::<_, i64>("rng_seed")? as u64;
 
             Ok((
                 TilePos { x, y },
@@ -98,9 +98,18 @@ pub fn load_map(
         .map(|c| c.unwrap())
         .for_each(|(tile_pos, room_info)| {
             let id = tilemap_commands
-                .with_child(tile_from_room_info(room_info, tile_pos, tilemap_entity))
+                .with_child((
+                    room_info,
+                    TileBundle {
+                        position: tile_pos,
+                        tilemap_id: TilemapId(tilemap_entity),
+                        texture_index: TileTextureIndex(FLOOR_TILE_VARIENTS.start),
+                        ..Default::default()
+                    },
+                    MapTile,
+                ))
                 .id();
-            tile_storage.checked_set(&tile_pos, id);
+            tile_storage.set(&tile_pos, id);
         });
 
     tilemap_commands.insert((
@@ -119,22 +128,4 @@ pub fn load_map(
     ));
 
     Ok(())
-}
-
-/// TODO: Figure out the tile texture based on the room
-pub fn tile_from_room_info(
-    info: RoomInfo,
-    position: TilePos,
-    tilemap_entity: Entity,
-) -> impl Bundle {
-    (
-        info,
-        TileBundle {
-            position,
-            tilemap_id: TilemapId(tilemap_entity),
-            texture_index: TileTextureIndex(OUTLINE_TILE),
-            ..Default::default()
-        },
-        MapTile,
-    )
 }

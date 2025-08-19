@@ -6,8 +6,8 @@ use bevy::prelude::*;
 use bevy_ecs_tilemap::helpers::hex_grid::axial::AxialPos;
 use bevy_ecs_tilemap::helpers::hex_grid::neighbors::HexNeighbors;
 use bevy_ecs_tilemap::prelude::*;
-use serde::{Deserialize, Serialize};
 use rand::{Rng, SeedableRng};
+use serde::{Deserialize, Serialize};
 
 pub struct GenerateMapPlugin;
 
@@ -148,7 +148,6 @@ fn spawn_map(mut commands: Commands, asset_server: Res<AssetServer>) {
                         texture_index: TileTextureIndex(OUTLINE_TILE),
                         ..Default::default()
                     },
-                    StateScoped(AppState::Game),
                 ))
                 .id();
             tile_storage.checked_set(&tile_pos, id);
@@ -248,31 +247,26 @@ fn create_origin_and_pillars(
         commands.entity(start).insert((
             collapsed,
             RoomInfo::from_type(RoomType::Entrance, tile_rand.random_range(..u64::MAX)),
-            StateScoped(AppState::Game),
         ));
         commands.entity(north).insert((
             Pillars::North,
             collapsed,
             RoomInfo::from_type(RoomType::Pillar, tile_rand.random_range(..u64::MAX)),
-            StateScoped(AppState::Game),
         ));
         commands.entity(east).insert((
             Pillars::East,
             collapsed,
             RoomInfo::from_type(RoomType::Pillar, tile_rand.random_range(..u64::MAX)),
-            StateScoped(AppState::Game),
         ));
         commands.entity(south).insert((
             Pillars::South,
             collapsed,
             RoomInfo::from_type(RoomType::Pillar, tile_rand.random_range(..u64::MAX)),
-            StateScoped(AppState::Game),
         ));
         commands.entity(west).insert((
             Pillars::West,
             collapsed,
             RoomInfo::from_type(RoomType::Pillar, tile_rand.random_range(..u64::MAX)),
-            StateScoped(AppState::Game),
         ));
     }
 }
@@ -342,7 +336,6 @@ fn build_paths(
                             RoomType::from_rng(&mut *rng),
                             rng.random_range(..u64::MAX),
                         ),
-                        StateScoped(AppState::Game),
                     ));
                 }
             }

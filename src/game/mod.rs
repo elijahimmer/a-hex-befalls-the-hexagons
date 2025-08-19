@@ -7,7 +7,6 @@ pub use combat::*;
 pub use pouch::*;
 
 use crate::prelude::*;
-pub use crate::health_bar::{update_player_hp_bar};
 use crate::room::{
     CurrentRoom, EntranceDirection, InRoom, ROOM_CENTER, ROOM_RADIUS, mark_room_cleared,
     spawn_room, spawn_room_entities,
@@ -136,7 +135,7 @@ const PLAYER_POSITIONS: [IVec2; 3] = [IVec2::new(-1, -1), IVec2::new(1, -2), IVe
 
 fn place_player_actors(
     mut commands: Commands,
-    tilemap: Single<
+    tilemap: Query<
         (
             &TilemapSize,
             &TilemapGridSize,
@@ -148,7 +147,7 @@ fn place_player_actors(
     >,
     mut actors: Query<(Entity, &mut Transform), With<Actor>>,
 ) {
-    let (map_size, grid_size, tile_size, map_type, map_anchor) = *tilemap;
+    let (map_size, grid_size, tile_size, map_type, map_anchor) = tilemap.single().unwrap();
 
     let center_tile_pos = UVec2 {
         x: map_size.x / 2,
@@ -165,11 +164,14 @@ fn place_player_actors(
 
         commands
             .entity(entity)
-            .insert((Pickable::default(), Visibility::Visible)); }
+            .insert((Pickable::default(), Visibility::Visible));
+    }
 }
 
-fn init_room_rng(mut commands: Commands, info: Single<&RoomInfo, With<CurrentRoom>>) {
-    commands.insert_resource(EventRng(RandomSource::seed_from_u64(info.rng_seed)));
+fn init_room_rng(mut commands: Commands, info: Query<&RoomInfo, With<CurrentRoom>>) {
+    commands.insert_resource(EventRng(RandomSource::seed_from_u64(
+        info.single().unwrap().rng_seed,
+    )));
 }
 
 fn set_room_rng(
@@ -184,13 +186,15 @@ fn set_room_rng(
 /// Skip to the navigation state.
 fn display_trigger_or_skip(
     mut commands: Commands,
-    info: Single<&RoomInfo, With<CurrentRoom>>,
+    info: Query<&RoomInfo, With<CurrentRoom>>,
     mut game_state: ResMut<NextState<GameState>>,
     style: Res<Style>,
 ) {
+    info!("display trigger");
+
     let RoomInfo {
         cleared, r_type, ..
-    } = *info;
+    } = info.single().unwrap();
 
     if *cleared || *r_type == RoomType::EmptyRoom {
         game_state.set(GameState::Navigation);
@@ -229,15 +233,19 @@ fn wait_for_trigger(
     mut game_state: ResMut<NextState<GameState>>,
     info: Single<&RoomInfo, With<CurrentRoom>>,
 ) {
+    info!("wait for trigger");
+
     let RoomInfo { r_type, .. } = *info;
 
     let trigger = &mut timer.trigger_timer;
     if !trigger.finished() {
+        info!("trigger loop");
         trigger.tick(time.delta());
         if trigger.just_finished() {
             commands.run_system_cached(trigger_event);
         }
     } else {
+        info!("paused loop");
         let pause = &mut timer.pause_timer;
         pause.tick(time.delta());
         if pause.just_finished() {
@@ -266,7 +274,7 @@ fn trigger_event(
         R::EmptyRoom => unreachable!(),
         R::Entrance => {
             commands.run_system_cached(pouch::pillar_count);
-        },
+        }
         R::Combat(_) => {}
         R::Pit(damage) => {
             let actor_count = actor_q.iter().filter(|h| h.is_alive()).count();

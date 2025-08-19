@@ -1,10 +1,10 @@
 use super::*;
 use crate::prelude::*;
+use crate::update_player_hp_bar;
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 use rand::Rng;
 use std::fmt;
-use crate::update_player_hp_bar;
 
 pub struct CombatPlugin;
 const ACTOR_SPEED: f32 = 300.0;
@@ -33,7 +33,10 @@ impl Plugin for CombatPlugin {
             OnEnter(CombatState::SpawnMenu),
             attack_options::create_attack_menu,
         )
-        .add_systems(OnEnter(CombatState::PerformAction), (despawn_attack_menu, perform_action).chain())
+        .add_systems(
+            OnEnter(CombatState::PerformAction),
+            (despawn_attack_menu, perform_action).chain(),
+        )
         .add_systems(
             Update,
             (move_to_target, move_back_check).run_if(in_state(CombatState::MoveBack)),
@@ -467,7 +470,7 @@ fn perform_action(
                     info!("MISSED!!!!!!!!!!!!!!\n");
                 }
             }
-        },
+        }
         Action::SpecialAction { target } => match **actor_name {
             ActorName::Warrior => {
                 if let Ok((mut target_health, _)) = actor_q.get_mut(target) {
@@ -476,7 +479,6 @@ fn perform_action(
                         AttackDamage::Hit(damage) => {
                             let extra_damage = (damage.get() as f32 * DAMAGE_MULTIPLIER) as u32;
                             target_health.damage(extra_damage);
-
                         }
                         AttackDamage::Miss => {}
                     }
@@ -514,13 +516,12 @@ fn perform_action(
                     }
                 }
             }
-            _ => {},
+            _ => {}
         },
 
         Action::UseItem { target, item } => {}
         Action::SkipTurn => {}
     }
-
 
     commands.run_system_cached(update_player_hp_bar);
 

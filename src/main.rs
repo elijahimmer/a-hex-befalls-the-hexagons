@@ -42,6 +42,7 @@ pub mod prelude {
     pub use crate::database::{Database, Error as DatabaseError, FromDatabase, ToDatabase};
     pub use crate::generate_map::MapTilemap;
     pub use crate::health_bar::*;
+    pub use crate::health_bar::*;
     pub use crate::items::{Item, Items};
     pub use crate::room::{RoomInfo, RoomTile, RoomTilemap, RoomType};
     #[cfg(feature = "sqlite")]
@@ -49,7 +50,6 @@ pub mod prelude {
     pub use crate::style::{Icons, Style};
     pub use crate::tile::*;
     pub use crate::util::*;
-    pub use crate::health_bar::*;
 }
 
 use animation::AnimationPlugin;
