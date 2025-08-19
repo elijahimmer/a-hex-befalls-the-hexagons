@@ -12,6 +12,7 @@ pub const MOVE_BANNER_IMAGE_PATH: &str = "embedded://assets/sprites/Move Banner.
 pub const SPECIAL_MOVE_IMAGE_PATH: &str = "embedded://assets/sprites/Special Move.png";
 pub const BUTTON_IMAGE_PATH: &str = "embedded://assets/sprites/buttons.png";
 pub const GAMEOVER_IMAGE_PATH: &str = "embedded://assets/sprites/Game Over.png";
+pub const VICTORY_IMAGE_PATH: &str = "embedded://assets/sprites/Victory.png";
 
 pub struct AttackOptionsPlugin;
 
@@ -22,6 +23,7 @@ impl Plugin for AttackOptionsPlugin {
         embed_asset!(app, "assets/sprites/Special Move.png");
         embed_asset!(app, "assets/sprites/buttons.png");
         embed_asset!(app, "assets/sprites/Game Over.png");
+        embed_asset!(app, "assets/sprites/Victory.png");
     }
 }
 
@@ -128,7 +130,7 @@ pub fn spawn_gameover_screen(
                 Node {
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
-                    flex_basis: Val::Px(54.0),
+                    flex_basis: Val::Px(100.0),
                     ..default()
                 },
             ));
@@ -165,13 +167,13 @@ pub fn spawn_victory_screen(
         .with_children(|builder| {
             builder.spawn((
                 ImageNode {
-                    image: asset_server.load(GAMEOVER_IMAGE_PATH),
+                    image: asset_server.load(VICTORY_IMAGE_PATH),
                     ..default()
                 },
                 Node {
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
-                    flex_basis: Val::Px(54.0),
+                    flex_basis: Val::Px(100.0),
                     ..default()
                 },
             ));
