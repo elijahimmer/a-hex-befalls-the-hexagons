@@ -1,5 +1,4 @@
-# TCSS 360 project
-(name WIP)
+# A Hex Befalls the Hexagons
 
 ## Playing
 The game is compiled into web assembly, and uploaded
@@ -58,6 +57,7 @@ cargo run --release
 (This is Work In Progress)
 
 You will need rust installed: https://www.rust-lang.org/tools/install
+and MSVC (or equivilant C compiler)
 It is non-trivial like on every other platform, so best of luck.
 
 After that, you should be able to
